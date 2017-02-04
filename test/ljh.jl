@@ -80,3 +80,12 @@ for i = 1:N
 end
 @assert rowcount_r==rowcount
 @assert timestamp_usec_r == timestamps
+
+# test tryread
+ljh = LJH.LJHFile(name22)
+LJH.seekto(ljh,1)
+data = get(LJH.tryread(ljh))
+data2 = ljh[1]
+while !isnull(LJH.tryread(ljh)) end
+close(ljh)
+@test data==data2

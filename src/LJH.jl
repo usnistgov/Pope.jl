@@ -51,6 +51,8 @@ immutable LJHRecord
     rowcount::Int64
     timestamp_usec::Int64
 end
+import Base: ==
+==(a::LJHRecord, b::LJHRecord) = a.data==b.data && a.rowcount == b.rowcount && a.timestamp_usec == b.timestamp_usec
 
 @enum LJHVERSION LJH_21 LJH_22
 VERSIONS = Dict(v"2.1.0"=>LJH_21, v"2.2.0"=>LJH_22)
@@ -60,6 +62,7 @@ function LJHFile(fname::String,io::IO)
     headerdict = ljh_get_header_dict(seekstart(io))
     datastartpos = position(io)
     ioend = position(seekend(io))
+    seek(io,datastartpos)
     version = VersionNumber(headerdict["Save File Format Version"])
     version in keys(VERSIONS) || error("$fname has version $version, which is not in VERSIONS $VERSIONS")
     versionint = VERSIONS[version]
@@ -126,10 +129,11 @@ Base.open(f::LJHFile) = open(f.io)
 Base.close(f::LJHFile) = close(f.io)
 
 # tryread
-function tryread(f::LJHFile)
-  d1 = read(f.io,6)
+function tryread{T}(f::LJHFile{LJH_22,T})
+  d1 = read(f.io,8)
   length(d1) == 0  && return Nullable{LJHRecord}()
-  rowcount, timestamp_usec =  record_row_count_v21(d1, f.num_rows, f.row, f.frametime)
+  rowcount = reinterpret(Int,d1)[1]
+  timestamp_usec = read(f.io, Int64)
   data = read(f.io, UInt16, f.record_nsamples)
   return Nullable(LJHRecord(data, rowcount, timestamp_usec))
 end

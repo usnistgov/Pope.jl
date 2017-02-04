@@ -35,8 +35,10 @@ function (r::LJHReaderFeb2017)()
   r.status = :running
   while true
     while true # read and process all data
+      println("b")
       data=LJH.tryread(ljh)
       isnull(data) && break
+      println("c")
       analysis_products = analyzer(get(data))
       product_writer(analysis_products)
     end
@@ -44,6 +46,7 @@ function (r::LJHReaderFeb2017)()
     watch_file(ljh,timeout_s)
   end
   close(ljh)
+  close(product_writer)
   r.status = :done
 end
 
@@ -64,6 +67,7 @@ immutable MassCompatibleAnalysisFeb2017
   nsamples::Int64 # length of pulse in sample
   average_pulse_peak_index::Int64 # peak index of average pulse, look for postpeak_deriv after this
   frametime::Float64 # time between two samples in seconds
+  shift_threshold::Int64
 end
 immutable MassCompatibleDataProductFeb2017
   filt_value        ::Float64
@@ -80,19 +84,24 @@ immutable MassCompatibleDataProductFeb2017
   peak_value        ::UInt16
   min_value         ::UInt16
 end
+function Base.write(io::IO, d::MassCompatibleDataProductFeb2017)
+  write(io, reinterpret(UInt8,[d]))
+end
+
 function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary = summarize(record.data, a.npresamples,a.nsamples, a.average_pulse_peak_index, a.frametime)
-  filt_value, arrival_time_indicator = filter_single_lag(record.data, a.filter, a.filter_at, pretrig_mean, npresamples, shift_threshold)
-  MassCompatibleDataProductFeb2017(filt_value, arrival_time_indicator, record.timestamp_usec, record.rowcounts,
-  summary.pretrig_mean, summary.pretrig_rms, summary.pulse_average, summary.pulse_rms, summmary.rise_time,
-  summary.postpeak_deriv, summary.peak_index, summary.min_value )
+  filt_value, arrival_time_indicator = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)
+  MassCompatibleDataProductFeb2017(filt_value, arrival_time_indicator, record.timestamp_usec, record.rowcount,
+  summary.pretrig_mean, summary.pretrig_rms, summary.pulse_average, summary.pulse_rms, summary.rise_time,
+  summary.postpeak_deriv, summary.peak_index, summary.peak_value,summary.min_value )
 end
 
 immutable DataWriter
   f::IOStream
 end
-write(dw::DataWriter,x...) = write(dw.f,x...)
+Base.write(dw::DataWriter,x...) = write(dw.f,x...)
 function (dw::DataWriter)(d::MassCompatibleDataProductFeb2017)
+  println("a")
   write(dw,d)
 end
 Base.close(dw::DataWriter) = close(dw.f)

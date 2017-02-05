@@ -52,3 +52,9 @@ dump(product_writer)
 tdir = tempdir()
 ljhnames = LJHUtil.fnames(tdir,1:2:480)
 @show tdir
+
+const preknowledge_filename = "preknowledge.h5"
+const mass_filename = "mass.h5"
+if !isfile(preknowledge_filename) || !isfile(mass_filename)
+  run(`python mass_analyzer.py`)
+end

@@ -66,7 +66,9 @@ end
 
 function make_buffered_hdf5_writer(h5, channel_number,chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")
-  MassCompatibleBufferedWriters([BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(), 0,timeout_s, Channel{Bool}(1), @task nothing) for name in fieldnames(MassCompatibleBufferedWriters)]...)
+  d=MassCompatibleBufferedWriters([BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(), 0,timeout_s, Channel{Bool}(1), @task nothing) for name in fieldnames(MassCompatibleBufferedWriters)]...)
+  schedule(d)
+  d
 end
 
 function Base.write(d::MassCompatibleBufferedWriters,x::MassCompatibleDataProductFeb2017)

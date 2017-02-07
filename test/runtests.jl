@@ -62,7 +62,6 @@ analyzer = Pope.analyzer_from_preknowledge(pkfile["chan13"])
 output_fname = tempname()
 output_h5 = h5open(output_fname,"w")
 product_writer = Pope.make_buffered_hdf5_writer(output_h5, 13)
-schedule(product_writer)
 reader = Pope.launch_reader(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename, analyzer, product_writer;continuous=false)
 try
   wait(reader.task)

@@ -1,4 +1,5 @@
-using Pope: LJHUtil
+using Pope: LJHUtil, HDF5
+using ReferenceMicrocalFiles
 using Base.Test
 const WT = false # run @code_warntype
 
@@ -49,12 +50,55 @@ f=open(output_fname,"r")
 @test d2==d3
 dump(product_writer)
 
-tdir = tempdir()
-ljhnames = LJHUtil.fnames(tdir,1:2:480)
-@show tdir
-
 const preknowledge_filename = "preknowledge.h5"
 const mass_filename = "mass.h5"
-if !isfile(preknowledge_filename) || !isfile(mass_filename)
+
+if !isfile(preknowledge_filename)
   run(`python mass_analyzer.py`)
+end
+
+pkfile = h5open(preknowledge_filename,"r")
+analyzer = Pope.analyzer_from_preknowledge(pkfile["chan13"])
+output_fname = tempname()
+output_h5 = h5open(output_fname,"w")
+product_writer = Pope.make_buffered_hdf5_writer(output_h5, 13)
+schedule(product_writer)
+reader = Pope.launch_reader(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename, analyzer, product_writer;continuous=false)
+try
+  wait(reader.task)
+catch ex
+  Base.show_backtrace(STDOUT,reader.task.backtrace)
+  throw(ex)
+end
+@test reader.status == :done
+
+# @show product_writer.timestamp_usec
+
+massfile = h5open(mass_filename,"r")
+@show popefile = h5open(output_fname,"r")
+namedict = Dict("arrival_time_indicator"=>"filt_phase", "timestamp_usec"=>"timestamp")
+@show names(popefile["chan13"])
+@show names(massfile["chan13"])
+for name in names(popefile["chan13"])
+  if name in ["arrival_time_indicator", "peak_value"] continue end
+  name2 = get(namedict,name,name)
+  a=popefile["chan13"][name][:]
+  b=massfile["chan13"][name2][:]
+  if name == "peak_index"
+    @test all(a-b.==1) # python is 0 based, julia 1 based
+  elseif name in ["postpeak_deriv","rise_time"]
+    @test_broken isapprox(a,b,rtol=1e-4)
+  elseif name == "pretrig_rms"
+    @show sum(abs(a-b)./abs(a+b) .< 5e-3)/length(a)
+    # I looked at the most extreme different, where pope has RMS ~32, and mass has ~11
+    # it was an early trigger by about 6 samples. I believe mass missed it due to the
+    # pretrigger_ignore_samples value, but that Pope's behaivor is more desired
+    @test sum(abs(a-b)./abs(a+b) .< 5e-3)/length(a) > 0.995
+  elseif name in ["pulse_average", "pulse_rms"]
+    @test isapprox(a,b,rtol=1e-3)
+  elseif name in ["timestamp_usec"]
+    @test isapprox(a,b*1e6,rtol=1e-3)
+  else
+    @test isapprox(a,b,rtol=1e-4)
+  end
 end

@@ -137,6 +137,13 @@ function tryread{T}(f::LJHFile{LJH_22,T})
   data = read(f.io, UInt16, f.record_nsamples)
   return Nullable(LJHRecord(data, rowcount, timestamp_usec))
 end
+function tryread{T}(f::LJHFile{LJH_21,T})
+  d1 = read(f.io, 6)
+  length(d1) == 0  && return Nullable{LJHRecord}()
+  rowcount, timestamp_usec =  record_row_count_v21(d1, f.num_rows, f.row, f.frametime)
+  data = read(f.io, UInt16, f.record_nsamples)
+  return Nullable(LJHRecord(data, rowcount, timestamp_usec))
+end
 watch_file(f::LJHFile, timeout_s::Real) = watch_file(f.filename, timeout_s)
 
 """Used only for reading LJH version 2.1.0 files. This parses the ugly

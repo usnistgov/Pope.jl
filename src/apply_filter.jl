@@ -36,8 +36,8 @@ the data is shifted by one lag before convolution
 """
 function filter_single_lag(data, filter, filter_at, pretrig_mean, npresamples, shift_threshold)
   length(data) == length(filter)+1 || error("filter and data don't match")
-  needshift = (data[npresamples+3]-pretrig_mean > shift_threshold)
-  if needshift
+  needshift = data[npresamples+3]-pretrig_mean > shift_threshold
+  if !needshift
     conv0 = dot(@view(data[2:end]), filter)
     conv1 = dot(@view(data[2:end]), filter_at)
   else

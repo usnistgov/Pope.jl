@@ -21,7 +21,7 @@ function summarize(data::Vector, npresamples, nsamples, average_pulse_peak_index
   peak_idx = 0
   peak_val = 0
   min_idx = 0
-  min_val = 0
+  min_val = typemax(Int)
   npostsamples = length(data)-npresamples
   for j = 1:npresamples
       d=Int(data[j])
@@ -54,17 +54,17 @@ function summarize(data::Vector, npresamples, nsamples, average_pulse_peak_index
                                  peak_val, ptm, frametime)
 
   postpeak_deriv = max_timeseries_deriv_simple(data, average_pulse_peak_index)
+  # @show length(data)
+  # @show average_pulse_peak_index, npresamples, nsamples
+  # @show deriv_range = average_pulse_peak_index:length(data)
+  # deriv_work = zeros(length(deriv_range))
+  # deriv_data = data[deriv_range]
+  # @show typeof(deriv_data), typeof(deriv_work)
+  # postpeak_deriv = max_timeseries_deriv!(deriv_work, deriv_data, true)
 
   # Copy results into the PulseSummaries object
   pulse_average = s/npostsamples-ptm
   pulse_rms = sqrt(abs(s2/npostsamples - ptm*(ptm+2*pulse_average)))
-  if ptm < 0
-      _peak_val = round(UInt16,peak_val)
-  elseif peak_val > ptm
-      _peak_val = round(UInt16,peak_val - ptm)
-  else # peak_val < ptm
-      _peak_val = UInt16(0)
-  end
   PulseSummary(ptm, pretrig_rms, pulse_average, pulse_rms, rise_time,
    postpeak_deriv, peak_idx, peak_val, min_val)
 end
@@ -104,10 +104,69 @@ end
 Returns the maximum difference between succesive points in `pulserecord` after `pulserecord[peak_idx]`
 """
 function max_timeseries_deriv_simple(pulserecord, peak_idx)
-    max_deriv = typemin(eltype(pulserecord))
+    max_deriv = typemin(Int)
     for j = peak_idx:length(pulserecord)-1
-        deriv = pulserecord[j+1]-pulserecord[j]
+        deriv = Int(pulserecord[j+1])-Int(pulserecord[j])
         deriv > max_deriv && (max_deriv = deriv)
     end
     max_deriv
+end
+
+"Estimate the derivative (units of arbs / sample) for a pulse record or other timeseries.
+This version uses the default kernel of [-2,-1,0,1,2]/10.0"
+max_timeseries_deriv!(deriv, pulserecord, reject_spikes::Bool) =
+    max_timeseries_deriv!(deriv, pulserecord, collect(.2 : -.1 : -.2), reject_spikes)
+
+
+"Post-peak derivative computed using Savitzky-Golay filter of order 3
+and fitting 1 point before...3 points after."
+max_timeseries_deriv_SG!(deriv, pulserecord, reject_spikes::Bool) =
+    max_timeseries_deriv!(deriv, pulserecord, [-0.11905, .30952, .28572, -.02381, -.45238],
+                            reject_spikes)
+
+# Estimate the derivative (units of arbs / sample) for a pulse record or other timeseries.
+# Caller pre-allocates the full derivative array, which is available as deriv.
+# Returns the maximum value of the derivative.
+# The kernel should be a short *convolution* (not correlation) kernel to be convolved
+# against the input pulserecord.
+# If reject_spikes is true, then the max value at sample i is changed to equal the minimum
+# of the values at (i-2, i, i+2). Note that this test only makes sense for kernels of length
+# 5 (or less), because only there can it be guaranteed insensitive to unit-length spikes of
+# arbitrary amplitude.
+#
+function max_timeseries_deriv!{T}(
+        deriv::Vector{T},       # Modified! Pre-allocate an array of sufficient length
+        pulserecord, # The pulse record (presumably starting at the pulse peak)
+        kernel::Vector{T},      # The convolution kernel that estimates derivatives
+        reject_spikes::Bool  # Whether to employ the spike-rejection test
+        )
+    N = length(pulserecord)
+    Nk = length(kernel)
+    @assert length(deriv) >= N+1-Nk
+    if Nk > N
+        return 0.0
+    end
+    if Nk+4 > N
+        reject_spikes = false
+    end
+    fill!(deriv, zero(eltype(deriv)))
+    for i=1:N-Nk+1
+        for j=1:Nk
+            deriv[i] += pulserecord[i+Nk-j]*kernel[j] #float
+        end
+    end
+    for i=N-Nk+2:length(deriv)
+        deriv[i]=deriv[N-Nk+1]
+    end
+    if reject_spikes
+        for i=3:N-Nk-2
+            if deriv[i] > deriv[i+2]
+                deriv[i] = deriv[i+2]
+            end
+            if deriv[i] > deriv[i-2]
+                deriv[i] = deriv[i-2]
+            end
+        end
+    end
+    maximum(deriv)
 end

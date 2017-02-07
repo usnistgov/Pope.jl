@@ -1,4 +1,5 @@
 module Pope
+using HDF5
 include("LJH.jl")
 include("LJHUtil.jl")
 include("summarize.jl")
@@ -35,15 +36,14 @@ function (r::LJHReaderFeb2017)()
   r.status = :running
   while true
     while true # read and process all data
-      println("b")
       data=LJH.tryread(ljh)
       isnull(data) && break
-      println("c")
       analysis_products = analyzer(get(data))
       product_writer(analysis_products)
     end
     isready(endchannel) && break
-    watch_file(ljh,timeout_s)
+    # watch_file(ljh,timeout_s)
+    sleep(timeout_s)
   end
   close(ljh)
   close(product_writer)
@@ -70,16 +70,16 @@ immutable MassCompatibleAnalysisFeb2017
   shift_threshold::Int64
 end
 immutable MassCompatibleDataProductFeb2017
-  filt_value        ::Float64
-  arrival_time_indicator ::Float64
+  filt_value        ::Float32
+  arrival_time_indicator ::Float32
   timestamp_usec    ::Float64
   rowcount          ::Int64
-  pretrig_mean      ::Float64
-  pretrig_rms       ::Float64
-  pulse_average     ::Float64
-  pulse_rms         ::Float64
-  rise_time         ::Float64
-  postpeak_deriv    ::Float64
+  pretrig_mean      ::Float32
+  pretrig_rms       ::Float32
+  pulse_average     ::Float32
+  pulse_rms         ::Float32
+  rise_time         ::Float32
+  postpeak_deriv    ::Float32
   peak_index        ::Int16
   peak_value        ::UInt16
   min_value         ::UInt16
@@ -90,7 +90,7 @@ end
 
 function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary = summarize(record.data, a.npresamples,a.nsamples, a.average_pulse_peak_index, a.frametime)
-  filt_value, arrival_time_indicator = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)
+  arrival_time_indicator, filt_value = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)
   MassCompatibleDataProductFeb2017(filt_value, arrival_time_indicator, record.timestamp_usec, record.rowcount,
   summary.pretrig_mean, summary.pretrig_rms, summary.pulse_average, summary.pulse_rms, summary.rise_time,
   summary.postpeak_deriv, summary.peak_index, summary.peak_value,summary.min_value )
@@ -101,7 +101,6 @@ immutable DataWriter
 end
 Base.write(dw::DataWriter,x...) = write(dw.f,x...)
 function (dw::DataWriter)(d::MassCompatibleDataProductFeb2017)
-  println("a")
   write(dw,d)
 end
 Base.close(dw::DataWriter) = close(dw.f)
@@ -125,5 +124,14 @@ function wait_for_file_to_exist(fname, timeout_s = 30)
     sleeptime = min(timeout_s-totalslept, sleeptime*2)
   end
 end
+
+function analyzer_from_preknowledge(pk::HDF5Group)
+  MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
+  read(pk["trigger"]["nsamples"]), indmax(pk["filter"]["average_pulse"][:]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"])
+  )
+end
+
+include("buffered_hdf5_dataset.jl")
+
 
 end # module

@@ -18,6 +18,8 @@ function ljh_get_header_dict(io::IO)
         line = readline(io)
         if startswith(line, "#End of Header")
             break
+        elseif eof(io)
+          error("eof while reading header")
         elseif startswith(line, "#")
             continue
         else
@@ -312,14 +314,76 @@ end
 
 
 
-"""Write a header for an LJH file."""
-function writeljhheader(filename::String, dt, npre, nsamp; version="2.2.0")
+
+
+"gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=tempdir(); version=\"2.2.0\")
+generate ljhs files (1 per channel) in directory `dname`, with the specified parameters
+return a Vector{LJHFile} of the created files, with both read and write intents"
+function gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version="2.2.0")
+  !isdir(dname) && mkdir(dname)
+  basename = last(split(dname,'/'))
+  ljhs = LJHFile[]
+  for ch in channels
+    fname = joinpath(dname, basename*"_chan$ch.ljh")
+    f = open(fname,"w+")
+    writeljhheader(f,dt, npre, nsamp; version=version, channel=ch)
+    ljh = LJHFile(fname,seekstart(f))
+    push!(ljhs,ljh)
+  end
+  ljhs
+end
+using Distributions
+function launch_stocastic_writer{T}(endchannel, ljh::LJHFile{LJH_22,T}, d::Distribution, data=zeros(UInt16,ljh.record_nsamples))
+  @schedule while !isready(endchannel)
+    sleep(rand(d))
+    t=time()
+    t2 = round(Int, 1e6*t)
+    write(ljh,data,ljh.num_rows*t2+ljh.row,t2)
+  end
+end
+
+function launch_stocastic_writers(endchannel, ljhs::Vector{LJHFile}, d::Distribution, data=zeros(UInt16,ljh.record_nsamples))
+  for ljh in ljhs
+    launch_stocastic_writer(endchannel, ljh, d, data)
+  end
+end
+
+ulimit() = a=parse(Int,readstring(`ulimit -n`))
+
+"
+launch_writer_other_process(d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version=\"2.2.0\")
+Opens one LJH file per channel in `channels` and starts writing pulse records with `data`
+"
+function launch_writer_other_process(d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version="2.2.0")
+  nprocs() >= 2 || error("nprocs needs to be 2 or greater, try starting julia with `julia -p 1`")
+  ulimit() >= 50+length(channels) || error("open file limit too low, try 1ulimit -n 1000` at before opening julia")
+  endchannel = RemoteChannel(1)
+  s=@spawn begin
+    ljhs = gen_ljh_files(dt, npre, nsamp, channels, dname; version=version)
+    localendchannel = Channel(1)
+    launch_stocastic_writers(localendchannel, ljhs, d, data)
+    @schedule begin
+      # checking a RemoteChannel causes lots of CPU usage in both tasks, avoid checking it alot
+      wait(endchannel)
+      put!(localendchannel,true)
+    end
+  end
+  return dname, endchannel, s
+end
+
+
+
+"""Write a header for an LJH file.
+writeljhheader(filename::String, dt, npre, nsamp; version="2.2.0",channel=1)
+writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1)
+"""
+function writeljhheader(filename::String, dt, npre, nsamp; version="2.2.0",channel=1)
     open(filename, "w") do f
     writeljhheader(f, dt, npre, nsamp; version=version)
     end #do
 end
 
-function writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0")
+function writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1)
     write(io,
 "#LJH Memorial File Format
 Save File Format Version: $(version)
@@ -363,7 +427,7 @@ Trigger Source: CH A
 Trigger Mode: 0 Normal
 Trigger Time out: 351321
 Use discrimination: No
-Channel: 1.0
+Channel: $(channel)
 Description: A (Voltage)
 Range: 0.500000
 Offset: -0.000122
@@ -374,43 +438,38 @@ Preamp gain: 1.000000
 Discrimination level (%%): 1.000000
 #End of Header\n"
     )
+flush(io)
 end
 
-"""Write LJH file data to an IO object or a filename given a String."""
-function writeljhdata(filename::String, a...)
-    open(filename, "a") do f
-    writeljhdata(f,a...)
-    end
-end
-
-# Write LJH v2.2+ data, with row # and timestamps
-function writeljhdata(io::IO,traces::Array{UInt16,2}, rows::Vector{Int64}, times::Vector{Int64})
+# Write LJH v2.2+ data, with rowcount and timestamp
+function Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
     for j = 1:length(times)
-        writeljhdata(io, traces[:,j], rows[j], times[j])
+        writel(ljh, traces[:,j], rowcounts[j], times[j])
     end
 end
-function writeljhdata(io::IO, trace::Vector{UInt16}, row::Int64, time::Int64)
-    write(io, row)
-    write(io, time)
-    write(io, trace)
+function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)
+    write(ljh.io, rowcount)
+    write(ljh.io, time)
+    write(ljh.io, trace)
 end
 
-
-# Write LJH v2.1 data, with row # but no timestamps
-function writeljhdata(io::IO,traces::Array{UInt16,2}, rows::Vector{Int64})
-    for j = 1:length(rows)
-        writeljhdata(io, traces[:,j], rows[j])
+# Write LJH v2.1 data, with rowcount
+function writeljhdata{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
+    for j = 1:length(times)
+        writeljhdata(ljh, traces[:,j], rowcounts[j])
     end
 end
-function writeljhdata(io::IO, trace::Vector{UInt16}, row::Int64)
-    timestamp_us = round(Int32, row*0.32) # made-up line rate of 320 nanoseconds per row.
-    timestamp_ms = Int32(div(timestamp_us, 1000))
-    subms_part = round(UInt8, mod(div(timestamp_us,4), 250))
-    dummy_channum = Int8(0)
-    write(io, subms_part)
-    write(io, dummy_channum)
-    write(io, timestamp_ms)
-    write(io, trace)
+function writeljhdata{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)
+  timestamp_us = round(Int32, rowcount*0.32) # made-up line rate of 320 nanoseconds per row.
+  timestamp_ms = Int32(div(timestamp_us, 1000))
+  subms_part = round(UInt8, mod(div(timestamp_us,4), 250))
+  dummy_channum = Int8(0)
+  write(ljh.io, subms_part)
+  write(ljh.io, dummy_channum)
+  write(ljh.io, timestamp_ms)
+  write(ljh.io, trace)
 end
+
+#
 
 end #module

@@ -91,8 +91,6 @@ function Base.close(d::MassCompatibleBufferedWriters)
   for s in fieldnames(MassCompatibleBufferedWriters)
     stop(getfield(d,s))
   end
-  wait(d)
-  close(d.filt_value.ds.file)
 end
 
 function write_header(d::MassCompatibleBufferedWriters,a...) end

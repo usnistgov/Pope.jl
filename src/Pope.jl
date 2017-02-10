@@ -51,6 +51,11 @@ function (r::LJHReaderFeb2017)()
   r.status = :done
 end
 
+function stop(r::LJHReaderFeb2017)
+  !isready(r.endchannel) && put!(r.endchannel,true)
+end
+Base.wait(r::LJHReaderFeb2017) = wait(r.task)
+
 "Launch create and launch an LJHReaderFeb2017.
 If `continuous` is true is will continue trying to read from `fname` until something does
 `put!(reader.endchannel,true)`. If it `continuous` is false, it will stop as soon as it reads all data in the file."

@@ -34,7 +34,7 @@ function Base.schedule(b::BufferedHDF5Dataset)
       write_to_hdf5(b)
       sleep(b.timeout_s)
     end
-    write_to_hdf5(b) # doesnt seem like this should ever help
+    write_to_hdf5(b)
   end
 end
 stop(b::BufferedHDF5Dataset) = put!(b.endchannel,true)
@@ -91,6 +91,7 @@ function Base.close(d::MassCompatibleBufferedWriters)
   for s in fieldnames(MassCompatibleBufferedWriters)
     stop(getfield(d,s))
   end
+  wait(d)
 end
 
 function write_header(d::MassCompatibleBufferedWriters,a...) end

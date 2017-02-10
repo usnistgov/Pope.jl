@@ -30,14 +30,18 @@ for channel in channels
   push!(readers, reader)
 end
 
-wait(@schedule begin sleep(30);put!(endchannel,true); println("other process writing STOPPED") end);
-wait(@schedule  begin sleep(1);map(r->close(r.product_writer), readers); println("readers STOPPED") end);
-map(r->wait(r.product_writer), readers); # wait until all hdf5 writing proceses are done
+runtime = 30
+wait(@schedule begin sleep(runtime);put!(endchannel,true); println("other process writing STOPPED") end);
+sleep(3) # make sure ljh files are all fully written, I do get errors without this
+Pope.stop.(readers)
+wait.(readers)
 
 
 function check_values(channel, h5)
   fname = LJHUtil.fnames(dname, channel)
   ljh = LJH.LJHFile(fname)
+  @show channel, length(ljh)
+  @assert 80<length(ljh)/runtime<120  # the efault value in launch_writer_other_process has 100 cps
   g = h5["chan$channel"]
   for name in names(g)
     @assert length(g[name])==length(ljh)

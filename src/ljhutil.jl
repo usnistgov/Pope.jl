@@ -5,7 +5,7 @@ module LJHUtil
 
 function ljhsplit(ljhname::String)
     if isdir(ljhname)
-        dname = dirname(ljhname) # removes trailing /
+        dname = ljhname # removes trailing /
         bname = last(split(dname,'/'))
         return dname, bname, ".ljh"
     end

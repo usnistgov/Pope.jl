@@ -24,7 +24,7 @@ end
 LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s)
 
 function (r::LJHReaderFeb2017)()
-  fname, analyzer, product_writer, endchannel = r.fname, r.analyzer, r.product_writer, r.endchannel
+  fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
   file_exist = wait_for_file_to_exist(fname,30)
   if !file_exist
     r.status = :timeout
@@ -32,6 +32,7 @@ function (r::LJHReaderFeb2017)()
   end
   ljh = LJH.LJHFile(fname)
   r.ljh = Nullable(ljh)
+  # @show r.ljh
   write_header(product_writer, ljh)
   r.status = :running
   while true

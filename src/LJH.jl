@@ -63,8 +63,9 @@ LJHFile(fname::String) = LJHFile(fname,open(fname,"r"))
 function LJHFile(fname::String,io::IO)
     headerdict = ljh_get_header_dict(seekstart(io))
     datastartpos = position(io)
-    ioend = position(seekend(io))
-    seek(io,datastartpos)
+    # ioend = position(seekend(io))
+    ioend = stat(io).size
+    # seek(io,datastartpos)
     version = VersionNumber(headerdict["Save File Format Version"])
     version in keys(VERSIONS) || error("$fname has version $version, which is not in VERSIONS $VERSIONS")
     versionint = VERSIONS[version]
@@ -93,12 +94,15 @@ record_nbytes{T}(f::LJHFile{LJH_22,T}) = 16+2*f.record_nsamples
 
 "ljh_number_of_records(f::LJHFile) Return the number of complete records currently available to read from `f`."
 function ljh_number_of_records(f::LJHFile)
-    oldpos = position(f.io)
-    endpos = position(seekend(f.io))
-    nbytes = endpos-f.datastartpos
-    seek(f.io,oldpos)
+    # oldpos = position(f.io)
+    # endpos = position(seekend(f.io))
+    nbytes = stat(f.io).size-f.datastartpos
+    # seek(f.io,oldpos)
     number_of_records = div(nbytes, record_nbytes(f))
 end
+
+Base.divrem(f::LJHFile) = divrem(stat(f.filename).size-f.datastartpos,record_nbytes(f))
+
 
 # support for ljhfile[1:7] syntax
 seekto(f::LJHFile, i::Int) = seek(f.io,f.datastartpos+(i-1)*record_nbytes(f))
@@ -132,12 +136,16 @@ Base.close(f::LJHFile) = close(f.io)
 
 # tryread
 function tryread{T}(f::LJHFile{LJH_22,T})
-  d1 = read(f.io,8)
-  length(d1) == 0  && return Nullable{LJHRecord}()
-  rowcount = reinterpret(Int,d1)[1]
-  timestamp_usec = read(f.io, Int64)
-  data = read(f.io, UInt16, f.record_nsamples)
-  return Nullable(LJHRecord(data, rowcount, timestamp_usec))
+  d = read(f.io,record_nbytes(f))
+  if length(d) == record_nbytes(f)
+    rowcount = reinterpret(Int,d[1:8])[1]
+    timestamp_usec = reinterpret(Int,d[9:16])[1]
+    data = reinterpret(UInt16,d[17:record_nbytes(f)])
+    return Nullable(LJHRecord(data, rowcount, timestamp_usec))
+  else
+    seek(f.io, position(f.io)-length(d)) # go back to the start of the record
+    return Nullable{LJHRecord}()
+  end
 end
 function tryread{T}(f::LJHFile{LJH_21,T})
   d1 = read(f.io, 6)
@@ -325,20 +333,23 @@ function gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=jo
   ljhs = LJHFile[]
   for ch in channels
     fname = joinpath(dname, basename*"_chan$ch.ljh")
-    f = open(fname,"w+")
+    f = open(fname,"w")
     writeljhheader(f,dt, npre, nsamp; version=version, channel=ch)
-    ljh = LJHFile(fname,seekstart(f))
+    close(f)
+    ljh = LJHFile(fname,open(fname,"r+"))
     push!(ljhs,ljh)
   end
   ljhs
 end
 using Distributions
 function launch_stocastic_writer{T}(endchannel, ljh::LJHFile{LJH_22,T}, d::Distribution, data=zeros(UInt16,ljh.record_nsamples))
-  @schedule while !isready(endchannel)
-    sleep(rand(d))
-    t=time()
-    t2 = round(Int, 1e6*t)
-    write(ljh,data,ljh.num_rows*t2+ljh.row,t2)
+  @schedule begin
+    i=0
+    while !isready(endchannel)
+      sleep(rand(d))
+      write(ljh,data,i+=1,round(Int, 1e6*time()))
+    end
+    close(ljh)
   end
 end
 
@@ -351,24 +362,26 @@ end
 ulimit() = a=parse(Int,readstring(`ulimit -n`))
 
 "
-launch_writer_other_process(d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version=\"2.2.0\")
+launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version=\"2.2.0\")
 Opens one LJH file per channel in `channels` and starts writing pulse records with `data`
 "
-function launch_writer_other_process(d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version="2.2.0")
+function launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version="2.2.0")
   nprocs() >= 2 || error("nprocs needs to be 2 or greater, try starting julia with `julia -p 1`")
   ulimit() >= 50+length(channels) || error("open file limit too low, try 1ulimit -n 1000` at before opening julia")
   endchannel = RemoteChannel(1)
+  ljhmadechannel = RemoteChannel(1)
   s=@spawn begin
     ljhs = gen_ljh_files(dt, npre, nsamp, channels, dname; version=version)
     localendchannel = Channel(1)
     launch_stocastic_writers(localendchannel, ljhs, d, data)
+    put!(ljhmadechannel,true)
     @schedule begin
       # checking a RemoteChannel causes lots of CPU usage in both tasks, avoid checking it alot
       wait(endchannel)
       put!(localendchannel,true)
     end
   end
-  return dname, endchannel, s
+  return dname, endchannel, ljhmadechannel, s
 end
 
 
@@ -448,9 +461,7 @@ function Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts
     end
 end
 function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)
-    write(ljh.io, rowcount)
-    write(ljh.io, time)
-    write(ljh.io, trace)
+    write(ljh.io, rowcount, time, trace)
 end
 
 # Write LJH v2.1 data, with rowcount

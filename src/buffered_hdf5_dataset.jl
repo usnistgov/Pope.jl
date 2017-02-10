@@ -13,14 +13,13 @@ type BufferedHDF5Dataset{T}
 end
 
 function d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
-	set_dims!(d, (maximum(range),))
+  set_dims!(d, (maximum(range),))
 	d[range] = value
 	d
 end
 
 function write_to_hdf5(b::BufferedHDF5Dataset)
-  r = b.lasti + 1:length(b.v)
-  # @show r, length(b.v)
+  r = b.lasti + (1:length(b.v))
   if length(r)>0
     d_extend(b.ds, b.v, r)
     empty!(b.v)

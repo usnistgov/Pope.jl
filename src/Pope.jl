@@ -1,5 +1,5 @@
 module Pope
-using HDF5
+using HDF5, ProgressMeter
 include("LJH.jl")
 include("LJHUtil.jl")
 include("summarize.jl")
@@ -13,15 +13,16 @@ type LJHReaderFeb2017{T1,T2}
   product_writer::T2
   timeout_s::Float64
   endchannel::Channel{Bool}
+  progress_meter::Bool # only use this on static ljh files
   task::Task
-  function LJHReaderFeb2017(fname, analyzer::T1, product_writer::T2, timeout_s)
-    this = new(:initizalied,fname, Nullable{LJH.LJHFile}(), analyzer, product_writer, timeout_s, Channel{Bool}(1))
+  function LJHReaderFeb2017(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
+    this = new(:initizalied,fname, Nullable{LJH.LJHFile}(), analyzer, product_writer, timeout_s, Channel{Bool}(1), progress_meter)
     task = @task this()
     this.task=task
     this
   end
 end
-LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s)
+LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
@@ -32,6 +33,10 @@ function (r::LJHReaderFeb2017)()
   end
   ljh = LJH.LJHFile(fname)
   r.ljh = Nullable(ljh)
+  if r.progress_meter
+    progress_meter = Progress(length(ljh))
+    i=0
+  end
   # @show r.ljh
   write_header(product_writer, ljh)
   r.status = :running
@@ -41,6 +46,7 @@ function (r::LJHReaderFeb2017)()
       isnull(data) && break
       analysis_products = analyzer(get(data))
       product_writer(analysis_products)
+      r.progress_meter && next!(progress_meter)
     end
     isready(endchannel) && break
     # watch_file(ljh,timeout_s)
@@ -59,8 +65,8 @@ Base.wait(r::LJHReaderFeb2017) = wait(r.task)
 "Launch create and launch an LJHReaderFeb2017.
 If `continuous` is true is will continue trying to read from `fname` until something does
 `put!(reader.endchannel,true)`. If it `continuous` is false, it will stop as soon as it reads all data in the file."
-function launch_reader(fname, analyzer, product_writer; continuous=true, timeout_s=1)
-  reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s)
+function launch_reader(fname, analyzer, product_writer; continuous=true, timeout_s=1, progress_meter=!continuous)
+  reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s, progress_meter)
   !continuous && put!(reader.endchannel,true)
   schedule(reader.task)
   reader

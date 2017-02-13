@@ -1,4 +1,4 @@
-using HDF5, NamedTuples
+using HDF5
 
 "HDF5 appears to be inefficent for small writes, so this a simple buffer that
 allows me to write to HDF5 only once per unit time (typically one second) to

@@ -38,7 +38,7 @@ function hdf5_name_from_ljh(ljhnames::String...)
 	fname = prod([split(f)[2] for f in ljhnames])
 	joinpath(dname,hdf5_name_from_ljh(fname))
 end
-hdf5_name_from_ljh(ljhname::String) = ljhname*"_mass2.hdf5"
+hdf5_name_from_ljh(ljhname::String) = ljhname*"_pope.hdf5"
 
 const sentinel_file_path = joinpath(expanduser("~"),".daq","latest_ljh_pulse.cur")
 "matter_writing_status() returns (String, Bool) representing (filename, currently_open?)"

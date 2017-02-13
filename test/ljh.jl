@@ -18,8 +18,11 @@ N = length(rowcount)
 data = rand(UInt16, nsamp, N)
 data[1,:] = 0xffff
 
-LJH.writeljhdata(f1, data, rowcount)
-LJH.writeljhdata(f2, data, rowcount, timestamps)
+ljh_f1 = LJH.LJHFile(name21,seekstart(f1))
+ljh_f2 = LJH.LJHFile(name22,seekstart(f2))
+
+write(ljh_f1, data, rowcount) 
+write(ljh_f2, data, rowcount, timestamps)
 
 close(f1)
 close(f2)

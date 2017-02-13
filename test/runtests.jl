@@ -1,4 +1,4 @@
-using Pope: LJHUtil, HDF5
+using Pope: LJH, LJHUtil, HDF5
 using ReferenceMicrocalFiles
 using Base.Test
 const WT = false # run @code_warntype
@@ -70,14 +70,15 @@ catch ex
   throw(ex)
 end
 @test reader.status == :done
-
+output_h5
+close(output_h5)
 # @show product_writer.timestamp_usec
 
 massfile = h5open(mass_filename,"r")
-@show popefile = h5open(output_fname,"r")
+popefile = h5open(output_fname,"r")
 namedict = Dict("arrival_time_indicator"=>"filt_phase", "timestamp_usec"=>"timestamp")
-@show names(popefile["chan13"])
-@show names(massfile["chan13"])
+names(popefile["chan13"])
+names(massfile["chan13"])
 for name in names(popefile["chan13"])
   if name in ["arrival_time_indicator", "peak_value"] continue end
   name2 = get(namedict,name,name)

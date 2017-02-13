@@ -457,20 +457,21 @@ end
 # Write LJH v2.2+ data, with rowcount and timestamp
 function Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
     for j = 1:length(times)
-        writel(ljh, traces[:,j], rowcounts[j], times[j])
+        write(ljh, traces[:,j], rowcounts[j], times[j])
     end
 end
 function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)
     write(ljh.io, rowcount, time, trace)
 end
 
+
 # Write LJH v2.1 data, with rowcount
-function writeljhdata{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
-    for j = 1:length(times)
-        writeljhdata(ljh, traces[:,j], rowcounts[j])
+function Base.write{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64})
+    for j = 1:length(rowcounts)
+        write(ljh, traces[:,j], rowcounts[j])
     end
 end
-function writeljhdata{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)
+function Base.write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64)
   timestamp_us = round(Int32, rowcount*0.32) # made-up line rate of 320 nanoseconds per row.
   timestamp_ms = Int32(div(timestamp_us, 1000))
   subms_part = round(UInt8, mod(div(timestamp_us,4), 250))

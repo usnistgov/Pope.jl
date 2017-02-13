@@ -32,7 +32,7 @@ end
 
 runtime = 30
 wait(@schedule begin sleep(runtime);put!(endchannel,true); println("other process writing STOPPED") end);
-sleep(3) # make sure ljh files are all fully written, I do get errors without this
+sleep(3) # make sure ljh files are all fully written, I get errors without this
 Pope.stop.(readers)
 wait.(readers)
 

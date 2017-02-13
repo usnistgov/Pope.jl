@@ -4,9 +4,9 @@ using DocOpt, HDF5
 doc = """
 Pope (Pass one pulse examiner)
 Usage:
-  pope.jl <ljhpath> <preknowledge> <output>
-  pope.jl --overwriteoutput <ljhpath> <preknowledge> <output>
-  pope.jl -h | --help
+  popeonce.jl <ljhpath> <preknowledge> <output>
+  popeonce.jl --overwriteoutput <ljhpath> <preknowledge> <output>
+  popeonce.jl -h | --help
 
 Options:
   --overwriteoutput   Overwrite the output file if it already exists.

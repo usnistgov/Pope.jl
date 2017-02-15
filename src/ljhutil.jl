@@ -53,8 +53,11 @@ function matter_writing_status()
 end
 
 "MATTER writes it's writing status to a sentinal file, this emulates matters output for testing purposes.
-write_sentinel_file(filename, writingbool), if writingbool is true, it writes that the file is still open"
+write_sentinel_file(filename, writingbool), if writingbool is true, it writes that the file is still open.
+Will create the `.daq` folder for the sentinel file if it does not already exist."
 function write_sentinel_file(filename, writingbool)
+    dname = dirname(sentinel_file_path)
+    !isdir(dname) && mkdir(dname)
     open(sentinel_file_path,"w") do sentinel_file
         println(sentinel_file,filename)
         if !writingbool

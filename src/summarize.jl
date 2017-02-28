@@ -109,97 +109,24 @@ function estimate_rise_time(pulserecord, searchrange, peakval,ptm,frametime)
     rise_time
 end
 
-
-"""max_timeseries_deriv_simple(pulserecord, peak_idx)
-Returns the maximum difference between succesive points in `pulserecord` after `pulserecord[peak_idx]`
-"""
-function max_timeseries_deriv_simple(pulserecord, peak_idx)
-    max_deriv = typemin(Int)
-    for j = peak_idx:length(pulserecord)-1
-        deriv = Int(pulserecord[j+1])-Int(pulserecord[j])
-        deriv > max_deriv && (max_deriv = deriv)
-    end
-    max_deriv
-end
-
-"Estimate the derivative (units of arbs / sample) for a pulse record or other timeseries.
-This version uses the default kernel of [-2,-1,0,1,2]/10.0"
-max_timeseries_deriv!(deriv, pulserecord, reject_spikes::Bool) =
-    max_timeseries_deriv!(deriv, pulserecord, collect(.2 : -.1 : -.2), reject_spikes)
-
-
-"Post-peak derivative computed using Savitzky-Golay filter of order 3
-and fitting 1 point before...3 points after."
-max_timeseries_deriv_SG!(deriv, pulserecord, reject_spikes::Bool) =
-    max_timeseries_deriv!(deriv, pulserecord, [-0.11905, .30952, .28572, -.02381, -.45238],
-                            reject_spikes)
-
-# Estimate the derivative (units of arbs / sample) for a pulse record or other timeseries.
-# Caller pre-allocates the full derivative array, which is available as deriv.
-# Returns the maximum value of the derivative.
-# The kernel should be a short *convolution* (not correlation) kernel to be convolved
-# against the input pulserecord.
-# If reject_spikes is true, then the max value at sample i is changed to equal the minimum
-# of the values at (i-2, i, i+2). Note that this test only makes sense for kernels of length
-# 5 (or less), because only there can it be guaranteed insensitive to unit-length spikes of
-# arbitrary amplitude.
-#
-function max_timeseries_deriv!{T}(
-        deriv::Vector{T},       # Modified! Pre-allocate an array of sufficient length
-        pulserecord, # The pulse record (presumably starting at the pulse peak)
-        kernel::Vector{T},      # The convolution kernel that estimates derivatives
-        reject_spikes::Bool  # Whether to employ the spike-rejection test
-        )
-    N = length(pulserecord)
-    Nk = length(kernel)
-    @assert length(deriv) >= N+1-Nk
-    if Nk > N
-        return 0.0
-    end
-    if Nk+4 > N
-        reject_spikes = false
-    end
-    fill!(deriv, zero(eltype(deriv)))
-    for i=1:N-Nk+1
-        for j=1:Nk
-            deriv[i] += pulserecord[i+Nk-j]*kernel[j] #float
-        end
-    end
-    for i=N-Nk+2:length(deriv)
-        deriv[i]=deriv[N-Nk+1]
-    end
-    if reject_spikes
-        for i=3:N-Nk-2
-            if deriv[i] > deriv[i+2]
-                deriv[i] = deriv[i+2]
-            end
-            if deriv[i] > deriv[i-2]
-                deriv[i] = deriv[i-2]
-            end
-        end
-    end
-    maximum(deriv)
-end
-
-function max_timeseries_deriv_mass(pulserecord, startind)
+function max_timeseries_deriv_mass(p, s)
   #following mass.analysis_algorithms.compute_max_deriv
   # use filter=SG and spike reject = true options from mass, not optional
-  p=@view pulserecord[startind:end]
   N = length(p)
   Nk = 5
   k1,k2,k3,k4,k5=2,1,0,-1,-2 # default kernel from mass
   t_max_deriv=0
 
-  t0 = k5 * p[1] + k4 * p[2] + k3 * p[3] + k2 * p[4] + k1 * p[5]
-  t1 = k5 * p[2] + k4 * p[3] + k3 * p[4] + k2 * p[5] + k1 * p[6]
-  t2 = k5 * p[3] + k4 * p[4] + k3 * p[5] + k2 * p[6] + k1 * p[7]
-  t_max_deriv = t2<t0 ? t2 : t0
+  t0 = k5 * p[s+1] + k4 * p[s+2] + k3 * p[s+3] + k2 * p[s+4] + k1 * p[s+5]
+  t1 = k5 * p[s+2] + k4 * p[s+3] + k3 * p[s+4] + k2 * p[s+5] + k1 * p[s+6]
+  t2 = k5 * p[s+3] + k4 * p[s+4] + k3 * p[s+5] + k2 * p[s+6] + k1 * p[s+7]
+  t_max_deriv = min(t2,t0)
 
-  for j=8:N
+  for j=s+8:N
     t3 = k5 * p[j-4] + k4*p[j-3] + k3*p[j-2] + k2*p[j-1] + k1*p[j]
           # t4 = t3 if t3 < t1 else t1
     t4 = t3<t1 ? t3 : t1
-    t_max_deriv = t4>t_max_deriv ? t4 : t_max_deriv
+    t_max_deriv = max(t4,t_max_deriv)
     t0, t1, t2 = t1, t2, t3
   end
   t_max_deriv/10

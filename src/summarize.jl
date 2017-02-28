@@ -70,6 +70,7 @@ function summarize(data::Vector, npresamples, nsamples, average_pulse_peak_index
 end
 
 "estimate_rise_time(pulserecord, searchrange, peakval, ptm, frametime)
+uses the slope between the 10 and 90 percent points to extrapolate rise time to 100 percent
 `pulserecord` = Vector
 `searchrange` = range to look for risetime in, should go from base of pulse to peak, last(searchrange) is peakindex
 `peakval` = maximum(pulserecord[postrig_region], has not had ptm subtracted off)
@@ -96,9 +97,12 @@ function estimate_rise_time(pulserecord, searchrange, peakval,ptm,frametime)
             break
         end
     end
-    rise_time = (idx90-idx10)*frametime
+    #divide out fraction rise to extrapolate to 10% rise time
+    fracrise = (pulserecord[idx90]-pulserecord[idx10])/(peakval-ptm)
+    rise_time = (idx90-idx10)*frametime/fracrise
     rise_time
 end
+
 
 """max_timeseries_deriv_simple(pulserecord, peak_idx)
 Returns the maximum difference between succesive points in `pulserecord` after `pulserecord[peak_idx]`

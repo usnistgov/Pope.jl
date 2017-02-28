@@ -83,8 +83,8 @@ immutable MassCompatibleAnalysisFeb2017
 end
 immutable MassCompatibleDataProductFeb2017
   filt_value        ::Float32
-  arrival_time_indicator ::Float32
-  timestamp_usec    ::Float64
+  filt_phase        ::Float32
+  timestamp         ::Float64
   rowcount          ::Int64
   pretrig_mean      ::Float32
   pretrig_rms       ::Float32
@@ -102,8 +102,8 @@ end
 
 function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary = summarize(record.data, a.npresamples,a.nsamples, a.average_pulse_peak_index, a.frametime)
-  arrival_time_indicator, filt_value = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)
-  MassCompatibleDataProductFeb2017(filt_value, arrival_time_indicator, record.timestamp_usec, record.rowcount,
+  filt_phase, filt_value = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)
+  MassCompatibleDataProductFeb2017(filt_value, filt_phase, record.timestamp_usec/1e6, record.rowcount,
   summary.pretrig_mean, summary.pretrig_rms, summary.pulse_average, summary.pulse_rms, summary.rise_time,
   summary.postpeak_deriv, summary.peak_index, summary.peak_value,summary.min_value )
 end

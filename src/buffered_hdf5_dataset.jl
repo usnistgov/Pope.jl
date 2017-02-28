@@ -49,8 +49,8 @@ end
 
 immutable MassCompatibleBufferedWriters
   filt_value        ::BufferedHDF5Dataset{Float32}
-  arrival_time_indicator ::BufferedHDF5Dataset{Float32}
-  timestamp_usec    ::BufferedHDF5Dataset{Float64}
+  filt_phase      ::BufferedHDF5Dataset{Float32}
+  timestamp         ::BufferedHDF5Dataset{Float64}
   rowcount          ::BufferedHDF5Dataset{Int64}
   pretrig_mean      ::BufferedHDF5Dataset{Float32}
   pretrig_rms       ::BufferedHDF5Dataset{Float32}
@@ -72,8 +72,8 @@ end
 
 function Base.write(d::MassCompatibleBufferedWriters,x::MassCompatibleDataProductFeb2017)
   write(d.filt_value, x.filt_value)
-  write(d.arrival_time_indicator, x.arrival_time_indicator)
-  write(d.timestamp_usec, x.timestamp_usec)
+  write(d.filt_phase, x.filt_phase)
+  write(d.timestamp, x.timestamp)
   write(d.rowcount, x.rowcount)
   write(d.pretrig_mean, x.pretrig_mean)
   write(d.pretrig_rms, x.pretrig_rms)

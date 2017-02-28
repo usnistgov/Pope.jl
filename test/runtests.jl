@@ -88,7 +88,7 @@ for name in names(popefile["chan13"])
   end
   if name == "peak_index"
     @test all(a-b.==1) # python is 0 based, julia 1 based
-  elseif name in ["postpeak_deriv", "arrival_time_indicator"]
+  elseif name in ["postpeak_deriv", "filt_phase"]
     # @test_broken isapprox(a,b,rtol=1e-4)
     @show name
     @show a[1:10]
@@ -110,8 +110,6 @@ for name in names(popefile["chan13"])
     @test sum(abs(a-b)./abs(a+b) .< 5e-2)/length(a) > 0.995
   elseif name in ["pulse_average", "pulse_rms"]
     @test isapprox(a,b,rtol=1e-3)
-  elseif name in ["timestamp_usec"]
-    @test isapprox(a,b*1e6,rtol=1e-3)
   else
     @test isapprox(a,b,rtol=1e-4)
   end

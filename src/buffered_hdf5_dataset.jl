@@ -58,7 +58,7 @@ immutable MassCompatibleBufferedWriters
   pulse_rms         ::BufferedHDF5Dataset{Float32}
   rise_time         ::BufferedHDF5Dataset{Float32}
   postpeak_deriv    ::BufferedHDF5Dataset{Float32}
-  peak_index        ::BufferedHDF5Dataset{Int16}
+  peak_index        ::BufferedHDF5Dataset{UInt16}
   peak_value        ::BufferedHDF5Dataset{UInt16}
   min_value         ::BufferedHDF5Dataset{UInt16}
 end
@@ -94,7 +94,16 @@ function Base.close(d::MassCompatibleBufferedWriters)
   wait(d)
 end
 
-function write_header(d::MassCompatibleBufferedWriters,a...) end
+function write_header(d::MassCompatibleBufferedWriters,ljh)
+  a=attrs(d.filt_value.ds.file)
+  a["nsamples"]=ljh.frametime
+  a["npresamples"]=ljh.pretrig_nsamples
+  a["frametime"]=ljh.record_nsamples
+  p = parent(d.filt_value.ds)
+  pa = attrs(p)
+  pa["filename"]=ljh.filename
+  pa["analyzed by pope"]="true"
+end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)
 end

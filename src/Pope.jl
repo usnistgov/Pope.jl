@@ -92,7 +92,7 @@ immutable MassCompatibleDataProductFeb2017
   pulse_rms         ::Float32
   rise_time         ::Float32
   postpeak_deriv    ::Float32
-  peak_index        ::Int16
+  peak_index        ::UInt16
   peak_value        ::UInt16
   min_value         ::UInt16
 end

@@ -103,3 +103,9 @@ for name in names(popefile["chan13"])
     @test isapprox(a,b,rtol=1e-4)
   end
 end
+
+close(massfile)
+close(popefile)
+
+println("Run python script to open Pope HDF5 file.")
+run(`python mass_open_pope_hdf5.py $output_fname`)

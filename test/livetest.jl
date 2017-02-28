@@ -5,6 +5,7 @@ end
 using Pope: LJH, LJHUtil
 using HDF5
 
+println("reading/analyzing process pid $(getpid())")
 
 data = collect(UInt16(0):UInt16(999))
 nsamples = length(data)

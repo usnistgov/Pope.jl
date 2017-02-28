@@ -53,7 +53,7 @@ function summarize(data::Vector, npresamples, nsamples, average_pulse_peak_index
   rise_time::Float64 = estimate_rise_time(data, npresamples+1:peak_idx,
                                  peak_val, ptm, frametime)
 
-  postpeak_deriv = max_timeseries_deriv_simple(data, average_pulse_peak_index)
+  postpeak_deriv = max_timeseries_deriv_mass(data, average_pulse_peak_index)
   # @show length(data)
   # @show average_pulse_peak_index, npresamples, nsamples
   # @show deriv_range = average_pulse_peak_index:length(data)
@@ -179,4 +179,28 @@ function max_timeseries_deriv!{T}(
         end
     end
     maximum(deriv)
+end
+
+function max_timeseries_deriv_mass(pulserecord, startind)
+  #following mass.analysis_algorithms.compute_max_deriv
+  # use filter=SG and spike reject = true options from mass, not optional
+  p=@view pulserecord[startind:end]
+  N = length(p)
+  Nk = 5
+  k1,k2,k3,k4,k5=2,1,0,-1,-2 # default kernel from mass
+  t_max_deriv=0
+
+  t0 = k5 * p[1] + k4 * p[2] + k3 * p[3] + k2 * p[4] + k1 * p[5]
+  t1 = k5 * p[2] + k4 * p[3] + k3 * p[4] + k2 * p[5] + k1 * p[6]
+  t2 = k5 * p[3] + k4 * p[4] + k3 * p[5] + k2 * p[6] + k1 * p[7]
+  t_max_deriv = t2<t0 ? t2 : t0
+
+  for j=8:N
+    t3 = k5 * p[j-4] + k4*p[j-3] + k3*p[j-2] + k2*p[j-1] + k1*p[j]
+          # t4 = t3 if t3 < t1 else t1
+    t4 = t3<t1 ? t3 : t1
+    t_max_deriv = t4>t_max_deriv ? t4 : t_max_deriv
+    t0, t1, t2 = t1, t2, t3
+  end
+  t_max_deriv/10
 end

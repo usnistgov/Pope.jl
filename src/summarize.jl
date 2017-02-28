@@ -62,11 +62,17 @@ function summarize(data::Vector, npresamples, nsamples, average_pulse_peak_index
   # @show typeof(deriv_data), typeof(deriv_work)
   # postpeak_deriv = max_timeseries_deriv!(deriv_work, deriv_data, true)
 
+  if 0<=peak_val-ptm<=typemax(UInt16)
+    peak_val_ret = round(Int,peak_val-ptm)
+  else
+    peak_val_ret=0
+  end
+
   # Copy results into the PulseSummaries object
   pulse_average = s/npostsamples-ptm
   pulse_rms = sqrt(abs(s2/npostsamples - ptm*(ptm+2*pulse_average)))
   PulseSummary(ptm, pretrig_rms, pulse_average, pulse_rms, rise_time,
-   postpeak_deriv, peak_idx, peak_val, min_val)
+   postpeak_deriv, peak_idx, peak_val_ret, min_val)
 end
 
 "estimate_rise_time(pulserecord, searchrange, peakval, ptm, frametime)

@@ -80,20 +80,26 @@ namedict = Dict("arrival_time_indicator"=>"filt_phase", "timestamp_usec"=>"times
 names(popefile["chan13"])
 names(massfile["chan13"])
 for name in names(popefile["chan13"])
-  if name in ["arrival_time_indicator", "peak_value"] continue end
   name2 = get(namedict,name,name)
   a=popefile["chan13"][name][:]
   b=massfile["chan13"][name2][:]
+  if eltype(a)==UInt16 #avoid overflow errors in testing
+    a=Int.(a)
+  end
   if name == "peak_index"
     @test all(a-b.==1) # python is 0 based, julia 1 based
-  elseif name in ["postpeak_deriv"]
-    @test_broken isapprox(a,b,rtol=1e-4)
+  elseif name in ["postpeak_deriv", "arrival_time_indicator"]
+    # @test_broken isapprox(a,b,rtol=1e-4)
     @show name
     @show a[1:10]
     @show b[1:10]
     @show ((a-b)./(a+b))[1:10]
     @show sum(abs(a-b)./abs(a+b) .< 5e-2)/length(a)
-  elseif name in ["pretrig_rms"]
+    inds = find(abs(a-b)./abs(a+b) .> 5e-3)
+    @show inds=inds[1:min(10,length(inds))]
+    @show a[inds]
+    @show b[inds]
+  elseif name in ["pretrig_rms","peak_value"]
     # @show sum(abs(a-b)./abs(a+b) .< 5e-3)/length(a)
     # I looked at the most extreme different, where pope has RMS ~32, and mass has ~11
     # it was an early trigger by about 6 samples. I believe mass missed it due to the

@@ -95,10 +95,15 @@ function Base.close(d::MassCompatibleBufferedWriters)
 end
 
 function write_header(d::MassCompatibleBufferedWriters,ljh)
+  # this is called once per ljh file, but we only want to write to the
+  # top level of the HDF5 file once
   a=attrs(d.filt_value.ds.file)
-  a["nsamples"]=ljh.record_nsamples
-  a["npresamples"]=ljh.pretrig_nsamples
-  a["frametime"]=ljh.frametime
+  if !("nsamples" in names(a))
+    a["nsamples"]=ljh.record_nsamples
+    a["npresamples"]=ljh.pretrig_nsamples
+    a["frametime"]=ljh.frametime
+  end
+  # we can write to the group for this ljh file (eg chan13), other calls won't write to this group
   p = parent(d.filt_value.ds)
   pa = attrs(p)
   pa["filename"]=ljh.filename

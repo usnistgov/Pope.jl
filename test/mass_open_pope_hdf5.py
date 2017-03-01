@@ -13,7 +13,7 @@ def prep_pope_hdf5_for_mass(filename):
         for k,v in h5.iteritems():
             print k,v
             if not k.startswith("chan"): continue
-            channum = int(k[4:-1])
+            channum = int(k[4:])
             if "channum" not in v.attrs: v.attrs["channum"]=channum
             if "noise_filename" not in v.attrs: v.attrs["noise_filename"]="analyzed by pope, used preknowledge"
             if "npulses" not in v.attrs: v.attrs["npulses"]=len(v["filt_value"])
@@ -22,9 +22,21 @@ def prep_pope_hdf5_for_mass(filename):
 def open_pope_hdf5(filename):
     prep_pope_hdf5_for_mass(filename)
     data = mass.TESGroupHDF5(filename)
-
+    cuts=mass.controller.AnalysisControl(
+            pretrigger_rms=(None,30.),    # A cut against "big tails" from prior pulses
+            postpeak_deriv=(None, 20),
+            timestamp_diff_sec=(0.020, None)
+            )
+    data.apply_cuts(cuts)
+    data.calibrate("p_filt_value",["MnKAlpha"])
+    ds = data.first_good_dataset
+    assert(ds.channum==13)
+    assert(ds.nPulses==3038)
+    print("filename",ds.filename)
+    return data
 
 
 if __name__ == "__main__":
     print sys.argv
-    open_pope_hdf5(sys.argv[1])
+    data = open_pope_hdf5(sys.argv[1])
+    print data

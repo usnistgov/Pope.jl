@@ -95,10 +95,11 @@ function Base.close(d::MassCompatibleBufferedWriters)
 end
 
 function write_header(d::MassCompatibleBufferedWriters,ljh)
+  @show 2,ljh
   a=attrs(d.filt_value.ds.file)
-  a["nsamples"]=ljh.frametime
+  a["nsamples"]=ljh.record_nsamples
   a["npresamples"]=ljh.pretrig_nsamples
-  a["frametime"]=ljh.record_nsamples
+  a["frametime"]=ljh.frametime
   p = parent(d.filt_value.ds)
   pa = attrs(p)
   pa["filename"]=ljh.filename

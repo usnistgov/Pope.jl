@@ -19,18 +19,6 @@ Help exposition:
 arguments = docopt(doc, version=v"0.0.1")
 preknowledge_filename = expanduser(arguments["<preknowledge>"])
 
-while true
-  ljhpath, writingbool = wait_for_writing_status(true)
-  println("Matter has started writing $ljhpath, starting POPE")
-  pkfile = get_preknowledge_file(preknowledge_filename)
-  output_file = get_output_file(ljhpath)
-  readers = launch_continuous_analysis(pkfile, ljhpath, output_file)
-  ljhpath, writingbool = wait_for_writing_status(false)
-  println("Matter has stopped writing $ljhpath, finishing POPE")
-  sleep(3) # give some time for ljh files to be finalized
-  finish_analysis(readers)
-end
-
 function get_preknowledge_file(preknowledge_filename)
   if ishdf5(preknowledge_filename)
     pkfile = h5open(preknowledge_filename,"r")
@@ -94,3 +82,20 @@ function finish_analysis(readers)
   Pope.stop.(readers)
   wait.(readers)
 end
+
+println("popewatchesmatter will run until interrupted, OR\nthe MATTER sentinel file filename is \"endpope\"")
+while true
+  ljhpath, writingbool = wait_for_writing_status(true)
+  println("Matter has started writing $ljhpath, starting POPE")
+  if ljhpath == "endpope" break end
+  pkfile = get_preknowledge_file(preknowledge_filename)
+  output_file = get_output_file(ljhpath)
+  readers = launch_continuous_analysis(pkfile, ljhpath, output_file)
+  ljhpath, writingbool = wait_for_writing_status(false)
+  println("Matter has stopped writing $ljhpath, finishing POPE")
+  sleep(3) # give some time for ljh files to be finalized by matter
+  finish_analysis(readers)
+  if ljhpath == "endpope" break end
+end
+println("popewatchesmatter finished.")
+flush(STDOUT)

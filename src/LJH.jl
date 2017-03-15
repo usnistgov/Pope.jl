@@ -147,6 +147,20 @@ function tryread{T}(f::LJHFile{LJH_22,T})
     return Nullable{LJHRecord}()
   end
 end
+# this version with nb_available seems like it should work, and possibly be
+# more performant, but nb_available doesn't seem to work as I expect
+# function tryread{T}(f::LJHFile{LJH_22,T})
+#   n = nb_available(f.io)
+#   if n<record_nbytes(f)
+#     return Nullable{LJHRecord}()
+#   else
+#     rowcount = read(Int,f.io)
+#     timestamp_usec = read(Int,f.io)
+#     data = read(UInt16, f.io, f.record_nsamples)
+#     return Nullable(LJHRecord(data, rowcount, timestamp_usec))
+#   end
+# end
+
 function tryread{T}(f::LJHFile{LJH_21,T})
   d1 = read(f.io, 6)
   length(d1) == 0  && return Nullable{LJHRecord}()

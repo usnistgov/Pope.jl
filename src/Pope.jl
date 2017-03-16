@@ -4,6 +4,7 @@ include("LJH.jl")
 include("LJHUtil.jl")
 include("summarize.jl")
 include("apply_filter.jl")
+include("matter_simulator.jl")
 
 type LJHReaderFeb2017{T1,T2}
   status::Symbol

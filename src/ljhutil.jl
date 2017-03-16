@@ -41,7 +41,7 @@ end
 hdf5_name_from_ljh(ljhname::String) = ljhname*"_pope.hdf5"
 
 const sentinel_file_path = joinpath(expanduser("~"),".daq","latest_ljh_pulse.cur")
-"matter_writing_status() returns (String, Bool) representing (filename, currently_open?)"
+"matter_writing_status() returns (String, Bool) representing (filename, currently_open)"
 function matter_writing_status()
     isfile(sentinel_file_path) || error("$(sentinel_file_path) must be a file")
     open(sentinel_file_path,"r") do sentinel_file

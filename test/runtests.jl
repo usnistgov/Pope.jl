@@ -4,6 +4,7 @@ using Base.Test
 const WT = false # run @code_warntype
 
 include("ljh.jl")
+include("matter_simulator.jl")
 
 let
   data = zeros(UInt16,2000)

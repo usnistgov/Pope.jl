@@ -7,9 +7,10 @@ name22, f2 = mktemp()
 dt = 9.6e-6
 npre = 200
 nsamp = 1000
+nrow = 30
 
-LJH.writeljhheader(f1, dt, npre, nsamp; version="2.1.0")
-LJH.writeljhheader(f2, dt, npre, nsamp; version="2.2.0")
+LJH.writeljhheader(f1, dt, npre, nsamp; version="2.1.0", number_of_rows=nrow)
+LJH.writeljhheader(f2, dt, npre, nsamp; version="2.2.0", number_of_rows=nrow)
 
 rowcount = collect(5000:1000:10000)
 timestamps = [Int64(round(r*(dt/30)*1e6)) for r in rowcount]
@@ -21,7 +22,7 @@ data[1,:] = 0xffff
 ljh_f1 = LJH.LJHFile(name21,seekstart(f1))
 ljh_f2 = LJH.LJHFile(name22,seekstart(f2))
 
-write(ljh_f1, data, rowcount) 
+write(ljh_f1, data, rowcount)
 write(ljh_f2, data, rowcount, timestamps)
 
 close(f1)

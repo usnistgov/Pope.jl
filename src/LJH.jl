@@ -381,7 +381,7 @@ Opens one LJH file per channel in `channels` and starts writing pulse records wi
 "
 function launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version="2.2.0")
   nprocs() >= 2 || error("nprocs needs to be 2 or greater, try starting julia with `julia -p 1`")
-  ulimit() >= 50+length(channels) || error("open file limit too low, try 1ulimit -n 1000` at before opening julia")
+  ulimit() >= 50+length(channels) || error("open file limit too low, run `ulimit -n 1000` before opening julia")
   endchannel = RemoteChannel(1)
   ljhmadechannel = RemoteChannel(1)
   s=@spawn begin
@@ -394,6 +394,7 @@ function launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000
       wait(endchannel)
       put!(localendchannel,true)
     end
+    @show s
   end
   return dname, endchannel, ljhmadechannel, s
 end

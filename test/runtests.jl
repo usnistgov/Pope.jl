@@ -5,7 +5,9 @@ const WT = false # run @code_warntype
 
 include("ljh.jl")
 include("matter_simulator.jl")
+include("scripts.jl")
 
+# optional code warntype check
 let
   data = zeros(UInt16,2000)
   npresamples = div(length(data),2)
@@ -18,6 +20,7 @@ let
   WT && @code_warntype Pope.max_timeseries_deriv_simple(data, summary.peak_index)
 end
 
+@testset "runtests misc" begin
 #name22 points to an LJH file after the ljh tests are run
 ljh = LJH.LJHFile(name22)
 filter=zeros(ljh.record_nsamples-1) # single lag filter
@@ -43,13 +46,13 @@ end
 
 
 f=open(output_fname,"r")
-@show stat(f), position(f)
-@show output_fname
-@show d=read(f,sizeof(Pope.MassCompatibleDataProductFeb2017))
-@show d2 = reinterpret(Pope.MassCompatibleDataProductFeb2017, d)[1]
-@show d3 = analyzer(ljh[1])
+# @show stat(f), position(f)
+# @show output_fname
+d=read(f,sizeof(Pope.MassCompatibleDataProductFeb2017))
+d2 = reinterpret(Pope.MassCompatibleDataProductFeb2017, d)[1]
+d3 = analyzer(ljh[1])
 @test d2==d3
-dump(product_writer)
+# dump(product_writer)
 
 const preknowledge_filename = "preknowledge.h5"
 const mass_filename = "mass.h5"
@@ -110,3 +113,4 @@ close(popefile)
 
 println("Run python script to open Pope HDF5 file.")
 run(`python mass_open_pope_hdf5.py $output_fname`)
+end #testset runtests misc

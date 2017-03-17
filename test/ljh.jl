@@ -1,5 +1,6 @@
 using Base.Test
 using Pope: LJH
+
 # Write file 1 as an LJH 2.1 file and files 2 as LJH 2.2 with identical data.
 name21, f1 = mktemp()
 name22, f2 = mktemp()
@@ -30,6 +31,9 @@ close(f2)
 # Now check that the data are readable
 ljh21 = LJHGroup(name21)
 ljh22 = LJHGroup(name22)
+
+@testset "ljh" begin
+
 # Test that the header info is correct
 for ljh in (ljh21, ljh22)
     @test record_nsamples(ljh) == nsamp
@@ -93,3 +97,4 @@ data2 = ljh[1]
 while !isnull(LJH.tryread(ljh)) end
 close(ljh)
 @test data==data2
+end #testset ljh

@@ -7,3 +7,9 @@ test/test
 *.h5
 
 *ignore*
+
+*.preknowledge
+
+*.hdf5
+
+*.preknowledgecp

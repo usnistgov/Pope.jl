@@ -44,6 +44,7 @@ function mattersimprogress(srcnames, destnames, tasks, channels, timeout_s)
   println("Channel numbers: $channels")
   println("First input file: $(srcnames[1])")
   println("First output file: $(destnames[1])")
+  println("Process pid = $(getpid())")
   flush(STDOUT)
   srcs_size = sum(stat(src).size for src in srcnames)
   dests_size = sum(stat(dest).size for dest in destnames)
@@ -53,8 +54,14 @@ function mattersimprogress(srcnames, destnames, tasks, channels, timeout_s)
     sleep(0.1)
     dests_size = sum(stat(dest).size for dest in destnames)
   end
-  dests_size == srcs_size && update!(p, srcs_size) # make sure it reads 100% finished if it  is
-  println("\nMatter Simulator finished.")
+  if dests_size == srcs_size
+    update!(p, srcs_size) # make sure it reads 100% finished if it  is
+    println("\nMatter Simulator finished.")
+  else
+    println("\nMatter Simulator finished without writing all data.")
+  end
+  println("Time elapsed: $(p.tlast-p.tfirst) seconds.")
+  println("Total bytes written $dests_size.")
 end
 
 "mattersim(srcdir, destdir, timeout_s=0.01, maxchannels=240)"
@@ -68,9 +75,11 @@ function mattersim(srcdir, destdir, timeout_s=0.01, maxchannels=240)
   destnames = LJHUtil.fnames(destdir, channels)
   tasks = [@task timed_ljh_rewriter(src,dest,timeout_s) for (src,dest) in zip(srcnames, destnames)]
   LJHUtil.write_sentinel_file(destnames[1],true)
+  println("Matter simulator wrote sentinel file: $(destnames[1]), true")
   progresstask = @schedule mattersimprogress(srcnames, destnames, tasks, channels, timeout_s)
   schedule.(tasks)
   wait.(tasks)
   wait(progresstask)
   LJHUtil.write_sentinel_file(destnames[1],false)
+  println("Matter simulator wrote sentinel file: $(destnames[1]), false")
 end

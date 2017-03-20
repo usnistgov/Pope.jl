@@ -46,7 +46,11 @@ function matter_writing_status()
     isfile(sentinel_file_path) || error("$(sentinel_file_path) must be a file")
     open(sentinel_file_path,"r") do sentinel_file
     lines = map(chomp,collect(eachline(sentinel_file)))
-    return lines[1], length(lines)==1
+    if length(lines)>=1
+      return lines[1], length(lines)==1
+    else
+      return "LJHUtil nonsensical writing status", false
+    end
 	# the sentinel file has a second line that says closed when it has closed a file
 	# so one line means open, two lines means closed
     end

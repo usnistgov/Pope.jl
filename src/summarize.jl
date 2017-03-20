@@ -91,7 +91,7 @@ function estimate_rise_time(pulserecord, searchrange, peakval,ptm,frametime)
     thresh10 = 0.1*(peakval-ptm)+ptm
     thresh90 = 0.9*(peakval-ptm)+ptm
     j=0 # to make j exist after the for loop
-    for j = 1:peakindex
+    for j = idx10:peakindex
         if pulserecord[j] > thresh10
             idx10 = j-1
             break
@@ -106,7 +106,7 @@ function estimate_rise_time(pulserecord, searchrange, peakval,ptm,frametime)
     #divide out fraction rise to extrapolate to 10% rise time
     fracrise = (pulserecord[idx90]-pulserecord[idx10])/(peakval-ptm)
     rise_time = (idx90-idx10)*frametime/fracrise
-    rise_time
+    return rise_time
 end
 
 function max_timeseries_deriv_mass(p, s)

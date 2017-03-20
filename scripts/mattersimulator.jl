@@ -39,4 +39,10 @@ else
   output = expanduser(output)
 end
 
+ulimit() = a=parse(Int,readstring(`ulimit -n`))
+if ulimit() <= 500
+  println("WARNING: open file limit too low, run `ulimit -n 1000` before opening julia")
+  exist()
+end
+
 Pope.mattersim(ljhpath, output, timeout_s, maxchannels)

@@ -4,8 +4,8 @@ using Base.Test
 const WT = false # run @code_warntype
 
 include("ljh.jl")
+include("regression.jl")
 include("matter_simulator.jl")
-include("scripts.jl")
 
 # optional code warntype check
 let
@@ -41,7 +41,7 @@ catch ex
   Base.show_backtrace(STDOUT,reader.task.backtrace)
   throw(ex)
 end
-@test reader.status == :done
+@test reader.status == "done"
 
 
 
@@ -73,7 +73,7 @@ catch ex
   Base.show_backtrace(STDOUT,reader.task.backtrace)
   throw(ex)
 end
-@test reader.status == :done
+@test reader.status == "done"
 output_h5
 close(output_h5)
 # @show product_writer.timestamp_usec
@@ -114,3 +114,7 @@ close(popefile)
 println("Run python script to open Pope HDF5 file.")
 run(`python mass_open_pope_hdf5.py $output_fname`)
 end #testset runtests misc
+
+# some scripts assume files exist that are created during runtests.jl
+# so put this last
+include("scripts.jl")

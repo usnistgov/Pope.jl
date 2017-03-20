@@ -7,7 +7,7 @@ include("apply_filter.jl")
 include("matter_simulator.jl")
 
 type LJHReaderFeb2017{T1,T2}
-  status::Symbol
+  status::String
   fname::String
   ljh::Nullable{LJH.LJHFile}
   analyzer::T1
@@ -17,7 +17,7 @@ type LJHReaderFeb2017{T1,T2}
   progress_meter::Bool # only use this on static ljh files
   task::Task
   function LJHReaderFeb2017(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
-    this = new(:initizalied,fname, Nullable{LJH.LJHFile}(), analyzer, product_writer, timeout_s, Channel{Bool}(1), progress_meter)
+    this = new("initialized",fname, Nullable{LJH.LJHFile}(), analyzer, product_writer, timeout_s, Channel{Bool}(1), progress_meter)
     task = @task this()
     this.task=task
     this
@@ -27,9 +27,10 @@ LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, prog
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
-  file_exist = wait_for_file_to_exist(fname,30)
+  timeout_s_file = 5
+  file_exist = wait_for_file_to_exist(fname,timeout_s_file)
   if !file_exist
-    r.status = :timeout
+    r.status = "timeout waiting for file to exist ($timeout_s_file seconds)"
     return
   end
   ljh = LJH.LJHFile(fname)
@@ -40,7 +41,7 @@ function (r::LJHReaderFeb2017)()
   end
   #@show r.ljh
   write_header(product_writer, ljh)
-  r.status = :running
+  r.status = "running"
   while true
     while true # read and process all data
       data=LJH.tryread(ljh)
@@ -55,13 +56,14 @@ function (r::LJHReaderFeb2017)()
   end
   close(ljh)
   close(product_writer)
-  r.status = :done
+  r.status = "done"
 end
 
 function stop(r::LJHReaderFeb2017)
   !isready(r.endchannel) && put!(r.endchannel,true)
 end
 Base.wait(r::LJHReaderFeb2017) = wait(r.task)
+
 
 "Launch create and launch an LJHReaderFeb2017.
 If `continuous` is true is will continue trying to read from `fname` until something does
@@ -78,7 +80,7 @@ immutable MassCompatibleAnalysisFeb2017
   filter_at::Vector{Float64} # single lag filter arrival time component
   npresamples::Int64 # number of sample trigger
   nsamples::Int64 # length of pulse in sample
-  average_pulse_peak_index::Int64 # peak index of average pulse, look for postpeak_deriv after this
+  peak_index::Int64 # peak index of average pulse, look for postpeak_deriv after this
   frametime::Float64 # time between two samples in seconds
   shift_threshold::Int64
 end
@@ -102,7 +104,7 @@ function Base.write(io::IO, d::MassCompatibleDataProductFeb2017)
 end
 
 function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
-  summary = summarize(record.data, a.npresamples,a.nsamples, a.average_pulse_peak_index, a.frametime)
+  summary = summarize(record.data, a.npresamples,a.nsamples, a.peak_index, a.frametime)
   filt_phase, filt_value = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)
   MassCompatibleDataProductFeb2017(filt_value, filt_phase, record.timestamp_usec/1e6, record.rowcount,
   summary.pretrig_mean, summary.pretrig_rms, summary.pulse_average, summary.pulse_rms, summary.rise_time,
@@ -140,7 +142,7 @@ end
 
 function analyzer_from_preknowledge(pk::HDF5Group)
   MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
-  read(pk["trigger"]["nsamples"]), indmax(pk["filter"]["average_pulse"][:]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"])
+  read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"])
   )
 end
 

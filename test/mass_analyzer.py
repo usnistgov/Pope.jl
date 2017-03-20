@@ -53,6 +53,9 @@ def mass_analyze(fname, nfname, hdf5_filename, hdf5_noisefilename, preknowledge_
         g["cuts"]["pretrigger_rms"] = [0.0,30.0]
         g["cuts"]["postpeak_deriv"] = [0.0,20.0]
 
+        g.require_group("summarize")
+        g["summarize"]["peak_index"]=np.argmax(ds.filter.avg_signal)+2 # one for 1 indexing, 1 for not cutting early peak pulses
+
         g.require_group("calibration")
         g["calibration"].require_group("p_filt_value")
         g["calibration"]["p_filt_value"]["data_file_used"] = ds.filename

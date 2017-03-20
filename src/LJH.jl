@@ -479,12 +479,12 @@ function Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts
     end
 end
 "Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)"
-function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)
-    write(ljh.io, rowcount, time, trace)
+function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, timestamp_usec::Int64)
+    write(ljh.io, rowcount, timestamp_usec, trace)
 end
 "Base.write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)"
 function Base.write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)
-  write(ljh, record.rowcount, record.timestamp_usec, record.data)
+  write(ljh, record.data, record.rowcount, record.timestamp_usec)
 end
 
 # Write LJH v2.1 data, with rowcount

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
-import pylab as plt
+# import pylab as plt
 import mass
 from os import path
 import os
@@ -86,9 +86,11 @@ def calc_cuts_from_noise(self, nsigma=7):
     # for gausssian distributed data sigma = 1.4826*median_absolute_deviation
     # so if we want 5 sigma deviation, we want 5*1.4826*mad
     nmad = nsigma*1.4826
-    md_min = max(0.0,md_med-md_mad*nmad)
+    # md_min = max(0.0,md_med-md_mad*nmad)
+    md_min = -np.inf
     md_max = md_med+md_mad*nmad
-    pt_min = pt_med-pt_mad*nmad
+    # pt_min = pt_med-pt_mad*nmad
+    pt_min = 0.0 # lower limit on pretrigger mean is not normally used, and when I tried I found many channels failing with lots cut due to this. I guess the noise had reduced over time.
     pt_max = max(0.0,pt_med+pt_mad*nmad)
 
     cuts = mass.core.controller.AnalysisControl(
@@ -201,7 +203,8 @@ if not keepgoing:
     print("aborting")
     sys.exit()
 
-data = mass.TESGroup(pulse_files, noise_files)
+hdf5_filename, hdf5_noisefilename = os.tmpnam(), os.tmpnam()
+data = mass.TESGroup(pulse_files, noise_files, hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
 # data.updater = mass.utilities.NullUpdater
 data.set_chan_good(data.why_chan_bad.keys())
 for ds in data:

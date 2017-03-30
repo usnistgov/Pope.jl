@@ -13,3 +13,7 @@ test/test
 *.hdf5
 
 *.preknowledgecp
+
+*.pdf
+
+*.pyc

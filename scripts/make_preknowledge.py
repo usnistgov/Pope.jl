@@ -65,7 +65,7 @@ def estimate_peak_time_microsec_ds(ds):
     peakind = peakind_rel+max(1,mad)
     return peakind*ds.timebase*1e6
 
-def calc_cuts_from_noise(self, nsigma=7):
+def calc_cuts_from_noise(self, nsigma_max_deriv=7, nsigma_pt_rms=7):
     """
     calc_cuts_from_noise(self, nsigma=7)
     Use noise files to calculate ranges that encompass nsigma sigmas worth of deviation in the
@@ -85,13 +85,14 @@ def calc_cuts_from_noise(self, nsigma=7):
     pt_mad = np.median(np.abs(pretrigger_rms-pt_med))
     # for gausssian distributed data sigma = 1.4826*median_absolute_deviation
     # so if we want 5 sigma deviation, we want 5*1.4826*mad
-    nmad = nsigma*1.4826
-    # md_min = max(0.0,md_med-md_mad*nmad)
+    nmad_max_deriv = nsigma_max_deriv*1.4826
+    nmad_pt_rms    = nsigma_pt_rms*1.4826
+    # md_min = max(0.0,md_med-md_mad*nmad_max_deriv)
     md_min = -np.inf
-    md_max = md_med+md_mad*nmad
-    # pt_min = pt_med-pt_mad*nmad
+    md_max = md_med+md_mad*nmad_max_deriv
+    # pt_min = pt_med-pt_mad*nmad_pt_rms
     pt_min = 0.0 # lower limit on pretrigger mean is not normally used, and when I tried I found many channels failing with lots cut due to this. I guess the noise had reduced over time.
-    pt_max = max(0.0,pt_med+pt_mad*nmad)
+    pt_max = max(0.0,pt_med+pt_mad*nmad_pt_rms)
 
     cuts = mass.core.controller.AnalysisControl(
         pretrigger_rms=(pt_min, pt_max),
@@ -99,7 +100,7 @@ def calc_cuts_from_noise(self, nsigma=7):
     )
     return cuts
 
-def write_preknowledge_data(filename,data):
+def write_preknowledge_data(filename,data,exclude_channels):
     with h5py.File(filename,"w") as h5:
         for ds in data:
             g = h5.require_group("chan%g"%ds.channum)
@@ -165,6 +166,10 @@ parser.add_argument('--base', help="path.join this to both pulse_file and noise_
 parser.add_argument('out', help="directory to write the output file",default=".",nargs="?")
 parser.add_argument('basename', help="first letters of the prekowledge filename", default="pk",nargs="?")
 parser.add_argument('--maxchannels', help="maximum number of channels to process (mostly just for testing faster)",default="240",type=int)
+parser.add_argument('--nsigma_max_deriv', help="the larger this value is, the more pulses will pass the max_deriv cut", default="7", type=int)
+parser.add_argument('--nsigma_pt_rms', help="the larger this value is, the more pulses will pass the pretrigger_rms cut", default="7", type=int)
+parser.add_argument('--exclude_channels', help="comma seperated list of channesl to exclude\neverything is calculated for these channels, they just aren't written to the preknowledge file", default="", nargs=1)
+parser.add_argument('--quality_report',help="include this to generate a pdf with info on each channel",action='store_true')
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -179,6 +184,18 @@ if not path.isdir(outdir): raise ValueError("%s is not a directory"%outdir)
 dir_base=args["base"]
 forceNew = True
 maxnchans = args["maxchannels"]
+nsigma_max_deriv = args["nsigma_max_deriv"]
+nsigma_pt_rms = args["nsigma_pt_rms"]
+if not args["exclude_channels"]=="":
+    try:
+        exclude_channels = map(int,args["exclude_channels"].rstrip().split(","))
+    except:
+        print(str(args["exclude_channels"])+" not a comma seperated list of ints")
+        print("try something like --exclude_channels=1,2,6")
+        sys.exit()
+else:
+    exclude_channels=[]
+
 
 available_chans = mass.ljh_get_channels_both(path.join(dir_base, dir_p), path.join(dir_base, dir_n))
 if len(available_chans) == 0:
@@ -187,7 +204,9 @@ chan_nums = available_chans[:maxnchans]
 pulse_files = mass.ljh_chan_names(path.join(dir_base, dir_p), chan_nums)
 noise_files = mass.ljh_chan_names(path.join(dir_base, dir_n), chan_nums)
 
+print("nsigma_max_deriv %0.2f, nsigma_pt_rms %0.2f"%(nsigma_max_deriv, nsigma_pt_rms))
 print("Channels: %s"%chan_nums)
+print("Excluded Channels (only from writing preknowledge): %s"%exclude_channels)
 print("First pulse file: %s"%pulse_files[0])
 print("First noise file: %s"%noise_files[0])
 f=mass.LJHFile(pulse_files[0])
@@ -213,7 +232,7 @@ for ds in data:
     peak_time_microsec = estimate_peak_time_microsec_ds(ds)
     ds.peakindex1 = int(1e-6*peak_time_microsec/ds.timebase)+ds.nPresamples+1 # peak index from first 1 based index
     ds.summarize_data(peak_time_microsec, forceNew=forceNew)
-    ds.usedcuts = calc_cuts_from_noise(ds,nsigma=7)
+    ds.usedcuts = calc_cuts_from_noise(ds,nsigma_max_deriv=nsigma_max_deriv, nsigma_pt_rms=nsigma_pt_rms)
     ds.apply_cuts(ds.usedcuts, clear=True) # forceNew is true by default
     fracuncut.append(ds.good().sum()/float(ds.nPulses))
     nuncut.append(ds.good().sum())
@@ -221,9 +240,16 @@ for ds in data:
 
 print("Mean fraction of uncut pulses: %0.3f"%np.mean(fracuncut))
 print("Std deviation of fraction of uncut pulses: %0.3f"%np.std(fracuncut))
-print("Channels with less than 90% of pulses uncut: ", list(np.array(chnums)[np.where(np.array(fracuncut)<0.9)]))
 print("Mean number of uncut pulses: %0.1f"%np.mean(nuncut))
-print("Channels with less than 100 uncut pulses: ", list(np.array(chnums)[np.where(np.array(nuncut)<100)]))
+print("Channels with less than 90% of pulses uncut or less than 100 puluses uncut: ")
+inds = np.where(np.logical_or(np.array(fracuncut)<0.9, np.array(nuncut)<100))[0]
+s=""
+for i in inds[np.argsort(np.array(fracuncut)[inds])]:
+    ch = chnums[i]
+    ds = data.channel[ch]
+    npulses = ds.nPulses
+    s+="Ch %g: %g/%g=%0.2f, "%(ch, nuncut[i], npulses, fracuncut[i])
+if not s=="": print(s[:-2])
 keepgoing = query_yes_no("Do these cut stats look ok?")
 if not keepgoing:
     print("aborting")
@@ -234,6 +260,12 @@ data.avg_pulses_auto_masks(forceNew=forceNew)  # creates masks and compute avera
 data.compute_filters(f_3db=20000.0, forceNew=forceNew)
 
 
-
-write_preknowledge_data(pkfilename,data)
+print("writing preknowledge file")
+write_preknowledge_data(pkfilename,data,exclude_channels)
 print("wrote: %s"%pkfilename)
+
+if args["quality_report"]:
+    import quality_check
+    print("writing quality report")
+    quality_check.write_pdf_report(data,pkfilename+"_quality.pdf")
+    print("done writing quality report")

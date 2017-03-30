@@ -165,7 +165,6 @@ parser.add_argument('--base', help="path.join this to both pulse_file and noise_
 parser.add_argument('out', help="directory to write the output file",default=".",nargs="?")
 parser.add_argument('basename', help="first letters of the prekowledge filename", default="pk",nargs="?")
 parser.add_argument('--maxchannels', help="maximum number of channels to process (mostly just for testing faster)",default="240",type=int)
-
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -207,12 +206,30 @@ hdf5_filename, hdf5_noisefilename = os.tmpnam(), os.tmpnam()
 data = mass.TESGroup(pulse_files, noise_files, hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
 # data.updater = mass.utilities.NullUpdater
 data.set_chan_good(data.why_chan_bad.keys())
+fracuncut = []
+nuncut = []
+chnums = []
 for ds in data:
     peak_time_microsec = estimate_peak_time_microsec_ds(ds)
     ds.peakindex1 = int(1e-6*peak_time_microsec/ds.timebase)+ds.nPresamples+1 # peak index from first 1 based index
     ds.summarize_data(peak_time_microsec, forceNew=forceNew)
     ds.usedcuts = calc_cuts_from_noise(ds,nsigma=7)
     ds.apply_cuts(ds.usedcuts, clear=True) # forceNew is true by default
+    fracuncut.append(ds.good().sum()/float(ds.nPulses))
+    nuncut.append(ds.good().sum())
+    chnums.append(ds.channum)
+
+print("Mean fraction of uncut pulses: %0.3f"%np.mean(fracuncut))
+print("Std deviation of fraction of uncut pulses: %0.3f"%np.std(fracuncut))
+print("Channels with less than 90% of pulses uncut: ", list(np.array(chnums)[np.where(np.array(fracuncut)<0.9)]))
+print("Mean number of uncut pulses: %0.1f"%np.mean(nuncut))
+print("Channels with less than 100 uncut pulses: ", list(np.array(chnums)[np.where(np.array(nuncut)<100)]))
+keepgoing = query_yes_no("Do these cut stats look ok?")
+if not keepgoing:
+    print("aborting")
+    sys.exit()
+
+
 data.avg_pulses_auto_masks(forceNew=forceNew)  # creates masks and compute average pulses
 data.compute_filters(f_3db=20000.0, forceNew=forceNew)
 

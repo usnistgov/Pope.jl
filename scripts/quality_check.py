@@ -142,7 +142,35 @@ def plot_traces(ds):
     plt.xlim(0, 4*md_hi)
 
 
-def write_pdf_report(data,fname="pope_quality_report.pdf", maxchan=240):
+def cuts_string(data):
+    s=[]
+    count=0
+    for ds in data:
+        count+=1
+        n_md = ds.bad("postpeak_deriv").sum()
+        n_pt = ds.bad("pretrigger_rms").sum()
+        n_both = ds.bad("pretrigger_rms", "postpeak_deriv").sum()
+        n_all = float(ds.nPulses)
+        a="Ch %03g: %0.3f cut, %0.3f by postpeak_deriv, %0.3f by pretrigger_rms, %g total pulses."%(ds.channum,(n_md+n_pt)/n_all,n_md/n_all, n_pt/n_all, n_all)
+        s.append(a)
+    return "\n".join(s)
+
+def cuts_figure(data):
+    s=cuts_string(data)
+    fig=plt.figure(figsize=(10,40))
+    fig.add_axes([0.00,0.00,1,1])
+    plt.text(0.1,0.99,s,va="top")
+    plt.axis("off")
+
+def nsigma_figure(nsigma_pt_rms, nsigma_max_deriv,first_noise_file,first_pulse_file):
+    s="nsigma_pt_rms=%g\nnsigma_max_deriv=%g\n"%(nsigma_pt_rms,nsigma_max_deriv)
+    s+="first_noise_file=%s\nfirst_pulse_file=%s"%(first_noise_file,first_pulse_file)
+    fig=plt.figure()
+    fig.add_axes([0.00,0.00,1,1])
+    plt.axis("off")
+    plt.text(0.02,0.9,s,va="top",fontsize=7)
+
+def write_pdf_report(data,fname,nsigma_pt_rms, nsigma_max_deriv,first_noise_file,first_pulse_file,maxchan=240):
     print("writing pdf report")
     with PdfPages(fname) as pdf:
         d = pdf.infodict()
@@ -150,7 +178,13 @@ def write_pdf_report(data,fname="pope_quality_report.pdf", maxchan=240):
         d['Author'] = 'Pope.jl software'
         d['CreationDate'] = datetime.datetime.today()
         d['ModDate'] = datetime.datetime.today()
+        nsigma_figure(nsigma_pt_rms, nsigma_max_deriv,first_noise_file,first_pulse_file)
+        pdf.savefig()
+        plt.close()
         plot_odd_average_pulses(data)
+        pdf.savefig()
+        plt.close()
+        cuts_figure(data)
         pdf.savefig()
         plt.close()
         channums = np.array([ds.channum for ds in data])

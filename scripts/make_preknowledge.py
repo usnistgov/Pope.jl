@@ -243,6 +243,7 @@ print("Std deviation of fraction of uncut pulses: %0.3f"%np.std(fracuncut))
 print("Mean number of uncut pulses: %0.1f"%np.mean(nuncut))
 print("Channels with less than 90% of pulses uncut or less than 100 puluses uncut: ")
 inds = np.where(np.logical_or(np.array(fracuncut)<0.9, np.array(nuncut)<100))[0]
+indsall = np.arange(len(nuncut))
 s=""
 for i in inds[np.argsort(np.array(fracuncut)[inds])]:
     ch = chnums[i]
@@ -267,5 +268,5 @@ print("wrote: %s"%pkfilename)
 if args["quality_report"]:
     import quality_check
     print("writing quality report")
-    quality_check.write_pdf_report(data,pkfilename+"_quality.pdf")
+    quality_check.write_pdf_report(data,pkfilename+"_quality.pdf",nsigma_pt_rms, nsigma_max_deriv,noise_files[0],pulse_files[0])
     print("done writing quality report")

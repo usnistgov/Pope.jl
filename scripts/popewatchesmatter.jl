@@ -36,6 +36,11 @@ function get_output_file(ljhpath)
   output_file = Pope.LJHUtil.hdf5_name_from_ljh(ljhpath)
   println("output filename: $output_file")
   if !isfile(output_file) || arguments["--overwriteoutput"]
+    if !isdir(dirname(output_file))
+      println("ERROR: $(dirname(output_file)) is not an existing directory, cannot create output file.")
+      println("Did you delete the directory matter was writing to as it was writing? ")
+      exit()
+    end
     output_file = h5open(output_file,"w")
     return output_file
   else
@@ -88,8 +93,12 @@ end
 
 function finish_analysis(readers)
   Pope.stop.(readers)
-  wait.(readers) # they should process all available data before wait returns
-  # close(first(readers).product_writer.filt_value.ds) # this is a hack to close the actual output hdf5 file
+  try
+    wait.(readers) # they should process all available data before wait returns
+  catch ex
+    println("WARNING: There were one or more errors in the reader tasks.")
+    Base.show(ex)
+  end
 end
 
 function summarize_readers(readers)
@@ -118,6 +127,7 @@ function run()
     println("Matter has stopped writing $ljhpath0, waiting 3 seconds before Pope finishes analysis.")
     sleep(3) # give some time for ljh files to be finalized by matter
     finish_analysis(readers)
+    close(output_file)
     println("Pope finished analyzing $ljhpath0")
     summarize_readers(readers)
   end

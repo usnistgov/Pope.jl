@@ -34,6 +34,7 @@ function (r::LJHReaderFeb2017)()
     return
   end
   ljh = LJH.LJHFile(fname)
+  check_compatability(analyzer, ljh)
   r.ljh = Nullable(ljh)
   if r.progress_meter
     progress_meter = Progress(length(ljh))
@@ -102,7 +103,11 @@ end
 function Base.write(io::IO, d::MassCompatibleDataProductFeb2017)
   write(io, reinterpret(UInt8,[d]))
 end
-
+function check_compatability(a::MassCompatibleAnalysisFeb2017, ljh::LJH.LJHFile)
+  ljh.record_nsamples == a.nsamples || error("Channel $(ljh.channum) has $(ljh.record_nsamples) samples, anlyzer has $(a.nsamples).")
+  ljh.pretrig_nsamples == a.npresamples || error("Channel $(ljh.channum) has $(ljh.pretrig_nsamples) pretrigger samples, anlyzer has $(a.npresamples).")
+  ljh.frametime == a.frametime || error("Channel $(ljh.channum) has $(ljh.frametime) frametime, anlyzer has $(a.frametime).")
+end
 function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary = summarize(record.data, a.npresamples,a.nsamples, a.peak_index, a.frametime)
   filt_phase, filt_value = filter_single_lag(record.data, a.filter, a.filter_at, summary.pretrig_mean, a.npresamples, a.shift_threshold)

@@ -128,7 +128,7 @@ def write_preknowledge_ds(g,ds):
         g["filter"]["values"] = ds.filter.filt_noconst
         g["filter"]["values_at"] = ds.filter.filt_aterms.reshape((-1,))
         if ds.filter.f_3db is None:
-            g["filter"]["f3db"] = 100000000.0 # its none, want a float
+            g["filter"]["f3db"] = 100000000.0 # its none, want a float, justmake it obviously odd
         else:
             g["filter"]["f3db"] = ds.filter.f_3db
         g["filter"]["average_pulse"] = ds.filter.avg_signal
@@ -221,7 +221,11 @@ if not keepgoing:
     print("aborting")
     sys.exit()
 
-hdf5_filename, hdf5_noisefilename = os.tmpnam(), os.tmpnam()
+hdf5_filename, hdf5_noisefilename = "make_preknowledge_temp.hdf5", "make_preknowledge_noise_temp.hdf5"
+if path.isfile(hdf5_filename):
+    os.remove(hdf5_filename)
+if path.isfile(hdf5_noisefilename):
+    os.remove(hdf5_noisefilename)
 data = mass.TESGroup(pulse_files, noise_files, hdf5_filename=hdf5_filename, hdf5_noisefilename=hdf5_noisefilename)
 # data.updater = mass.utilities.NullUpdater
 data.set_chan_good(data.why_chan_bad.keys())

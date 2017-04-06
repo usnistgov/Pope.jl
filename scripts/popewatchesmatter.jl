@@ -1,5 +1,5 @@
 #!/usr/bin/env julia
-using DocOpt, HDF5, DataStructures
+using DocOpt, HDF5, DataStructures, ZMQ
 using Pope: LJHUtil
 
 doc = """
@@ -22,6 +22,19 @@ Help exposition:
 
 arguments = docopt(doc, version=v"0.0.1")
 preknowledge_filename = expanduser(arguments["<preknowledge>"])
+const MONITOR_PORT = 2011+2
+
+function zmq_reporter(port,message,rep_period_s,endchannel=Channel{Bool}(1))
+  ctx=Context()
+  socket = Socket(ctx, ZMQ.PUB)
+  ZMQ.connect(socket,"tcp://localhost:$port")
+  while !isready(endchannel)
+    sleep(rep_period_s)
+    ZMQ.send(socket, Message(message))
+  end
+  ZMQ.close(socket)
+end
+@schedule zmq_reporter(MONITOR_PORT, "Pope watching", 1)
 
 function get_preknowledge_file(preknowledge_filename)
   if ishdf5(preknowledge_filename)
@@ -88,10 +101,12 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
   end
   close(pkfile)
   println("Analysis started for $(length(readers)) channels.")
-  readers
+  monitor_endchannel = Channel{Bool}(1)
+  @schedule zmq_reporter(MONITOR_PORT, "Pope analyzing", 1, monitor_endchannel)
+  readers,monitor_endchannel
 end
 
-function finish_analysis(readers)
+function finish_analysis(readers,monitor_endchannel)
   Pope.stop.(readers)
   try
     wait.(readers) # they should process all available data before wait returns
@@ -99,6 +114,8 @@ function finish_analysis(readers)
     println("WARNING: There were one or more errors in the reader tasks.")
     Base.show(ex)
   end
+  isready(monitor_endchannel) && error("monitor_endchannel already ready")
+  put!(monitor_endchannel,true)
 end
 
 function summarize_readers(readers)
@@ -117,7 +134,7 @@ function run()
     if ljhpath0 == "endpope" break end
     println("Matter has started writing $ljhpath0, starting POPE")
     output_file = get_output_file(ljhpath0)
-    readers = launch_continuous_analysis(preknowledge_filename, ljhpath0, output_file)
+    readers,monitor_endchannel = launch_continuous_analysis(preknowledge_filename, ljhpath0, output_file)
     ljhpath1, writingbool = wait_for_writing_status(false)
     if ljhpath0 != ljhpath1
       println("WARNING: ljhpath changed between open and close")
@@ -126,7 +143,7 @@ function run()
     end
     println("Matter has stopped writing $ljhpath0, waiting 3 seconds before Pope finishes analysis.")
     sleep(3) # give some time for ljh files to be finalized by matter
-    finish_analysis(readers)
+    finish_analysis(readers,monitor_endchannel)
     close(output_file)
     println("Pope finished analyzing $ljhpath0")
     summarize_readers(readers)

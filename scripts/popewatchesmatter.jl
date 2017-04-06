@@ -24,6 +24,9 @@ arguments = docopt(doc, version=v"0.0.1")
 preknowledge_filename = expanduser(arguments["<preknowledge>"])
 const MONITOR_PORT = 2011+2
 
+"zmq_reporter(port,message,rep_period_s,endchannel=Channel{Bool}(1))
+Create a ZMQ Pub socket on `port` that sends `message` every `rep_period_s` until `isready(endchannel).`
+Used to report to monitory.py in nasa_daq."
 function zmq_reporter(port,message,rep_period_s,endchannel=Channel{Bool}(1))
   ctx=Context()
   socket = Socket(ctx, ZMQ.PUB)
@@ -34,7 +37,7 @@ function zmq_reporter(port,message,rep_period_s,endchannel=Channel{Bool}(1))
   end
   ZMQ.close(socket)
 end
-@schedule zmq_reporter(MONITOR_PORT, "Pope watching", 1)
+@schedule zmq_reporter(MONITOR_PORT, "Pope watching", 2)
 
 function get_preknowledge_file(preknowledge_filename)
   if ishdf5(preknowledge_filename)
@@ -102,7 +105,7 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
   close(pkfile)
   println("Analysis started for $(length(readers)) channels.")
   monitor_endchannel = Channel{Bool}(1)
-  @schedule zmq_reporter(MONITOR_PORT, "Pope analyzing", 1, monitor_endchannel)
+  @schedule zmq_reporter(MONITOR_PORT, "Pope analyzing", 2, monitor_endchannel)
   readers,monitor_endchannel
 end
 

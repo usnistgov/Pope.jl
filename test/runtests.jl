@@ -29,7 +29,7 @@ npresamples=ljh.pretrig_nsamples # number of sample trigger
 nsamples=ljh.record_nsamples # length of pulse in sample
 average_pulse_peak_index=ljh.pretrig_nsamples+30 # peak index of average pulse, look for postpeak_deriv after this
 shift_threshold = 5
-analyzer = Pope.MassCompatibleAnalysisFeb2017(filter, filter_at, npresamples, nsamples, average_pulse_peak_index, ljh.frametime, shift_threshold)
+analyzer = Pope.MassCompatibleAnalysisFeb2017(filter, filter_at, npresamples, nsamples, average_pulse_peak_index, ljh.frametime, shift_threshold,[0.0,0.0],[0.0,0.0],"manually made in runtests.jl")
 output_fname = tempname()
 output_f = open(output_fname,"w")
 @show stat(output_f)
@@ -83,6 +83,9 @@ popefile = h5open(output_fname,"r")
 names(popefile["chan13"])
 names(massfile["chan13"])
 for name in names(popefile["chan13"])
+  if name in ["calculated_cuts"] # skip things that aren't per pulse quantities
+    continue
+  end
   a=popefile["chan13"][name][:]
   b=massfile["chan13"][name][:]
   if eltype(a)==UInt16 #avoid overflow errors in testing

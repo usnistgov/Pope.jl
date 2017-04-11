@@ -94,7 +94,7 @@ function Base.close(d::MassCompatibleBufferedWriters)
   wait(d)
 end
 
-function write_header(d::MassCompatibleBufferedWriters,ljh)
+function write_header(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
   # this is called once per ljh file, but we only want to write to the
   # top level of the HDF5 file once
   a=attrs(d.filt_value.ds.file)
@@ -104,10 +104,13 @@ function write_header(d::MassCompatibleBufferedWriters,ljh)
     a["frametime"]=ljh.frametime
   end
   # we can write to the group for this ljh file (eg chan13), other calls won't write to this group
-  p = parent(d.filt_value.ds)
-  pa = attrs(p)
-  pa["filename"]=ljh.filename
-  pa["analyzed by pope"]="true"
+  channelgroup = parent(d.filt_value.ds)
+  g_create(channelgroup, "calculated_cuts")
+  channelgroup["calculated_cuts"]["pretrigger_rms"]=analyzer.pretrigger_rms_cuts
+  channelgroup["calculated_cuts"]["postpeak_deriv"]=analyzer.postpeak_deriv_cuts
+  channelattrs = attrs(channelgroup)
+  channelattrs["filename"]=ljh.filename
+  channelattrs["analyzed by pope"]="true"
 end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)

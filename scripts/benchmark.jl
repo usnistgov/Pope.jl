@@ -48,6 +48,8 @@ filter_at = zeros(nsamples-1)
 npresamples = 200
 average_pulse_peak_index = 250
 shift_threshold = 5
+pretrigger_rms_cuts = postpeak_deriv_cuts = [0.0,0.0]
+analyzer_pk_string = "manually created in benchmark.jl"
 channels = 1:2:2*nchannels
 frametime = 9.6e-6
 λ = 1/cps # mean time (seconds) between pulses
@@ -76,7 +78,7 @@ readers = []
 fname=""
 for channel in channels
   fname = LJHUtil.fnames(dname, channel)
-  analyzer = Pope.MassCompatibleAnalysisFeb2017(filter_values, filter_at, npresamples, nsamples, average_pulse_peak_index, frametime, shift_threshold)
+  analyzer = Pope.MassCompatibleAnalysisFeb2017(filter_values, filter_at, npresamples, nsamples, average_pulse_peak_index, frametime, shift_threshold, pretrigger_rms_cuts, postpeak_deriv_cuts, analyzer_pk_string)
   product_writer = Pope.make_buffered_hdf5_writer(h5, channel)
   reader = Pope.launch_reader(fname, analyzer, product_writer;continuous=true)
   push!(readers, reader)
@@ -108,6 +110,9 @@ function check_values(channel, h5)
   # @assert 80<length(ljh)/runtime_s<120  # the efault value in launch_writer_other_process has 100 cps
   g = h5["chan$channel"]
   for name in names(g)
+    if name == "calculated_cuts"
+      continue
+    end
     @assert length(g[name])==length(ljh)
   end
   @assert(read(g["rowcount"])==collect(1:length(ljh)))

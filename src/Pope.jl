@@ -41,7 +41,7 @@ function (r::LJHReaderFeb2017)()
     i=0
   end
   #@show r.ljh
-  write_header(product_writer, ljh)
+  write_header(product_writer, ljh, r.analyzer)
   r.status = "running"
   while true
     while true # read and process all data
@@ -84,6 +84,9 @@ immutable MassCompatibleAnalysisFeb2017
   peak_index::Int64 # peak index of average pulse, look for postpeak_deriv after this
   frametime::Float64 # time between two samples in seconds
   shift_threshold::Int64
+  pretrigger_rms_cuts::Vector{Float64} # lower and upper limit cut for pretrigger_rms
+  postpeak_deriv_cuts::Vector{Float64} # lower and upper limit cut for postpeak_deriv
+  pk_filename::String
 end
 immutable MassCompatibleDataProductFeb2017
   filt_value        ::Float32
@@ -124,7 +127,7 @@ function (dw::DataWriter)(d::MassCompatibleDataProductFeb2017)
   write(dw,d)
 end
 Base.close(dw::DataWriter) = close(dw.f)
-function write_header(dw::DataWriter,f::LJH.LJHFile)
+function write_header(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
   # dump(dw.f,Pope.MassCompatibleDataProductFeb2017)
   # write(dw, "from file: $f.filename\n")
   # write(dw,"HEADER DONE\n")
@@ -147,7 +150,8 @@ end
 
 function analyzer_from_preknowledge(pk::HDF5Group)
   MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
-  read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"])
+  read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
+  read(pk["cuts"]["postpeak_deriv"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
   )
 end
 

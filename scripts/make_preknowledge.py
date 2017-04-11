@@ -170,6 +170,7 @@ parser.add_argument('--nsigma_max_deriv', help="the larger this value is, the mo
 parser.add_argument('--nsigma_pt_rms', help="the larger this value is, the more pulses will pass the pretrigger_rms cut", default="7", type=int)
 parser.add_argument('--exclude_channels', help="comma seperated list of channesl to exclude\neverything is calculated for these channels, they just aren't written to the preknowledge file", default="", nargs=1)
 parser.add_argument('--quality_report',help="include this to generate a pdf with info on each channel",action='store_true')
+parser.add_argument('--fulloutputpath',help="provide the full output path to the output preknowledge file, ingores out and basename", default="", type=str)
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -212,6 +213,9 @@ print("First noise file: %s"%noise_files[0])
 f=mass.LJHFile(pulse_files[0])
 pkfilename0 = args["basename"]+"_%gx%g_%gsamples.preknowledge"%(f.number_of_columns, f.number_of_rows, f.nSamples)
 pkfilename = path.join(args["out"],pkfilename0)
+if args["fulloutputpath"] != "":
+    pkfilename=args["fulloutputpath"]
+    print("Output name determined solely by --fulloutputpath argument.")
 print("Output name: %s"%pkfilename)
 if path.isfile(pkfilename):
     print("%s already exists, manually move or remove it if you want to use that name"%pkfilename)

@@ -373,7 +373,7 @@ function launch_stocastic_writers(endchannel, ljhs::Vector{LJHFile}, d::Distribu
   end
 end
 
-ulimit() = a=parse(Int,readstring(`ulimit -n`))
+ulimit() = a=parse(Int,readstring(`bash -c "ulimit -n"`))
 
 "
 launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version=\"2.2.0\")

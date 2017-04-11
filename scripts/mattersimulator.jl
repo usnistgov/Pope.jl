@@ -39,7 +39,7 @@ else
   output = expanduser(output)
 end
 
-ulimit() = a=parse(Int,readstring(`ulimit -n`))
+ulimit() = a=parse(Int,readstring(`bash -c "ulimit -n"`))
 if ulimit() <= 500
   println("WARNING: open file limit too low, run `ulimit -n 1000` before opening julia")
   exist()

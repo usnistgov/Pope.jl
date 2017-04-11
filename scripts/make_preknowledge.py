@@ -259,10 +259,10 @@ for i in inds[np.argsort(np.array(fracuncut)[inds])]:
     npulses = ds.nPulses
     s+="Ch %g: %g/%g=%0.2f, "%(ch, nuncut[i], npulses, fracuncut[i])
 if not s=="": print(s[:-2])
-keepgoing = query_yes_no("Do these cut stats look ok?")
-if not keepgoing:
-    print("aborting")
-    sys.exit()
+# keepgoing = query_yes_no("Do these cut stats look ok?")
+# if not keepgoing:
+#     print("aborting")
+#     sys.exit()
 
 
 data.avg_pulses_auto_masks(forceNew=forceNew)  # creates masks and compute average pulses

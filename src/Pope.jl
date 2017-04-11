@@ -1,7 +1,7 @@
 module Pope
 using HDF5, ProgressMeter
 include("LJH.jl")
-include("LJHUtil.jl")
+include("ljhutil.jl")
 include("summarize.jl")
 include("apply_filter.jl")
 include("matter_simulator.jl")

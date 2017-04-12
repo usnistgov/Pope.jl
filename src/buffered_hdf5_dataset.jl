@@ -47,7 +47,7 @@ function g_require(parent::Union{HDF5File,HDF5Group}, name)
 	exists(parent,name) ? parent[name] : g_create(parent,name)
 end
 
-immutable MassCompatibleBufferedWriters
+immutable MassCompatibleBufferedWriters <: DataSink
   filt_value        ::BufferedHDF5Dataset{Float32}
   filt_phase      ::BufferedHDF5Dataset{Float32}
   timestamp         ::BufferedHDF5Dataset{Float64}
@@ -86,6 +86,7 @@ function Base.write(d::MassCompatibleBufferedWriters,x::MassCompatibleDataProduc
   write(d.min_value, x.min_value)
 end
 
+"used in make_buffered_hdf5_writer, shouldn't be used elsewhere"
 Base.schedule(d::MassCompatibleBufferedWriters) = [schedule(getfield(d,s)) for s in fieldnames(MassCompatibleBufferedWriters)]
 function Base.close(d::MassCompatibleBufferedWriters)
   for s in fieldnames(MassCompatibleBufferedWriters)
@@ -112,7 +113,10 @@ function write_header(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompati
   channelattrs["filename"]=ljh.filename
   channelattrs["analyzed by pope"]="true"
 end
+function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
+end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)
 end
+"used in make_buffered_hdf5_writer, shouldn't be used elsewhere"
 Base.wait(d::MassCompatibleBufferedWriters) = [wait(getfield(d,name).task) for name in fieldnames(typeof(d))]

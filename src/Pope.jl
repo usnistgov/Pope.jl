@@ -6,6 +6,13 @@ include("summarize.jl")
 include("apply_filter.jl")
 include("matter_simulator.jl")
 
+"LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
+If `r` is an instances you can
+`schedule(r.task)` to start reader
+`stop(r)` to tell the reader to finish up
+`wait(r)` to wait on r.task, which will exit after the analysis finishes up
+It is probably better to use `launch_reader` than to call this directly
+"
 type LJHReaderFeb2017{T1,T2}
   status::String
   fname::String
@@ -55,6 +62,7 @@ function (r::LJHReaderFeb2017)()
     # watch_file(ljh,timeout_s)
     sleep(timeout_s)
   end
+  write_header_end(product_writer, ljh, r.analyzer)
   close(ljh)
   close(product_writer)
   r.status = "done"
@@ -88,7 +96,9 @@ immutable MassCompatibleAnalysisFeb2017
   postpeak_deriv_cuts::Vector{Float64} # lower and upper limit cut for postpeak_deriv
   pk_filename::String
 end
-immutable MassCompatibleDataProductFeb2017
+
+abstract DataProduct
+immutable MassCompatibleDataProductFeb2017 <: DataProduct
   filt_value        ::Float32
   filt_phase        ::Float32
   timestamp         ::Float64
@@ -119,7 +129,15 @@ function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary.postpeak_deriv, summary.peak_index, summary.peak_value,summary.min_value )
 end
 
-immutable DataWriter
+"asbstract DataSink
+subtype `T` must have methods:
+`write(ds::T, dp::S)` where `S` is a subtype of DataProduct
+`write_header(ds, ljh, analyzer)` where ljh is an LJHFile, and analyzer is a MassCompatibleAnalysisFeb2017
+`write_header_end(ds,ljh,analyzer)` which amends the header after all writing is finalized
+for things like number of records that are only known after all writing
+`close(ds)`"
+abstract DataSink
+immutable DataWriter <: DataSink
   f::IOStream
 end
 Base.write(dw::DataWriter,x...) = write(dw.f,x...)
@@ -127,11 +145,38 @@ function (dw::DataWriter)(d::MassCompatibleDataProductFeb2017)
   write(dw,d)
 end
 Base.close(dw::DataWriter) = close(dw.f)
+function write_header_end(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
+end
 function write_header(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
   # dump(dw.f,Pope.MassCompatibleDataProductFeb2017)
   # write(dw, "from file: $f.filename\n")
   # write(dw,"HEADER DONE\n")
 end
+
+"`ds=MultipleDataSink( (a,b) )``
+creates a type where `write(ds,x)` writes to both `a` and `b`
+likewise for `close`, `write_header` and `write_header_end`"
+immutable MultipleDataSink{T} <: DataSink
+  t::T
+end
+function Base.write(mds::MultipleDataSink, x...)
+  for ds in mds.t
+    write(ds,x...)
+  end
+end
+Base.close(mds::MultipleDataSink) = map(close,mds.t)
+function write_header(mds::MultipleDataSink, f::LJH.LJHFile, analyzer::MassCompatibleAnalysisFeb2017)
+  for ds in mds.t
+    write_header(ds,f,analyzer)
+  end
+end
+function write_header_end(mds::MultipleDataSink, f::LJH.LJHFile, analyzer::MassCompatibleAnalysisFeb2017)
+  for ds in mds.t
+    write_header_end(ds,f,analyzer)
+  end
+end
+
+
 
 "wait_for_file_to_exist(fname, timeout_s = 30)
 If the file still doesn't exist after `timeout_s` return `false`. Otherwise return `true` once the file exists."

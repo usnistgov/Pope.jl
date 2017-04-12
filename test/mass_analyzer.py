@@ -24,7 +24,7 @@ def mass_analyze(fname, nfname, hdf5_filename, hdf5_noisefilename, preknowledge_
     with h5py.File(preknowledge_filename,"w") as h5:
         g = h5.require_group("chan%g"%ds.channum)
 
-        # KNOWN PROBLEM: julia fails to read phython written strings
+        # KNOWN PROBLEM: julia fails to read python written strings
 
         g.require_group("physical")
         g["physical"]["x_um_from_array_center"]=0

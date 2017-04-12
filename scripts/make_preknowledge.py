@@ -172,6 +172,7 @@ parser.add_argument('--exclude_channels', help="comma seperated list of channesl
 parser.add_argument('--quality_report',help="include this to generate a pdf with info on each channel",action='store_true')
 parser.add_argument('--fulloutputpath',help="provide the full output path to the output preknowledge file, ingores out and basename", default="", type=str)
 parser.add_argument('--noprompt',help="skip the sanity check prompt (for automated use)",action='store_true')
+parser.add_argument('--f3db',help="set f3db for filters (default 20000 hz)",default="20000",type=float)
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -268,7 +269,7 @@ if not s=="": print(s[:-2])
 
 
 data.avg_pulses_auto_masks(forceNew=forceNew)  # creates masks and compute average pulses
-data.compute_filters(f_3db=20000.0, forceNew=forceNew)
+data.compute_filters(f_3db=args["f3db"], forceNew=forceNew)
 
 
 print("writing preknowledge file")

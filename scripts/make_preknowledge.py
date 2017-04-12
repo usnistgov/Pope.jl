@@ -159,7 +159,7 @@ parser = argparse.ArgumentParser(description='Create a prekowledge file for Pope
     epilog="""For each channel, calcuates the peak index based on the mode plus median absolute deviation in the first segment of the pulse_file.
     Then summarizes data. Thenit calculated a pretrigger_rms and post_peak deriv cut based on applying thos alogritms to a noise file and choosing
     7 sigma cuts (actually uses median absolute deviation * a scale factor instead of std to calcualte sigma). Then it applies cuts,
-    calculates average pulse, and computes filters. And writes info to a prekoledge file.""")
+    calculates average pulse, and computes filters. And writes info to a preknowledge file.""")
 parser.add_argument('pulse_file', help='name of the pulse containing ljh file to use to make preknowledge')
 parser.add_argument('noise_file', help='name of the noise containing ljh file to use to make preknowledge')
 parser.add_argument('--base', help="path.join this to both pulse_file and noise_file",default="")
@@ -171,6 +171,7 @@ parser.add_argument('--nsigma_pt_rms', help="the larger this value is, the more 
 parser.add_argument('--exclude_channels', help="comma seperated list of channesl to exclude\neverything is calculated for these channels, they just aren't written to the preknowledge file", default="", nargs=1)
 parser.add_argument('--quality_report',help="include this to generate a pdf with info on each channel",action='store_true')
 parser.add_argument('--fulloutputpath',help="provide the full output path to the output preknowledge file, ingores out and basename", default="", type=str)
+parser.add_argument('--noprompt',help="skip the sanity check prompt (for automated use)",action='store_true')
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -220,10 +221,11 @@ print("Output name: %s"%pkfilename)
 if path.isfile(pkfilename):
     print("%s already exists, manually move or remove it if you want to use that name"%pkfilename)
     sys.exit()
-keepgoing = query_yes_no("Do this info look right so far?")
-if not keepgoing:
-    print("aborting")
-    sys.exit()
+if not args["noprompt"]:
+    keepgoing = query_yes_no("Do this info look right so far?")
+    if not keepgoing:
+        print("aborting")
+        sys.exit()
 
 hdf5_filename, hdf5_noisefilename = "make_preknowledge_temp.hdf5", "make_preknowledge_noise_temp.hdf5"
 if path.isfile(hdf5_filename):

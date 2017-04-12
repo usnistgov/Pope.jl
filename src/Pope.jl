@@ -1,10 +1,11 @@
 module Pope
-using HDF5, ProgressMeter
+using HDF5, ProgressMeter, ZMQ
 include("LJH.jl")
 include("ljhutil.jl")
 include("summarize.jl")
 include("apply_filter.jl")
 include("matter_simulator.jl")
+include("zmq_datasink.jl")
 
 "LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 If `r` is an instances you can
@@ -55,7 +56,7 @@ function (r::LJHReaderFeb2017)()
       data=LJH.tryread(ljh)
       isnull(data) && break
       analysis_products = analyzer(get(data))
-      product_writer(analysis_products)
+      write(product_writer,analysis_products)
       r.progress_meter && next!(progress_meter)
     end
     isready(endchannel) && break

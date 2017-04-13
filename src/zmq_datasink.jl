@@ -21,7 +21,7 @@ function send_multipart(socket::Socket, parts::Array)
   return send(socket, parts[end])
 end
 function write_header(zds::ZMQDataSink, ljh, analyzer)
-  send_multipart(zds.s["header$(zds.channel_number)","write_header called"])
+  send_multipart(zds.s,["header$(zds.channel_number)","write_header called"])
 end
 function write_header_end(zds::ZMQDataSink, ljh, analyzer)
   send_multipart(zds.s,["header$(zds.channel_number)","write_header_end called"])

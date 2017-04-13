@@ -166,14 +166,14 @@ function Base.write(mds::MultipleDataSink, x...)
   end
 end
 Base.close(mds::MultipleDataSink) = map(close,mds.t)
-function write_header(mds::MultipleDataSink, f::LJH.LJHFile, analyzer::MassCompatibleAnalysisFeb2017)
+function write_header(mds::MultipleDataSink, ljh, analyzer)
   for ds in mds.t
-    write_header(ds,f,analyzer)
+    write_header(ds,ljh,analyzer)
   end
 end
-function write_header_end(mds::MultipleDataSink, f::LJH.LJHFile, analyzer::MassCompatibleAnalysisFeb2017)
+function write_header_end(mds::MultipleDataSink, ljh, analyzer)
   for ds in mds.t
-    write_header_end(ds,f,analyzer)
+    write_header_end(ds,ljh,analyzer)
   end
 end
 

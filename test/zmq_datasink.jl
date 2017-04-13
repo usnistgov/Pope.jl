@@ -26,8 +26,12 @@ end
 
 zds = Pope.make_zmqdatasink(1)
 dp = Pope.MassCompatibleDataProductFeb2017(1,2,3,4,5,6,7,8,9,10,11,12,13)
+Pope.write_header(zds,nothing,nothing)
+out_header = recv_multipart(sub_socket)
 write(zds,dp)
 channel_string, channel_number, dp_out = recv_dataproduct(sub_socket)
+Pope.write_header_end(zds,nothing,nothing)
+out_header_end = recv_multipart(sub_socket)
 
 @testset "zmq_datasink" begin
   @test repr(zds.channel_number) == channel_string

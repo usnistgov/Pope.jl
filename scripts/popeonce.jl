@@ -14,7 +14,7 @@ Help exposition:
   Where <ljhpath> points to a single ljh file, and <preknowledge> points to a valid HDF5 file in the pope preknowledge format. <output> points to a location where the output hdf5 file will be written.
 
   If you have succesfully run `Pkg.test("Pope")` from within Julia, this should work:
-  popeonce.jl --overwriteoutput ~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh ~/.julia/v0.5/Pope/test/preknowledge.h5 output.h5
+  ./popeonce.jl --overwriteoutput ~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh ~/.julia/v0.5/Pope/test/preknowledge.h5 output.h5
 """
 
 
@@ -40,6 +40,7 @@ println("starting Pope analysis:")
 @show output_filename
 println("")
 
+Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 for name in names(pkfile)
   channel_number = parse(Int,name[5:end])
   ljh_filename = Pope.LJHUtil.fnames(ljhpath,channel_number)
@@ -54,7 +55,7 @@ for name in names(pkfile)
     continue
   end
   println("Channel $channel_number: starting analysis")
-  product_writer = Pope.make_buffered_hdf5_writer(output_file, channel_number)
+  product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file, channel_number)
   reader = Pope.launch_reader(ljh_filename, analyzer, product_writer;continuous=false)
   wait(reader.task)
   println("Channel $channel_number: finished analysis, status = $(reader.status)")

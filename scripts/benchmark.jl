@@ -5,7 +5,7 @@ doc = """
 Pope Benhmark and Live Test
 Usage:
   benchmark.jl
-  benchmark.jl [--nsamples=<ns>] [--nchannels=<nc>] [--cps=<cps>] [--runtime_s=<rt>]
+  benchmark.jl [--nsamples=<ns>] [--nchannels=<nc>] [--cps=<cps>] [--nozmq] [--runtime_s=<rt>]
   benchmark.jl -h | --help
 
 Options:
@@ -13,13 +13,14 @@ Options:
   --nchannels=<nc>   Number of channels to read and write. [default: 240]
   --cps=<cps>        Average counts per second per channel. [default: 100]
   --runtime_s=<rt>   Run for roughly this long, in seconds. [default: 30]
+  --nozmq            Include this flag to not use the ZMQ port feature.
 
 Help exposition:
   Launch a 2nd process to write LJH files, using an exponential distribution to determine time between
   writing records. Use the 1st process to analyze those LJH files using Pope in realtime.
 
   If you have succesfully run `Pkg.test("Pope") from within Julia, this should work:
-  julia benchmark.jl
+  ./benchmark.jl
 """
 
 arguments = docopt(doc, version=v"0.0.1")
@@ -27,6 +28,7 @@ nsamples = parse(Int,arguments["--nsamples"])
 nchannels = parse(Int,arguments["--nchannels"])
 cps = parse(Float64,arguments["--cps"])
 runtime_s = parse(Float64,arguments["--runtime_s"])
+nozmq = arguments["--nozmq"]
 
 
 
@@ -72,6 +74,8 @@ dname,endchannel,ljhmadechannel,s=LJH.launch_writer_other_process(d=d,dt=frameti
 wait(ljhmadechannel) # makes sure all the LJH files are created before moving on
 println("Writing in progress")
 
+
+nozmq || Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 println("Starting analyzing")
 h5 = h5open(outputname,"w")
 readers = []
@@ -79,46 +83,53 @@ fname=""
 for channel in channels
   fname = LJHUtil.fnames(dname, channel)
   analyzer = Pope.MassCompatibleAnalysisFeb2017(filter_values, filter_at, npresamples, nsamples, average_pulse_peak_index, frametime, shift_threshold, pretrigger_rms_cuts, postpeak_deriv_cuts, analyzer_pk_string)
-  product_writer = Pope.make_buffered_hdf5_writer(h5, channel)
+  if true
+    # product_writer = Pope.make_buffered_hdf5_writer(h5, channel)
+    product_writer = Pope.make_zmqdatasink(channel)
+  else
+    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(h5, channel)
+  end
   reader = Pope.launch_reader(fname, analyzer, product_writer;continuous=true)
   push!(readers, reader)
 end
+println("Some random text")
+println("Other text")
 println("Analyzing in progress")
 println("Analyzing for $runtime_s seconds")
-wait(@schedule begin
-  tstart = time()
-  tdiff = time()-tstart
-  runtime_ms = round(Int, 1000*runtime_s)
-  p = Progress(runtime_ms,1,"livetest/benchmark: ")
-  while tdiff<runtime_s
-    update!(p,round(Int,1000*(tdiff)))
-    sleep(min(1,tdiff))
-    tdiff = time()-tstart
-  end
-  update!(p,runtime_ms)
-  put!(endchannel,true)
-  println("writing stopped") end);
-sleep(3) # make sure ljh files are all fully written, I get errors without this
-Pope.stop.(readers)
-wait.(readers)
-println("analyzing stopped")
-
-
-function check_values(channel, h5)
-  fname = LJHUtil.fnames(dname, channel)
-  ljh = LJH.LJHFile(fname)
-  # @assert 80<length(ljh)/runtime_s<120  # the efault value in launch_writer_other_process has 100 cps
-  g = h5["chan$channel"]
-  for name in names(g)
-    if name == "calculated_cuts"
-      continue
-    end
-    @assert length(g[name])==length(ljh)
-  end
-  @assert(read(g["rowcount"])==collect(1:length(ljh)))
-end
-
-println("sanity checking analysis output")
-for channel in channels
-  check_values(channel,h5)
-end
+# wait(@schedule begin
+#   tstart = time()
+#   tdiff = time()-tstart
+#   runtime_ms = round(Int, 1000*runtime_s)
+#   p = Progress(runtime_ms,1,"livetest/benchmark: ")
+#   while tdiff<runtime_s
+#     update!(p,round(Int,1000*(tdiff)))
+#     sleep(min(1,tdiff))
+#     tdiff = time()-tstart
+#   end
+#   update!(p,runtime_ms)
+#   put!(endchannel,true)
+#   println("writing stopped") end);
+# sleep(3) # make sure ljh files are all fully written, I get errors without this
+# Pope.stop.(readers)
+# wait.(readers)
+# println("analyzing stopped")
+#
+#
+# function check_values(channel, h5)
+#   fname = LJHUtil.fnames(dname, channel)
+#   ljh = LJH.LJHFile(fname)
+#   # @assert 80<length(ljh)/runtime_s<120  # the efault value in launch_writer_other_process has 100 cps
+#   g = h5["chan$channel"]
+#   for name in names(g)
+#     if name == "calculated_cuts"
+#       continue
+#     end
+#     @assert length(g[name])==length(ljh)
+#   end
+#   @assert(read(g["rowcount"])==collect(1:length(ljh)))
+# end
+#
+# println("sanity checking analysis output")
+# for channel in channels
+#   check_values(channel,h5)
+# end

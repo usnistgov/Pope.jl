@@ -22,7 +22,6 @@ Help exposition:
 
 arguments = docopt(doc, version=v"0.0.1")
 preknowledge_filename = expanduser(arguments["<preknowledge>"])
-const MONITOR_PORT = 2011+2
 
 "zmq_reporter(port,message,rep_period_s,endchannel=Channel{Bool}(1))
 Create a ZMQ Pub socket on `port` that sends `message` every `rep_period_s` until `isready(endchannel).`
@@ -37,7 +36,7 @@ function zmq_reporter(port,message,rep_period_s,endchannel=Channel{Bool}(1))
   end
   ZMQ.close(socket)
 end
-@schedule zmq_reporter(MONITOR_PORT, "Pope watching", 2)
+@schedule zmq_reporter(Pope.MONITOR_PORT, "Pope watching", 2)
 
 function get_preknowledge_file(preknowledge_filename)
   if ishdf5(preknowledge_filename)
@@ -98,7 +97,7 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
       continue
     end
     # println("Channel $channel_number: starting analysis")
-    product_writer = Pope.make_buffered_hdf5_writer(output_file, channel_number)
+    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(product_writer_a,product_writer_b)
     reader = Pope.launch_reader(ljh_filename, analyzer, product_writer;continuous=true)
     push!(readers, reader)
   end
@@ -129,6 +128,7 @@ function summarize_readers(readers)
   end
 end
 
+Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 println("popewatchesmatter on pid $(getpid())")
 println("popewatchesmatter will run until interrupted, OR\nthe MATTER sentinel file points to a file called \"endpope\"")
 function run()

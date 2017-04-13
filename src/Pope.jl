@@ -6,6 +6,7 @@ include("summarize.jl")
 include("apply_filter.jl")
 include("matter_simulator.jl")
 include("zmq_datasink.jl")
+include("ports.jl")
 
 "LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 If `r` is an instances you can
@@ -154,12 +155,13 @@ function write_header(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAna
   # write(dw,"HEADER DONE\n")
 end
 
-"`ds=MultipleDataSink( (a,b) )``
+"`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`
 likewise for `close`, `write_header` and `write_header_end`"
 immutable MultipleDataSink{T} <: DataSink
   t::T
 end
+MultipleDataSink(x...) = MultipleDataSink(x)
 function Base.write(mds::MultipleDataSink, x...)
   for ds in mds.t
     write(ds,x...)

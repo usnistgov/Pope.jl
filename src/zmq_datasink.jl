@@ -1,30 +1,38 @@
-"asbstract DataSink
-subtype `T` must have methods:
-`write(ds::T, dp::S)` where `S` is a subtype of DataProduct
-`write_header(ds, ljh, analyzer)` where ljh is an LJHFile, and analyzer is a MassCompatibleAnalysisFeb2017
-`write_header_end(ds,ljh,analyzer)` which amends the header after all writing is finalized
-for things like number of records that are only known after all writing
-`close(ds)`"
+# fixes for ZMQ
+function  Base.setindex!(a::Message, v, i::Integer)
+    if i < 1 || i > length(a)
+        throw(BoundsError())
+    end
+    unsafe_store!(pointer(a), v, i)
+end
+# use this to make small messages fast
+function message(s)
+  b = IOBuffer()
+  write(b,s)
+  m = Message(b.size)
+  m[:]=b.data
+  m
+end
+
+
 immutable ZMQDataSink
   s::ZMQ.Socket
   channel_number::Int
 end
-function Base.write(zds::ZMQDataSink, x...)
-  b=IOBuffer()
-  write(b,x...)
-  send_multipart(zds.s, ["$(zds.channel_number)", Message(b)])
+function Base.write(zds::ZMQDataSink, dp)
+  send_multipart(zds.s, [message("$(zds.channel_number)"), message(dp)])
 end
-function send_multipart(socket::Socket, parts::Array)
+function send_multipart(socket::Socket, parts::Vector{Message})
   for msg in parts[1:end-1]
    send(socket, msg, SNDMORE)
   end
   return send(socket, parts[end])
 end
 function write_header(zds::ZMQDataSink, ljh, analyzer)
-  send_multipart(zds.s,["header$(zds.channel_number)","write_header called"])
+  send_multipart(zds.s,message.(["header$(zds.channel_number)","write_header called"]))
 end
 function write_header_end(zds::ZMQDataSink, ljh, analyzer)
-  send_multipart(zds.s,["header$(zds.channel_number)","write_header_end called"])
+  send_multipart(zds.s,message.(["header$(zds.channel_number)","write_header_end called"]))
 end
 function Base.close(zds::ZMQDataSink)
   # for now don't actually close the socket in case, since there is no mechanism
@@ -40,15 +48,20 @@ initialized = false
 context = nothing
 socket = nothing
 port = nothing
-  function init_for_zmqdatasink(portin::Int)
-    if initialized
+  "init_for_zmqdatasink(portin::Int;verbose=false, error_on_already_initialized=false)"
+  function init_for_zmqdatasink(portin::Int;verbose=false, error_on_already_initialized=false)
+    if initialized && error_on_already_initialized
       error("ZMQDataSinkConsts already initialized")
+    elseif initialized
+      return nothing
     end
     global port = portin
     global context = ZMQ.Context()
     global socket = ZMQ.Socket(context, ZMQ.PUB)
     ZMQ.bind(socket, "tcp://*:$port")
     global initialized = true
+    verbose && println("Pope initialized ZMQ publisher on port $port")
+    return nothing
   end
 end
 const init_for_zmqdatasink = ZMQDataSinkConsts.init_for_zmqdatasink
@@ -59,4 +72,13 @@ Returns a ZMQDataSink for `channel`"
 function make_zmqdatasink(channel::Int)
   ZMQDataSinkConsts.initialized || error("must call init_for_zmqdatasink(port) first")
   ZMQDataSink(ZMQDataSinkConsts.socket,channel)
+end
+
+"make_buffered_hdf5_and_zmq_multi_sink(output_file, channel_number)
+makes a BufferedHDF5Writer and a ZMQDataSink, for the same channel,
+puts them both into a MultipleDataSink."
+function make_buffered_hdf5_and_zmq_multisink(output_file, channel_number)
+  product_writer_a = Pope.make_buffered_hdf5_writer(output_file, channel_number)
+  product_writer_b = Pope.make_zmqdatasink(channel_number)
+  Pope.MultipleDataSink(product_writer_a,product_writer_b)
 end

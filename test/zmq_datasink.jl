@@ -1,13 +1,12 @@
 using Pope, ZMQ, Base.Test
 
-zmq_test_port = 70777
 
 # prep for listening to the ZMQDataSink
-Pope.init_for_zmqdatasink(zmq_test_port)
+Pope.init_for_zmqdatasink(Pope.ZMQ_PORT)
 
 sub_socket = ZMQ.Socket(Pope.ZMQDataSinkConsts.context, ZMQ.SUB)
 ZMQ.subscribe(sub_socket)
-ZMQ.connect(sub_socket, "tcp://localhost:$zmq_test_port")
+ZMQ.connect(sub_socket, "tcp://localhost:$(Pope.ZMQ_PORT)")
 function recv_multipart(socket)
   out = ZMQ.Message[]
   push!(out, recv(socket))

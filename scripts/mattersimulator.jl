@@ -25,7 +25,7 @@ Help exposition:
   If output is not passed, a random temporary directory will be used.
 
   If you have succesfully run `Pkg.test("Pope") from within Julia, this should work:
-  mattersimulator.jl ~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh
+  ./mattersimulator.jl ~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh
 """
 
 arguments = docopt(doc, version=v"0.0.1")

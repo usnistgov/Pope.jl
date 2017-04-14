@@ -220,7 +220,7 @@ def make_pope_hdf5_name(ljhname):
     return mass.ljh_basename(ljhname)[0]+".ljh_pope.hdf5"
 assert(make_pope_hdf5_name("/a/b/c/c_chan1.ljh")=="/a/b/c/c.ljh_pope.hdf5")
 pope_hdf5_name = make_pope_hdf5_name(pulse_files[0])
-bidr = path.dir(__FILE__)
+bdir = path.dirname(__FILE__)
 popeoncecommand = [path.join(bdir,"popeonce.jl"),pulse_files[0],pkfilename,pope_hdf5_name]
 
 print("nsigma_max_deriv %0.2f, nsigma_pt_rms %0.2f"%(nsigma_max_deriv, nsigma_pt_rms))

@@ -178,7 +178,7 @@ args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
 
-
+path.dir(__FILE__)
 
 dir_p = args["pulse_file"]
 dir_n = args["noise_file"]
@@ -211,13 +211,17 @@ noise_files = mass.ljh_chan_names(path.join(dir_base, dir_n), chan_nums)
 f=mass.LJHFile(pulse_files[0])
 pkfilename0 = args["basename"]+"_%gx%g_%gsamples.preknowledge"%(f.number_of_columns, f.number_of_rows, f.nSamples)
 pkfilename = path.join(args["out"],pkfilename0)
+if args["fulloutputpath"] != "":
+    pkfilename=args["fulloutputpath"]
+    print("Output name determined solely by --fulloutputpath argument.")
 
 #   popeonce.jl <ljhpath> <preknowledge> <output>
 def make_pope_hdf5_name(ljhname):
     return mass.ljh_basename(ljhname)[0]+".ljh_pope.hdf5"
 assert(make_pope_hdf5_name("/a/b/c/c_chan1.ljh")=="/a/b/c/c.ljh_pope.hdf5")
 pope_hdf5_name = make_pope_hdf5_name(pulse_files[0])
-popeoncecommand = ["./popeonce.jl",pulse_files[0],pkfilename,pope_hdf5_name]
+bidr = path.dir(__FILE__)
+popeoncecommand = [path.join(bdir,"popeonce.jl"),pulse_files[0],pkfilename,pope_hdf5_name]
 
 print("nsigma_max_deriv %0.2f, nsigma_pt_rms %0.2f"%(nsigma_max_deriv, nsigma_pt_rms))
 print("Channels: %s"%chan_nums)
@@ -228,9 +232,6 @@ if not args["dont_popeonceafter"]:
     print("Will run popeonce after with this command:")
     print(popeoncecommand)
 
-if args["fulloutputpath"] != "":
-    pkfilename=args["fulloutputpath"]
-    print("Output name determined solely by --fulloutputpath argument.")
 print("Output name: %s"%pkfilename)
 if path.isfile(pkfilename):
     print("%s already exists, manually move or remove it if you want to use that name"%pkfilename)

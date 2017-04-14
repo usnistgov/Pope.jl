@@ -173,6 +173,7 @@ parser.add_argument('--quality_report',help="include this to generate a pdf with
 parser.add_argument('--fulloutputpath',help="provide the full output path to the output preknowledge file, ingores out and basename", default="", type=str)
 parser.add_argument('--noprompt',help="skip the sanity check prompt (for automated use)",action='store_true')
 parser.add_argument('--f3db',help="set f3db for filters (default 20000 hz)",default="20000",type=float)
+parser.add_argument('--dont_popeonceafter',help="supply to avoid running popeonce with the new preknowledge, on pulse_file",action="store_true")
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -207,14 +208,26 @@ chan_nums = available_chans[:maxnchans]
 pulse_files = mass.ljh_chan_names(path.join(dir_base, dir_p), chan_nums)
 noise_files = mass.ljh_chan_names(path.join(dir_base, dir_n), chan_nums)
 
+f=mass.LJHFile(pulse_files[0])
+pkfilename0 = args["basename"]+"_%gx%g_%gsamples.preknowledge"%(f.number_of_columns, f.number_of_rows, f.nSamples)
+pkfilename = path.join(args["out"],pkfilename0)
+
+#   popeonce.jl <ljhpath> <preknowledge> <output>
+def make_pope_hdf5_name(ljhname):
+    return mass.ljh_basename(ljhname)[0]+".ljh_pope.hdf5"
+assert(make_pope_hdf5_name("/a/b/c/c_chan1.ljh")=="/a/b/c/c.ljh_pope.hdf5")
+pope_hdf5_name = make_pope_hdf5_name(pulse_files[0])
+popeoncecommand = ["./popeonce.jl",pulse_files[0],pkfilename,pope_hdf5_name]
+
 print("nsigma_max_deriv %0.2f, nsigma_pt_rms %0.2f"%(nsigma_max_deriv, nsigma_pt_rms))
 print("Channels: %s"%chan_nums)
 print("Excluded Channels (only from writing preknowledge): %s"%exclude_channels)
 print("First pulse file: %s"%pulse_files[0])
 print("First noise file: %s"%noise_files[0])
-f=mass.LJHFile(pulse_files[0])
-pkfilename0 = args["basename"]+"_%gx%g_%gsamples.preknowledge"%(f.number_of_columns, f.number_of_rows, f.nSamples)
-pkfilename = path.join(args["out"],pkfilename0)
+if not args["dont_popeonceafter"]:
+    print("Will run popeonce after with this command:")
+    print(popeoncecommand)
+
 if args["fulloutputpath"] != "":
     pkfilename=args["fulloutputpath"]
     print("Output name determined solely by --fulloutputpath argument.")
@@ -281,3 +294,13 @@ if args["quality_report"]:
     print("writing quality report")
     quality_check.write_pdf_report(data,pkfilename+"_quality.pdf",nsigma_pt_rms, nsigma_max_deriv,noise_files[0],pulse_files[0])
     print("done writing quality report")
+
+
+if not args["dont_popeonceafter"]:
+    import subprocess
+    print("Running the following:")
+    print(popeoncecommand)
+    proc=subprocess.Popen(popeoncecommand)
+    proc.wait()
+else:
+    print("not running popeonce after")

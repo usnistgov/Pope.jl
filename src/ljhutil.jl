@@ -32,7 +32,7 @@ function allchannels(ljhname::String)
     channels = filter!(x->x>=0,[channel(p) for p in potential_ljh])
     sort!(unique(channels))
 end
-ljhall(ljhname::String) = fnames(ljhname, ljhallchannels(ljhname))
+ljhall(ljhname::String) = fnames(ljhname, allchannels(ljhname))
 function hdf5_name_from_ljh(ljhnames::String...)
 	dname, bname, ext = ljhsplit(ljhnames[1])
 	fname = prod([split(f)[2] for f in ljhnames])

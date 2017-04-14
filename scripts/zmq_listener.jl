@@ -4,13 +4,16 @@ using Pope, ZMQ, DocOpt
 doc = """
 zmq_listener
 Provide <lo> and <hi> in eV, and point to a <calfile> that has filt_value to energy calibrations.
+This is a sketch of how a popepipe_zmq<->spec interface would work it is not functional
 Usage:
   zmq_listener.jl <lo> <hi> <calfile>
 
 Options:
 
 """
-
+# This is a sketch of how a popepipe_zmq<->spec interface
+# would work
+# it is not functional
 
 arguments = docopt(doc, version=v"0.0.1")
 calfilename = expanduser(arguments["<calfile>"])

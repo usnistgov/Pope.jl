@@ -13,12 +13,14 @@ Options:
 
 
 arguments = docopt(doc, version=v"0.0.1")
-preknowledge_filename = expanduser(arguments["<preknowledge>"])
-ljhpath = expanduser(arguments["<ljhpath>"])
-output_filename = expanduser(arguments["<output>"])
-sub_socket = ZMQ.Socket(Pope.ZMQDataSinkConsts.context, ZMQ.SUB)
-ZMQ.subscribe(sub_socket)
-ZMQ.connect(sub_socket, "tcp://localhost:$(Pope.ZMQ_PORT)")
+calfilename = expanduser(arguments["<calfile>"])
+lo = parse(Float64,arguments["<lo>"])
+hi = parse(Float64,arguments["<hi>"])
+
+ctx=Context()
+socket = ZMQ.Socket(ctx, ZMQ.SUB)
+ZMQ.subscribe(socket)
+ZMQ.connect(socket, "tcp://localhost:$(Pope.ZMQ_PORT)")
 function recv_multipart(socket)
   out = ZMQ.Message[]
   push!(out, recv(socket))
@@ -41,13 +43,19 @@ type ROI
   hi::Float64
   count::Int
 end
-inroi(roi::ROI, v) = ROI.lo <= v <= ROI.hi
-push!(roi::ROI, v) = (roi.count+=inroi(roi,v))
-reportcounts(roi::ROI) = (println("$(roi.name) $(roi.counts)");roi.counts=0)
-roi = ROI("test ROI",5000,10000,0)
+inroi(roi::ROI, v) = roi.lo <= v <= roi.hi
+Base.push!(roi::ROI, v) = (roi.count+=inroi(roi,v))
+reportcounts(roi::ROI) = (println("$(roi.name) $(roi.count)");roi.count=0)
+roi1 = ROI("test ROI 5k to 10k",5000,10000,0)
+roi2 = ROI("test ROI 0 to ∞",0,Inf,0)
+roi3 = ROI("input ROI $lo to $hi",lo,hi,0)
+rois = [roi1,roi2,roi3]
 
 "stand in for actual calibration"
-applycal(filt_value::Float64,channel_number::Int) = filt_value
+applycal(dp,channel_number::Int) = dp.filt_value
+
+"stand in for actual cuts"
+iscut(dp,channel_number) = false
 
 endchannel = Channel{Bool}(1)
 
@@ -55,11 +63,14 @@ endchannel = Channel{Bool}(1)
   out = recv_multipart(socket)
   isheader(out) && continue
   channel_string, channel_number, dp = make_dataproduct(out)
-  energy = applycal(filt_value, channel_number)
-  push!(roi,energy)
+  energy = applycal(dp, channel_number)
+  iscut(dp,channel_number) && continue
+  for roi in rois push!(roi,energy) end
 end
 
-@schedule while true
+@schedule while !isready(endchannel)
   sleep(1)
-  reportcounts(roi)
+  reportcounts.(rois)
 end
+
+sleep(10)

@@ -81,7 +81,7 @@ port = nothing
     global socket = ZMQ.Socket(context, ZMQ.PUB)
     ZMQ.bind(socket, "tcp://*:$port")
     global initialized = true
-    verbose && println("Pope initialized ZMQ publisher on port $port")
+    verbose && println("Pope ZMQ publisher did bind on port $port")
     return nothing
   end
 end

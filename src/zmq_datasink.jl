@@ -14,6 +14,23 @@ function message(s)
   m
 end
 
+function sendfast(socket::Socket, zmsg::Message, SNDMORE::Bool=false)
+  while true
+      rc = ccall((:zmq_msg_send, ZMQ.zmq), Cint, (Ptr{Message}, Ptr{Void}, Cint),
+                  &zmsg, socket.data, (ZMQ.ZMQ_SNDMORE*SNDMORE) | ZMQ.ZMQ_DONTWAIT)
+      if rc == -1
+          ZMQ.zmq_errno() == EAGAIN || throw(ZMQ.StateError(ZMQ.jl_zmq_error_str()))
+          while (get_events(socket) & POLLOUT) == 0
+              wait(socket)
+          end
+      else
+          #get_events(socket) != 0 && notify(socket)
+          notify(socket)
+          break
+      end
+  end
+end
+
 
 immutable ZMQDataSink
   s::ZMQ.Socket
@@ -24,9 +41,9 @@ function Base.write(zds::ZMQDataSink, dp)
 end
 function send_multipart(socket::Socket, parts::Vector{Message})
   for msg in parts[1:end-1]
-   send(socket, msg, SNDMORE)
+   sendfast(socket, msg, SNDMORE)
   end
-  return send(socket, parts[end])
+  return sendfast(socket, parts[end])
 end
 function write_header(zds::ZMQDataSink, ljh, analyzer)
   send_multipart(zds.s,message.(["header$(zds.channel_number)","write_header called"]))

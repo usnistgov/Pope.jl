@@ -111,7 +111,7 @@ function write_header(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompati
   channelgroup["calculated_cuts"]["postpeak_deriv"]=analyzer.postpeak_deriv_cuts
   channelattrs = attrs(channelgroup)
   channelattrs["filename"]=ljh.filename
-  channelattrs["analyzed by pope"]="true"
+  channelattrs["pope preknowledge file"]=analyzer.pk_filename
 end
 function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
 end

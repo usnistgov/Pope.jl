@@ -1,4 +1,9 @@
-# fixes for ZMQ
+# fixes for ZMQ, should be removed after improvements to ZMQ.jl
+# see the following:
+# https://github.com/JuliaInterop/ZMQ.jl/issues/143
+# https://github.com/JuliaInterop/ZMQ.jl/issues/142
+# https://github.com/JuliaInterop/ZMQ.jl/issues/141
+# https://discourse.julialang.org/t/zmq-message-super-slow/3193/4
 function  Base.setindex!(a::Message, v, i::Integer)
     if i < 1 || i > length(a)
         throw(BoundsError())
@@ -13,7 +18,6 @@ function message(s)
   m[:]=b.data
   m
 end
-
 function sendfast(socket::Socket, zmsg::Message, SNDMORE::Bool=false)
   while true
       rc = ccall((:zmq_msg_send, ZMQ.zmq), Cint, (Ptr{Message}, Ptr{Void}, Cint),

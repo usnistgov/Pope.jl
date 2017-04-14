@@ -97,14 +97,14 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
       continue
     end
     # println("Channel $channel_number: starting analysis")
-    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(product_writer_a,product_writer_b)
+    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file,channel_number)
     reader = Pope.launch_reader(ljh_filename, analyzer, product_writer;continuous=true)
     push!(readers, reader)
   end
   close(pkfile)
   println("Analysis started for $(length(readers)) channels.")
   monitor_endchannel = Channel{Bool}(1)
-  @schedule zmq_reporter(MONITOR_PORT, "Pope analyzing", 2, monitor_endchannel)
+  @schedule zmq_reporter(Pope.MONITOR_PORT, "Pope analyzing", 2, monitor_endchannel)
   readers,monitor_endchannel
 end
 

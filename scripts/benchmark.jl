@@ -83,7 +83,7 @@ fname=""
 for channel in channels
   fname = LJHUtil.fnames(dname, channel)
   analyzer = Pope.MassCompatibleAnalysisFeb2017(filter_values, filter_at, npresamples, nsamples, average_pulse_peak_index, frametime, shift_threshold, pretrigger_rms_cuts, postpeak_deriv_cuts, analyzer_pk_string)
-  if true
+  if nozmq
     product_writer = Pope.make_buffered_hdf5_writer(h5, channel)
   else
     product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(h5, channel)

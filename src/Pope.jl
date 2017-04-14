@@ -36,10 +36,9 @@ LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, prog
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
-  timeout_s_file = 5
-  file_exist = wait_for_file_to_exist(fname,timeout_s_file)
+  file_exist = wait_for_file_to_exist(fname,r.endchannel)
   if !file_exist
-    r.status = "timeout waiting for file to exist ($timeout_s_file seconds)"
+    r.status = "file did not exist before was instructed to end"
     return
   end
   ljh = LJH.LJHFile(fname)
@@ -181,18 +180,14 @@ end
 
 
 
-"wait_for_file_to_exist(fname, timeout_s = 30)
-If the file still doesn't exist after `timeout_s` return `false`. Otherwise return `true` once the file exists."
-function wait_for_file_to_exist(fname, timeout_s = 30)
-  sleeptime = 0.050
-  maxsleeptime = 10.0
-  totalslept = 0.0
+"wait_for_file_to_exist(fname, endchannel::Channel{Bool})
+Blocks until either `fname` exists, or `isready(endchannel)`. returns true if `fname` exists and false otherwise."
+function wait_for_file_to_exist(fname, endchannel::Channel{Bool})
+  sleeptime = 1.0
   while true
     isfile(fname) && return true
-    totalslept >= timeout_s && return false
     sleep(sleeptime)
-    totalslept+=sleeptime
-    sleeptime = min(timeout_s-totalslept, sleeptime*2)
+    isready(endchannel) && return false
   end
 end
 

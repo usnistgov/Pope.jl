@@ -1,24 +1,25 @@
 #!/usr/bin/env julia
 using Pope, ZMQ, DocOpt
 
-doc = """
-zmq_listener
-Provide <lo> and <hi> in eV, and point to a <calfile> that has filt_value to energy calibrations.
-This is a sketch of how a popepipe_zmq<->spec interface would work it is not functional
-Usage:
-  zmq_listener.jl <lo> <hi> <calfile>
-
-Options:
-
-"""
+# doc = """
+# zmq_listener
+# Provide <lo> and <hi> in eV, and point to a <calfile> that has filt_value to energy calibrations.
+# This is a sketch of how a popepipe_zmq<->spec interface would work it is not functional
+# Usage:
+#   zmq_listener.jl <lo> <hi> <calfile>
+#
+# Options:
+#
+# """
+# arguments = docopt(doc, version=v"0.0.1")
+# calfilename = expanduser(arguments["<calfile>"])
+# lo = parse(Float64,arguments["<lo>"])
+# hi = parse(Float64,arguments["<hi>"])
 # This is a sketch of how a popepipe_zmq<->spec interface
 # would work
 # it is not functional
 
-arguments = docopt(doc, version=v"0.0.1")
-calfilename = expanduser(arguments["<calfile>"])
-lo = parse(Float64,arguments["<lo>"])
-hi = parse(Float64,arguments["<hi>"])
+
 
 ctx=Context()
 socket = ZMQ.Socket(ctx, ZMQ.SUB)
@@ -77,3 +78,6 @@ end
 end
 
 sleep(10)
+out = recv_multipart(socket)
+channel_string, channel_number, dp = make_dataproduct(out)
+print(dp)

@@ -11,27 +11,28 @@ function  Base.setindex!(a::Message, v, i::Integer)
     unsafe_store!(pointer(a), v, i)
 end
 # use this to make small messages fast
-function message(s)
-  b = IOBuffer()
-  write(b,s)
-  m = Message(b.size)
-  m[:]=b.data
+function message(x)
+  m = Message(sizeof(x))
+  mb = Base.AbstractIOBuffer(m,true,true,true,false,length(m))
+  write(mb,x)
   m
 end
 function sendfast(socket::Socket, zmsg::Message, SNDMORE::Bool=false)
   while true
-      rc = ccall((:zmq_msg_send, ZMQ.zmq), Cint, (Ptr{Message}, Ptr{Void}, Cint),
-                  &zmsg, socket.data, (ZMQ.ZMQ_SNDMORE*SNDMORE) | ZMQ.ZMQ_DONTWAIT)
-      if rc == -1
-          ZMQ.zmq_errno() == EAGAIN || throw(ZMQ.StateError(ZMQ.jl_zmq_error_str()))
-          while (get_events(socket) & POLLOUT) == 0
-              wait(socket)
-          end
-      else
-          #get_events(socket) != 0 && notify(socket)
-          notify(socket)
-          break
+    rc = ccall((:zmq_msg_send, ZMQ.zmq), Cint, (Ptr{Message}, Ptr{Void}, Cint),
+            &zmsg, socket.data, (ZMQ.ZMQ_SNDMORE*SNDMORE) | ZMQ.ZMQ_DONTWAIT)
+    if rc == -1
+      ZMQ.zmq_errno() == EAGAIN || throw(ZMQ.StateError(ZMQ.jl_zmq_error_str()))
+      while (get_events(socket) & POLLOUT) == 0
+        wait(socket)
       end
+    else
+      notify_is_expensive = !isempty(socket.pollfd.notify.waitq)
+      if notify_is_expensive
+        get_events(socket) != 0 && notify(socket)
+      end
+      break
+    end
   end
 end
 

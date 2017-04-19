@@ -107,13 +107,20 @@ function write_header(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompati
   # we can write to the group for this ljh file (eg chan13), other calls won't write to this group
   channelgroup = parent(d.filt_value.ds)
   g_create(channelgroup, "calculated_cuts")
-  channelgroup["calculated_cuts"]["pretrigger_rms"]=analyzer.pretrigger_rms_cuts
+  channelgroup["calculated_cuts"]["pretrig_rms"]=analyzer.pretrigger_rms_cuts
   channelgroup["calculated_cuts"]["postpeak_deriv"]=analyzer.postpeak_deriv_cuts
   channelattrs = attrs(channelgroup)
   channelattrs["filename"]=ljh.filename
-  channelattrs["pope preknowledge file"]=analyzer.pk_filename
+  channelattrs["pope_preknowledge_file"]=analyzer.pk_filename
+  channelattrs["channum"]=ljh.channum
+  channelattrs["noise_filename"]="analyzed by pope, see `pope_preknowledge_file`"
 end
 function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
+  channelgroup = parent(d.filt_value.ds)
+  channelattrs = attrs(channelgroup)
+  # when write_header_end is called, some values may not be flushed to hdf5 yet
+  # so I add lasti (number pulses written to hdf5) + length(v) (number pulses to be written)
+  channelattrs["npulses"]=d.filt_value.lasti+length(d.filt_value.v)
 end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)

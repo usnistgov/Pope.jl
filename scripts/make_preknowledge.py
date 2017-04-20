@@ -144,15 +144,6 @@ def write_preknowledge_ds(g,ds):
             if v is not None:
                 g["cuts"][k] = np.array([v[0],v[1]])
 
-        # g.require_group("calibration")
-        # g["calibration"].require_group("p_filt_value")
-        # g["calibration"]["p_filt_value"]["data_file_used"] = ds.filename
-        # g["calibration"]["p_filt_value"]["lines_used"] = "MnKAlpha, MnKBeta"
-        # g["calibration"]["p_filt_value"]["energies"] = [1,2]
-        # g["calibration"]["p_filt_value"]["ph"] = [1,2]
-        # g["calibration"]["p_filt_value"]["de"] = [1,2]
-        # g["calibration"]["p_filt_value"]["dph"] = [1,2]
-
         g["analysis_type"]="mass compatible feb 2017"
 
 parser = argparse.ArgumentParser(description='Create a prekowledge file for Pope.jl',
@@ -168,7 +159,7 @@ parser.add_argument('basename', help="first letters of the prekowledge filename"
 parser.add_argument('--maxchannels', help="maximum number of channels to process (mostly just for testing faster)",default="240",type=int)
 parser.add_argument('--nsigma_max_deriv', help="the larger this value is, the more pulses will pass the max_deriv cut", default="7", type=int)
 parser.add_argument('--nsigma_pt_rms', help="the larger this value is, the more pulses will pass the pretrigger_rms cut", default="7", type=int)
-parser.add_argument('--exclude_channels', help="comma seperated list of channesl to exclude\neverything is calculated for these channels, they just aren't written to the preknowledge file", default="", nargs=1)
+parser.add_argument('--exclude_channels', help="comma seperated list of channesl to exclude", default="", nargs=1)
 parser.add_argument('--quality_report',help="include this to generate a pdf with info on each channel",action='store_true')
 parser.add_argument('--fulloutputpath',help="provide the full output path to the output preknowledge file, ingores out and basename", default="", type=str)
 parser.add_argument('--noprompt',help="skip the sanity check prompt (for automated use)",action='store_true')
@@ -190,7 +181,7 @@ nsigma_max_deriv = args["nsigma_max_deriv"]
 nsigma_pt_rms = args["nsigma_pt_rms"]
 if not args["exclude_channels"]=="":
     try:
-        exclude_channels = map(int,args["exclude_channels"].rstrip().split(","))
+        exclude_channels = map(int,args["exclude_channels"][0].rstrip().split(","))
     except:
         print(str(args["exclude_channels"])+" not a comma seperated list of ints")
         print("try something like --exclude_channels=1,2,6")
@@ -200,6 +191,8 @@ else:
 
 
 available_chans = mass.ljh_get_channels_both(path.join(dir_base, dir_p), path.join(dir_base, dir_n))
+for chan in exclude_channels:
+    available_chans.remove(chan)
 if len(available_chans) == 0:
     raise ValueError("no channels have both noise and pulse data")
 chan_nums = available_chans[:maxnchans]
@@ -223,7 +216,7 @@ popeoncecommand = [path.join(bdir,"popeonce.jl"),pulse_files[0],pkfilename,pope_
 
 print("nsigma_max_deriv %0.2f, nsigma_pt_rms %0.2f"%(nsigma_max_deriv, nsigma_pt_rms))
 print("Channels: %s"%chan_nums)
-print("Excluded Channels (only from writing preknowledge): %s"%exclude_channels)
+print("Excluded Channels: %s"%exclude_channels)
 print("First pulse file: %s"%pulse_files[0])
 print("First noise file: %s"%noise_files[0])
 if not args["dont_popeonceafter"]:

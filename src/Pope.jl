@@ -194,7 +194,7 @@ end
 function analyzer_from_preknowledge(pk::HDF5Group)
   MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
   read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
-  read(pk["cuts"]["postpeak_deriv"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
+  read(pk["cuts"]["pretrigger_rms"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
   )
 end
 

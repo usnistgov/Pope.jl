@@ -78,7 +78,7 @@ println("Writing in progress")
 nozmq || Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 println("Starting analyzing")
 h5 = h5open(outputname,"w")
-readers = []
+readers_vec = []
 fname=""
 for channel in channels
   fname = LJHUtil.fnames(dname, channel)
@@ -88,9 +88,11 @@ for channel in channels
   else
     product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(h5, channel)
   end
-  reader = Pope.launch_reader(fname, analyzer, product_writer;continuous=true)
-  push!(readers, reader)
+  reader = Pope.make_reader(fname, analyzer, product_writer;continuous=true)
+  push!(readers_vec, reader)
 end
+readers = Pope.Readers(readers_vec)
+schedule.(readers)
 println("Analyzing in progress")
 println("Analyzing for $runtime_s seconds")
 wait(@schedule begin

@@ -15,10 +15,21 @@ type Readers{T} <: AbstractVector{T}
   endchannel::Channel{Bool}
 end
 @delegate_oneField(Readers, v, [Base.push!, Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
-# # Base.schedule(r::Readers) = schedule.(r.v)
-# stop(r::Readers) = stop.(r.v)
-# Base.wait(r::Readers) = wait.(r.v)
 Readers(v) = Readers(v,false,Channel{Bool}(1))
+function write_headers(rs::Readers)
+  for r in rs
+    write_header(r)
+  end
+  r=first(rs)
+  h5file = r.product_writer.t[1].filt_value.ds.file #fragile!
+  a=attrs(h5file)
+  if !("nsamples" in names(a))
+    a["nsamples"]=r.analyzer.nsamples
+    a["npresamples"]=r.analyzer.npresamples
+    a["frametime"]=r.analyzer.frametime
+  end
+  HDF5.start_swmr_write(h5file)
+end
 
 "LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 If `r` is an instances you can
@@ -50,6 +61,8 @@ function stop(r::LJHReaderFeb2017)
   !isready(r.endchannel) && put!(r.endchannel,true)
 end
 Base.wait(r::LJHReaderFeb2017) = wait(r.task)
+write_header(r::LJHReaderFeb2017) = write_header(r.product_writer, r)
+
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
@@ -65,8 +78,6 @@ function (r::LJHReaderFeb2017)()
     progress_meter = Progress(length(ljh))
     i=0
   end
-  #@show r.ljh
-  write_header(product_writer, ljh, r.analyzer)
   r.status = "running"
   while true
     while true # read and process all data
@@ -92,7 +103,7 @@ end
 "create an LJHReaderFeb2017.
 If `continuous` is true is will continue trying to read from `fname` until something does
 `put!(reader.endchannel,true)`. If it `continuous` is false, it will stop as soon as it reads all data in the file."
-function make_reader(fname, analyzer, product_writer; continuous=true, timeout_s=1, progress_meter=!continuous)
+function make_reader(fname, analyzer, product_writer, ; continuous=true, timeout_s=1, progress_meter=!continuous)
   reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s, progress_meter)
   !continuous && put!(reader.endchannel,true)
   reader
@@ -170,7 +181,7 @@ end
 "`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`
 likewise for `close`, `write_header` and `write_header_end`"
-immutable MultipleDataSink{T} <: DataSink
+immutable MultipleDataSink{T<:Tuple} <: DataSink
   t::T
 end
 MultipleDataSink(x...) = MultipleDataSink(x)
@@ -180,14 +191,14 @@ function Base.write(mds::MultipleDataSink, x...)
   end
 end
 Base.close(mds::MultipleDataSink) = map(close,mds.t)
-function write_header(mds::MultipleDataSink, ljh, analyzer)
+function write_header(mds::MultipleDataSink, x...)
   for ds in mds.t
-    write_header(ds,ljh,analyzer)
+    write_header(ds,x...)
   end
 end
-function write_header_end(mds::MultipleDataSink, ljh, analyzer)
+function write_header_end(mds::MultipleDataSink, x...)
   for ds in mds.t
-    write_header_end(ds,ljh,analyzer)
+    write_header_end(ds,x...)
   end
 end
 

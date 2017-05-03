@@ -77,7 +77,7 @@ println("Writing in progress")
 
 nozmq || Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 println("Starting analyzing")
-h5 = h5open(outputname,"w")
+h5 = h5open(outputname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
 readers_vec = []
 fname=""
 for channel in channels
@@ -92,6 +92,7 @@ for channel in channels
   push!(readers_vec, reader)
 end
 readers = Pope.Readers(readers_vec)
+Pope.write_headers(readers)
 schedule.(readers)
 println("Analyzing in progress")
 println("Analyzing for $runtime_s seconds")

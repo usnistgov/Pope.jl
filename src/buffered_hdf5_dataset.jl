@@ -25,6 +25,7 @@ function write_to_hdf5(b::BufferedHDF5Dataset)
     empty!(b.v)
     b.lasti=last(r)
   end
+  # flush(b.ds) # need to flush datasets occasionally, but uses 100% cpu, so need to do it less
   return
 end
 
@@ -95,32 +96,24 @@ function Base.close(d::MassCompatibleBufferedWriters)
   wait(d)
 end
 
-function write_header(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
-  # this is called once per ljh file, but we only want to write to the
-  # top level of the HDF5 file once
-  a=attrs(d.filt_value.ds.file)
-  if !("nsamples" in names(a))
-    a["nsamples"]=ljh.record_nsamples
-    a["npresamples"]=ljh.pretrig_nsamples
-    a["frametime"]=ljh.frametime
-  end
-  # we can write to the group for this ljh file (eg chan13), other calls won't write to this group
+function write_header(d::MassCompatibleBufferedWriters,r::LJHReaderFeb2017)
   channelgroup = parent(d.filt_value.ds)
   g_create(channelgroup, "calculated_cuts")
-  channelgroup["calculated_cuts"]["pretrig_rms"]=analyzer.pretrigger_rms_cuts
-  channelgroup["calculated_cuts"]["postpeak_deriv"]=analyzer.postpeak_deriv_cuts
+  channelgroup["calculated_cuts"]["pretrig_rms"]=r.analyzer.pretrigger_rms_cuts
+  channelgroup["calculated_cuts"]["postpeak_deriv"]=r.analyzer.postpeak_deriv_cuts
   channelattrs = attrs(channelgroup)
-  channelattrs["filename"]=ljh.filename
-  channelattrs["pope_preknowledge_file"]=analyzer.pk_filename
-  channelattrs["channum"]=ljh.channum
+  channelattrs["filename"]=r.fname
+  channelattrs["pope_preknowledge_file"]=r.analyzer.pk_filename
+  channelattrs["channum"]=LJHUtil.channel(r.fname)
   channelattrs["noise_filename"]="analyzed by pope, see `pope_preknowledge_file`"
 end
 function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
-  channelgroup = parent(d.filt_value.ds)
-  channelattrs = attrs(channelgroup)
-  # when write_header_end is called, some values may not be flushed to hdf5 yet
-  # so I add lasti (number pulses written to hdf5) + length(v) (number pulses to be written)
-  channelattrs["npulses"]=d.filt_value.lasti+length(d.filt_value.v)
+  # dont add datasets, groups or attributes after SWMR writing is started
+  # channelgroup = parent(d.filt_value.ds)
+  # channelattrs = attrs(channelgroup)
+  # # when write_header_end is called, some values may not be flushed to hdf5 yet
+  # # so I add lasti (number pulses written to hdf5) + length(v) (number pulses to be written)
+  # channelattrs["npulses"]=d.filt_value.lasti+length(d.filt_value.v)
 end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)

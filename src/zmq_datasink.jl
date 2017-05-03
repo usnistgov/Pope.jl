@@ -56,6 +56,9 @@ end
 function write_header_end(zds::ZMQDataSink, ljh, analyzer)
   send_multipart(zds.s,message.(["header$(zds.channel_number)","write_header_end called"]))
 end
+function write_header_allchannel(zds::ZMQDataSink, x...)
+  send_multipart(zds.s, message.(["header_all_channel", "write_header_allchannel called"]))
+end
 function Base.close(zds::ZMQDataSink)
   # for now don't actually close the socket in case, since there is no mechanism
   # to reopen it

@@ -113,6 +113,20 @@ function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCom
   # # so I add lasti (number pulses written to hdf5) + length(v) (number pulses to be written)
   # channelattrs["npulses"]=d.filt_value.lasti+length(d.filt_value.v)
 end
+"write_header_allchannel(d::MassCompatibleBufferedWriters, nsamples, npresamples, frametime)
+This function is only called once per ljh file, not once per channel. So you
+  can do something like start_swmr_write which should only be called once
+  per hdf5 file."
+function write_header_allchannel(d::MassCompatibleBufferedWriters, r::LJHReaderFeb2017)
+  h5 = hdf5file(d)
+  a = attrs(h5)
+  # execute only once for the whole HDF5 file
+  "nsamples" in names(a) && error("only call_write_header_allchannels once per ljh file set, not once per channel")
+  a["nsamples"]=r.analyzer.nsamples
+  a["npresamples"]=r.analyzer.npresamples
+  a["frametime"]=r.analyzer.frametime
+  HDF5.start_swmr_write(h5)
+end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)
 end

@@ -22,12 +22,7 @@ function write_headers(rs::Readers)
     write_header(r)
   end
   r=first(rs)
-  h5file = r.product_writer.t[1].filt_value.ds.file #fragile!
-  a=attrs(h5file)
-  a["nsamples"]=r.analyzer.nsamples
-  a["npresamples"]=r.analyzer.npresamples
-  a["frametime"]=r.analyzer.frametime
-  HDF5.start_swmr_write(h5file)
+  write_header_allchannel(r)
   rs.task = @schedule begin
     while !isready(rs.endchannel)
       sleep(rs.timeout_s)
@@ -75,7 +70,7 @@ Base.schedule(r::LJHReaderFeb2017) = schedule(r.task)
 stop(r::LJHReaderFeb2017) =   !isready(r.endchannel) && put!(r.endchannel,true)
 Base.wait(r::LJHReaderFeb2017) = wait(r.task)
 write_header(r::LJHReaderFeb2017) = write_header(r.product_writer, r)
-
+write_header_allchannel(r::LJHReaderFeb2017) = write_header_allchannel(r.product_writer, r)
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
@@ -170,9 +165,9 @@ end
 "asbstract DataSink
 subtype `T` must have methods:
 `write(ds::T, dp::S)` where `S` is a subtype of DataProduct
-`write_header(ds, ljh, analyzer)` where ljh is an LJHFile, and analyzer is a MassCompatibleAnalysisFeb2017
-`write_header_end(ds,ljh,analyzer)` which amends the header after all writing is finalized
-for things like number of records that are only known after all writing
+`write_header(ds::T, f::LJHReaderFeb2017)`
+`write_header_allchannel(ds::T, f::LJHReaderFeb2017)`
+`write_header_end(ds::T,ljh,analyzer)`
 `close(ds)`"
 abstract DataSink
 immutable DataWriter <: DataSink
@@ -185,11 +180,12 @@ end
 Base.close(dw::DataWriter) = close(dw.f)
 function write_header_end(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
 end
-function write_header(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
+function write_header(dw::DataWriter,r::LJHReaderFeb2017)
   # dump(dw.f,Pope.MassCompatibleDataProductFeb2017)
   # write(dw, "from file: $f.filename\n")
   # write(dw,"HEADER DONE\n")
 end
+write_header_allchannel(dw::DataWriter, r::LJHReaderFeb2017) = nothing
 
 "`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`
@@ -215,6 +211,11 @@ function write_header_end(mds::MultipleDataSink, x...)
   end
 end
 Base.flush(mds::MultipleDataSink) = map(flush, mds.t)
+function write_header_allchannel(mds::MultipleDataSink, x...)
+  for ds in mds.t
+    write_header_allchannel(ds,x...)
+  end
+end
 
 
 

@@ -11,11 +11,12 @@ include("ports.jl")
 "Readers{T}"
 type Readers{T} <: AbstractVector{T}
   v::Vector{T}
-  headers_done::Bool
   endchannel::Channel{Bool}
+  task::Task
+  timeout_s::Float64
 end
 @delegate_oneField(Readers, v, [Base.push!, Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
-Readers(v) = Readers(v,false,Channel{Bool}(1))
+Readers(v) = Readers(v,Channel{Bool}(1), Task(nothing), 1.0)
 function write_headers(rs::Readers)
   for r in rs
     write_header(r)
@@ -23,12 +24,26 @@ function write_headers(rs::Readers)
   r=first(rs)
   h5file = r.product_writer.t[1].filt_value.ds.file #fragile!
   a=attrs(h5file)
-  if !("nsamples" in names(a))
-    a["nsamples"]=r.analyzer.nsamples
-    a["npresamples"]=r.analyzer.npresamples
-    a["frametime"]=r.analyzer.frametime
-  end
+  a["nsamples"]=r.analyzer.nsamples
+  a["npresamples"]=r.analyzer.npresamples
+  a["frametime"]=r.analyzer.frametime
   HDF5.start_swmr_write(h5file)
+  rs.task = @schedule begin
+    while !isready(rs.endchannel)
+      sleep(rs.timeout_s)
+      flush(r.product_writer) # this task flushes the HDF5 file backing the product writer once per timeout_s
+    end
+    flush(r.product_writer)
+    end
+end
+"stop(rs::Readers) Tell all tasks in `rs` and in contents to stop. `wait(rs)` blocks until all tasks are complete."
+function stop(rs::Readers)
+  put!(rs.endchannel,true)
+  stop.(rs.v)
+end
+function Base.wait(rs::Readers)
+  wait(rs.task)
+  wait.(rs.v)
 end
 
 "LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
@@ -57,9 +72,7 @@ type LJHReaderFeb2017{T1,T2}
 end
 LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 Base.schedule(r::LJHReaderFeb2017) = schedule(r.task)
-function stop(r::LJHReaderFeb2017)
-  !isready(r.endchannel) && put!(r.endchannel,true)
-end
+stop(r::LJHReaderFeb2017) =   !isready(r.endchannel) && put!(r.endchannel,true)
 Base.wait(r::LJHReaderFeb2017) = wait(r.task)
 write_header(r::LJHReaderFeb2017) = write_header(r.product_writer, r)
 
@@ -201,6 +214,7 @@ function write_header_end(mds::MultipleDataSink, x...)
     write_header_end(ds,x...)
   end
 end
+Base.flush(mds::MultipleDataSink) = map(flush, mds.t)
 
 
 

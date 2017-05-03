@@ -7,9 +7,6 @@ type BufferedHDF5Dataset{T}
   ds::HDF5Dataset
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
-  timeout_s::Float64 # interval in seconds at which to transfer data from v to ds
-  endchannel::Channel{Bool} # stop writing if this channel is ready
-  task::Task
 end
 
 function d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
@@ -25,21 +22,10 @@ function write_to_hdf5(b::BufferedHDF5Dataset)
     empty!(b.v)
     b.lasti=last(r)
   end
-  # flush(b.ds) # need to flush datasets occasionally, but uses 100% cpu, so need to do it less
   return
 end
 
-function Base.schedule(b::BufferedHDF5Dataset)
-  b.task=@schedule begin
-    while !isready(b.endchannel)
-      write_to_hdf5(b)
-      sleep(b.timeout_s)
-    end
-    write_to_hdf5(b)
-  end
-end
-stop(b::BufferedHDF5Dataset) = put!(b.endchannel,true)
-Base.wait(b::BufferedHDF5Dataset) = wait(b.task)
+
 
 Base.write{T}(b::BufferedHDF5Dataset{T},x::T) = push!(b.v,x)
 Base.write{T}(b::BufferedHDF5Dataset{T},x::Vector{T}) = append!(b.v,x)
@@ -47,10 +33,12 @@ Base.write{T}(b::BufferedHDF5Dataset{T},x::Vector{T}) = append!(b.v,x)
 function g_require(parent::Union{HDF5File,HDF5Group}, name)
 	exists(parent,name) ? parent[name] : g_create(parent,name)
 end
-
-immutable MassCompatibleBufferedWriters <: DataSink
+type MassCompatibleBufferedWriters <: DataSink
+  endchannel        ::Channel{Bool}
+  timeout_s         ::Float64
+  task              ::Task
   filt_value        ::BufferedHDF5Dataset{Float32}
-  filt_phase      ::BufferedHDF5Dataset{Float32}
+  filt_phase        ::BufferedHDF5Dataset{Float32}
   timestamp         ::BufferedHDF5Dataset{Float64}
   rowcount          ::BufferedHDF5Dataset{Int64}
   pretrig_mean      ::BufferedHDF5Dataset{Float32}
@@ -63,10 +51,29 @@ immutable MassCompatibleBufferedWriters <: DataSink
   peak_value        ::BufferedHDF5Dataset{UInt16}
   min_value         ::BufferedHDF5Dataset{UInt16}
 end
-
-function make_buffered_hdf5_writer(h5, channel_number,chunksize=1000, timeout_s=1.0)
+const mass_fieldnames = collect(fieldnames(MassCompatibleBufferedWriters)[4:end])
+hdf5file(b::MassCompatibleBufferedWriters) = file(b.filt_value.ds)
+function write_to_hdf5(b::MassCompatibleBufferedWriters)
+  write_to_hdf5.([b.filt_value, b.filt_phase, b.timestamp, b.rowcount, b.pretrig_mean, b.pretrig_rms, b.pulse_average,
+  b.pulse_rms, b.rise_time, b.postpeak_deriv, b.peak_index, b.peak_value, b.min_value])
+end
+function Base.schedule(b::MassCompatibleBufferedWriters)
+  b.task=@schedule begin
+    while !isready(b.endchannel)
+      write_to_hdf5(b)
+      sleep(b.timeout_s)
+    end
+    write_to_hdf5(b)
+  end
+end
+stop(b::MassCompatibleBufferedWriters) = put!(b.endchannel,true)
+Base.wait(b::MassCompatibleBufferedWriters) = wait(b.task)
+Base.close(b::MassCompatibleBufferedWriters) = (stop(b);wait(b))
+Base.flush(b::MassCompatibleBufferedWriters) = flush(hdf5file(b))
+function make_buffered_hdf5_writer(h5, channel_number, chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")
-  d=MassCompatibleBufferedWriters([BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(), 0,timeout_s, Channel{Bool}(1), @task nothing) for name in fieldnames(MassCompatibleBufferedWriters)]...)
+  buffered_datasets = [BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(),0) for name in mass_fieldnames]
+  d=MassCompatibleBufferedWriters(Channel{Bool}(1), timeout_s, Task(nothing), buffered_datasets...)
   schedule(d)
   d
 end
@@ -85,15 +92,6 @@ function Base.write(d::MassCompatibleBufferedWriters,x::MassCompatibleDataProduc
   write(d.peak_index, x.peak_index)
   write(d.peak_value, x.peak_value)
   write(d.min_value, x.min_value)
-end
-
-"used in make_buffered_hdf5_writer, shouldn't be used elsewhere"
-Base.schedule(d::MassCompatibleBufferedWriters) = [schedule(getfield(d,s)) for s in fieldnames(MassCompatibleBufferedWriters)]
-function Base.close(d::MassCompatibleBufferedWriters)
-  for s in fieldnames(MassCompatibleBufferedWriters)
-    stop(getfield(d,s))
-  end
-  wait(d)
 end
 
 function write_header(d::MassCompatibleBufferedWriters,r::LJHReaderFeb2017)
@@ -118,5 +116,3 @@ end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)
 end
-"used in make_buffered_hdf5_writer, shouldn't be used elsewhere"
-Base.wait(d::MassCompatibleBufferedWriters) = [wait(getfield(d,name).task) for name in fieldnames(typeof(d))]

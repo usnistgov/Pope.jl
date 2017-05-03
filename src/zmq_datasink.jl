@@ -61,7 +61,7 @@ function Base.close(zds::ZMQDataSink)
   # to reopen it
   # closing the same ZMQ socket multiple times does not error or hang
 end
-
+Base.flush(zds::ZMQDataSink) = nothing
 
 
 module ZMQDataSinkConsts

@@ -110,8 +110,8 @@ wait(@schedule begin
   put!(endchannel,true)
   println("writing stopped") end);
 sleep(3) # make sure ljh files are all fully written, I get errors without this
-Pope.stop.(readers)
-wait.(readers)
+Pope.stop(readers)
+wait(readers)
 println("analyzing stopped")
 
 

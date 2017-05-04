@@ -8,15 +8,21 @@ include("matter_simulator.jl")
 include("zmq_datasink.jl")
 include("ports.jl")
 
-"Readers{T}"
+"Readers is like a Vector{LJHReaderFeb2017} with some additional smarts for
+contruct it with `rs=Readers()`
+then `push!` in intances of `LJHReaderFeb2017`
+then `schedule(rs)`
+later `stop(rs)` and if you want `wait(rs)`
+"
 type Readers{T} <: AbstractVector{T}
   v::Vector{T}
   endchannel::Channel{Bool}
   task::Task
   timeout_s::Float64
 end
-@delegate_oneField(Readers, v, [Base.push!, Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
-Readers(v) = Readers(v,Channel{Bool}(1), Task(nothing), 1.0)
+@delegate_oneField(Readers, v, [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
+Base.push!(rs::Readers,x) = (push!(rs.v,x);rs)
+Readers() = Readers(LJHReaderFeb2017[],Channel{Bool}(1), Task(nothing), 1.0)
 function write_headers(rs::Readers)
   for r in rs
     write_header(r)
@@ -30,6 +36,10 @@ function write_headers(rs::Readers)
     end
     flush(r.product_writer)
     end
+end
+function Base.schedule(rs::Readers)
+  write_headers(rs)
+  schedule.(rs)
 end
 "stop(rs::Readers) Tell all tasks in `rs` and in contents to stop. `wait(rs)` blocks until all tasks are complete."
 function stop(rs::Readers)
@@ -70,7 +80,9 @@ Base.schedule(r::LJHReaderFeb2017) = schedule(r.task)
 stop(r::LJHReaderFeb2017) =   !isready(r.endchannel) && put!(r.endchannel,true)
 Base.wait(r::LJHReaderFeb2017) = wait(r.task)
 write_header(r::LJHReaderFeb2017) = write_header(r.product_writer, r)
-write_header_allchannel(r::LJHReaderFeb2017) = write_header_allchannel(r.product_writer, r)
+function write_header_allchannel(r::LJHReaderFeb2017)
+  write_header_allchannel(r.product_writer, r)
+end
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
@@ -83,7 +95,9 @@ function (r::LJHReaderFeb2017)()
   check_compatability(analyzer, ljh)
   r.ljh = Nullable(ljh)
   if r.progress_meter
-    progress_meter = Progress(length(ljh))
+    ch = LJHUtil.channel(r.fname)
+    progress_meter = Progress(length(ljh),0.25,"Channel $ch Progress: ")
+    progress_meter.tlast -= 1 # make sure it prints at least once by setting tlast back by one second
     i=0
   end
   r.status = "running"
@@ -110,10 +124,9 @@ end
 
 "create an LJHReaderFeb2017.
 If `continuous` is true is will continue trying to read from `fname` until something does
-`put!(reader.endchannel,true)`. If it `continuous` is false, it will stop as soon as it reads all data in the file."
-function make_reader(fname, analyzer, product_writer, ; continuous=true, timeout_s=1, progress_meter=!continuous)
+`put!(reader.endchannel,true)`."
+function make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_meter=false)
   reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s, progress_meter)
-  !continuous && put!(reader.endchannel,true)
   reader
 end
 
@@ -168,6 +181,7 @@ subtype `T` must have methods:
 `write_header(ds::T, f::LJHReaderFeb2017)`
 `write_header_allchannel(ds::T, f::LJHReaderFeb2017)`
 `write_header_end(ds::T,ljh,analyzer)`
+`flush(ds::T)``
 `close(ds)`"
 abstract DataSink
 immutable DataWriter <: DataSink
@@ -186,6 +200,7 @@ function write_header(dw::DataWriter,r::LJHReaderFeb2017)
   # write(dw,"HEADER DONE\n")
 end
 write_header_allchannel(dw::DataWriter, r::LJHReaderFeb2017) = nothing
+Base.flush(dw::DataWriter) = flush(dw.f)
 
 "`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`

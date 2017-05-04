@@ -82,7 +82,7 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
   @show pkfile.filename
   @show output_file
   println("")
-  readers = []
+  readers = Pope.Readers()
   for name in names(pkfile)
     channel_number = parse(Int,name[5:end])
     ljh_filename = Pope.LJHUtil.fnames(ljhpath,channel_number)
@@ -102,6 +102,7 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
     push!(readers, reader)
   end
   close(pkfile)
+  schedule(readers)
   println("Analysis started for $(length(readers)) channels.")
   monitor_endchannel = Channel{Bool}(1)
   @schedule zmq_reporter(Pope.MONITOR_PORT, "Pope analyzing", 2, monitor_endchannel)
@@ -109,9 +110,9 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
 end
 
 function finish_analysis(readers,monitor_endchannel)
-  Pope.stop.(readers)
+  Pope.stop(readers)
   try
-    wait.(readers) # they should process all available data before wait returns
+    wait(readers) # they should process all available data before wait returns
   catch ex
     println("WARNING: There were one or more errors in the reader tasks.")
     Base.show(ex)

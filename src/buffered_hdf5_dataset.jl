@@ -1,5 +1,8 @@
 using HDF5
 
+"Create an hdf5 file at path `fname`. This file is compatible with `HDF5.start_swmr_write` and other Pope requirements."
+h5create(fname) = h5open(fname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
+
 "HDF5 appears to be inefficent for small writes, so this a simple buffer that
 allows me to write to HDF5 only once per unit time (typically one second) to
 limit the number of small writes."
@@ -125,6 +128,7 @@ function write_header_allchannel(d::MassCompatibleBufferedWriters, r::LJHReaderF
   a["nsamples"]=r.analyzer.nsamples
   a["npresamples"]=r.analyzer.npresamples
   a["frametime"]=r.analyzer.frametime
+  flush(h5)
   HDF5.start_swmr_write(h5)
 end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)

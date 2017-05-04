@@ -34,39 +34,36 @@ let
   WT && @code_warntype Pope.max_timeseries_deriv_simple(data, summary.peak_index)
 end
 
-@testset "runtests misc" begin
-#name22 points to an LJH file after the ljh tests are run
-ljh = LJH.LJHFile(name22)
-filter=zeros(ljh.record_nsamples-1) # single lag filter
-filter_at=zeros(ljh.record_nsamples-1) # single lag filter arrival time component
-npresamples=ljh.pretrig_nsamples # number of sample trigger
-nsamples=ljh.record_nsamples # length of pulse in sample
-average_pulse_peak_index=ljh.pretrig_nsamples+30 # peak index of average pulse, look for postpeak_deriv after this
-shift_threshold = 5
-analyzer = Pope.MassCompatibleAnalysisFeb2017(filter, filter_at, npresamples, nsamples, average_pulse_peak_index, ljh.frametime, shift_threshold,[0.0,0.0],[0.0,0.0],"manually made in runtests.jl")
-output_fname = tempname()
-output_f = open(output_fname,"w")
-@show stat(output_f)
-product_writer = Pope.DataWriter(output_f)
-reader = Pope.launch_reader(ljh.filename, analyzer, product_writer;continuous=false)
-try
-  wait(reader.task)
-catch ex
-  Base.show_backtrace(STDOUT,reader.task.backtrace)
-  throw(ex)
-end
-@test reader.status == "done"
+@testset "single reader with DataWriter" begin
+  #name22 points to an LJH file after the ljh tests are run
+  ljh = LJH.LJHFile(name22)
+  filter=zeros(ljh.record_nsamples-1) # single lag filter
+  filter_at=zeros(ljh.record_nsamples-1) # single lag filter arrival time component
+  npresamples=ljh.pretrig_nsamples # number of sample trigger
+  nsamples=ljh.record_nsamples # length of pulse in sample
+  average_pulse_peak_index=ljh.pretrig_nsamples+30 # peak index of average pulse, look for postpeak_deriv after this
+  shift_threshold = 5
+  analyzer = Pope.MassCompatibleAnalysisFeb2017(filter, filter_at, npresamples, nsamples, average_pulse_peak_index, ljh.frametime, shift_threshold,[0.0,0.0],[0.0,0.0],"manually made in runtests.jl")
+  output_fname = tempname()
+  output_f = open(output_fname,"w")
+  @show stat(output_f)
+  product_writer = Pope.DataWriter(output_f)
+  reader = Pope.make_reader(ljh.filename, analyzer, product_writer)
+  readers = push!(Pope.Readers(),reader)
+  schedule(readers)
+  Pope.stop(readers)
+  wait(readers)
+  @test reader.status == "done"
+  f=open(output_fname,"r")
+  d=read(f,sizeof(Pope.MassCompatibleDataProductFeb2017))
+  d2 = reinterpret(Pope.MassCompatibleDataProductFeb2017, d)[1]
+  d3 = analyzer(ljh[1])
+  @test d2==d3
+end #testset single reader with DataWriter
 
 
 
-f=open(output_fname,"r")
-# @show stat(f), position(f)
-# @show output_fname
-d=read(f,sizeof(Pope.MassCompatibleDataProductFeb2017))
-d2 = reinterpret(Pope.MassCompatibleDataProductFeb2017, d)[1]
-d3 = analyzer(ljh[1])
-@test d2==d3
-# dump(product_writer)
+
 
 const preknowledge_filename = "preknowledge.h5"
 const mass_filename = "mass.h5"
@@ -78,17 +75,15 @@ end
 pkfile = h5open(preknowledge_filename,"r")
 analyzer = Pope.analyzer_from_preknowledge(pkfile["chan13"])
 output_fname = tempname()
-output_h5 = h5open(output_fname,"w")
+output_h5 = Pope.h5create(output_fname)
 product_writer = Pope.make_buffered_hdf5_writer(output_h5, 13)
-reader = Pope.launch_reader(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename, analyzer, product_writer;continuous=false)
-try
-  wait(reader.task)
-catch ex
-  Base.show_backtrace(STDOUT,reader.task.backtrace)
-  throw(ex)
-end
+reader = Pope.make_reader(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename, analyzer, product_writer)
+readers = push!(Pope.Readers(),reader)
+schedule(readers)
+Pope.stop(readers)
+wait(reader)
 @test reader.status == "done"
-output_h5
+@test "npresamples" in names(attrs(output_h5))
 close(output_h5)
 # @show product_writer.timestamp_usec
 
@@ -130,7 +125,6 @@ close(popefile)
 
 println("Run python script to open Pope HDF5 file.")
 run(`python mass_open_pope_hdf5.py $output_fname`)
-end #testset runtests misc
 
 # some scripts assume files exist that are created during runtests.jl
 # so put this last

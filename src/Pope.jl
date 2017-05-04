@@ -96,7 +96,7 @@ function (r::LJHReaderFeb2017)()
   r.ljh = Nullable(ljh)
   if r.progress_meter
     ch = LJHUtil.channel(r.fname)
-    progress_meter = Progress(length(ljh),0.25,"Channel $ch Progress: ")
+    progress_meter = Progress(length(ljh),0.25,"Channel $ch: ")
     progress_meter.tlast -= 1 # make sure it prints at least once by setting tlast back by one second
     i=0
   end

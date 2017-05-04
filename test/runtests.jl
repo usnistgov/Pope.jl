@@ -66,11 +66,16 @@ end #testset single reader with DataWriter
 
 
 const preknowledge_filename = "preknowledge.h5"
-const mass_filename = "mass.h5"
-
-if !isfile(preknowledge_filename)
-  run(`python mass_analyzer.py`)
-end
+const mass_filename = "make_preknowledge_temp.hdf5"
+const mass_noise_filename = "make_preknowledge_noise_temp.hdf5"
+isfile(preknowledge_filename) && rm(preknowledge_filename)
+isfile(mass_filename) && rm(mass_filename)
+isfile(mass_noise_filename) && rm(mass_noise_filename)
+pulse_fname = expanduser("~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
+noise_fname = expanduser("~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
+cmd = `python ../scripts/make_preknowledge.py $pulse_fname $noise_fname  --fulloutputpath $preknowledge_filename --noprompt --dont_popeonceafter --filter_data`
+@show cmd
+run(cmd)
 
 pkfile = h5open(preknowledge_filename,"r")
 analyzer = Pope.analyzer_from_preknowledge(pkfile["chan13"])
@@ -95,6 +100,7 @@ for name in names(popefile["chan13"])
   if name in ["calculated_cuts"] # skip things that aren't per pulse quantities
     continue
   end
+  println(name)
   a=popefile["chan13"][name][:]
   b=massfile["chan13"][name][:]
   if eltype(a)==UInt16 #avoid overflow errors in testing

@@ -5,6 +5,7 @@ import mass
 import numpy as np
 import h5py
 import os
+import sys
 
 def mass_analyze(fname, nfname, hdf5_filename, hdf5_noisefilename, preknowledge_filename):
 
@@ -20,8 +21,9 @@ def mass_analyze(fname, nfname, hdf5_filename, hdf5_noisefilename, preknowledge_
     data.compute_filters()
     data.filter_data()
     # ds.calibrate("p_filt_value",cal_lines)
-
+    print("before making file")
     with h5py.File(preknowledge_filename,"w") as h5:
+        print h5.filename
         g = h5.require_group("chan%g"%ds.channum)
 
         # KNOWN PROBLEM: julia fails to read python written strings
@@ -67,15 +69,18 @@ def mass_analyze(fname, nfname, hdf5_filename, hdf5_noisefilename, preknowledge_
 
         g["analysis_type"]="mass compatible feb 2017"
 
+    print("after making file")
     return data
 
 
 if __name__ == "__main__":
-    fname = os.path.expanduser("~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
-    nfname = os.path.expanduser("~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
-    hdf5_filename = os.path.expanduser("~/.julia/v0.5/Pope/test/mass.h5")
-    hdf5_noisefilename = os.path.expanduser("~/.julia/v0.5/Pope/test/mass_noise.h5")
-    preknowledge_filename = os.path.expanduser("~/.julia/v0.5/Pope/test/preknowledge.h5")
+    print sys.argv
+    juliapkgdir = sys.argv[1]
+    fname = os.path.join(juliapkgdir,"ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
+    nfname = os.path.join(juliapkgdir,"ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
+    hdf5_filename = os.path.join(juliapkgdir,"Pope/test/mass.h5")
+    hdf5_noisefilename = os.path.join(juliapkgdir,"Pope/test/mass_noise.h5")
+    preknowledge_filename = os.path.join(juliapkgdir,"Pope/test/preknowledge.h5")
     if os.path.isfile(hdf5_filename): os.remove(hdf5_filename)
     if os.path.isfile(preknowledge_filename): os.remove(preknowledge_filename)
     if os.path.isfile(hdf5_noisefilename): os.remove(hdf5_noisefilename)

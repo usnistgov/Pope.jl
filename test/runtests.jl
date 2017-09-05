@@ -68,11 +68,16 @@ d3 = analyzer(ljh[1])
 @test d2==d3
 # dump(product_writer)
 
-const preknowledge_filename = "preknowledge.h5"
-const mass_filename = "mass.h5"
+const preknowledge_filename = joinpath(@__DIR__,"preknowledge.h5")
+const mass_filename = joinpath(@__DIR__,"mass.h5")
 
+println(preknowledge_filename)
+println(!isfile(preknowledge_filename))
 if !isfile(preknowledge_filename)
-  run(`python mass_analyzer.py`)
+  println("before run")
+  mass_analyzer = joinpath(@__DIR__,"mass_analyzer.py")
+  run(`python $mass_analyzer $(Pkg.dir())`)
+  println("after run")
 end
 
 pkfile = h5open(preknowledge_filename,"r")
@@ -108,16 +113,16 @@ for name in names(popefile["chan13"])
   if name == "peak_index"
     @test all(a-b.==1) # python is 0 based, julia 1 based
   elseif name in ["postpeak_deriv"]
-    @test sum(abs(a-b)./abs(a+b) .< 1e-6)/length(a)>0.993
+    @test sum(abs.(a-b)./abs.(a+b) .< 1e-6)/length(a)>0.993
   elseif name in ["pretrig_rms","peak_value","filt_phase","postpeak_deriv"]
     # @show sum(abs(a-b)./abs(a+b) .< 5e-3)/length(a)
     # I looked at the most extreme different, where pope has RMS ~32, and mass has ~11
     # it was an early trigger by about 6 samples. I believe mass missed it due to the
     # pretrigger_ignore_samples value, but that Pope's behaivor is more desired
-    @test sum(abs(a-b)./abs(a+b) .< 5e-3)/length(a) > 0.995
+    @test sum(abs.(a-b)./abs.(a+b) .< 5e-3)/length(a) > 0.995
   elseif name in ["rise_time"]
     # @show sum(abs(a-b)./abs(a+b) .< 5e-2)/length(a)
-    @test sum(abs(a-b)./abs(a+b) .< 5e-2)/length(a) > 0.995
+    @test sum(abs.(a-b)./abs.(a+b) .< 5e-2)/length(a) > 0.995
   elseif name in ["pulse_average", "pulse_rms"]
     @test isapprox(a,b,rtol=1e-3)
   else
@@ -129,7 +134,7 @@ close(massfile)
 close(popefile)
 
 println("Run python script to open Pope HDF5 file.")
-run(`python mass_open_pope_hdf5.py $output_fname`)
+run(`python mass_open_pope_hdf5.py $output_fname $(Pkg.dir())`)
 end #testset runtests misc
 
 # some scripts assume files exist that are created during runtests.jl

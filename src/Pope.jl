@@ -15,7 +15,7 @@ If `r` is an instances you can
 `wait(r)` to wait on r.task, which will exit after the analysis finishes up
 It is probably better to use `launch_reader` than to call this directly
 "
-type LJHReaderFeb2017{T1,T2}
+mutable struct LJHReaderFeb2017{T1,T2}
   status::String
   fname::String
   ljh::Nullable{LJH.LJHFile}
@@ -25,7 +25,7 @@ type LJHReaderFeb2017{T1,T2}
   endchannel::Channel{Bool}
   progress_meter::Bool # only use this on static ljh files
   task::Task
-  function LJHReaderFeb2017(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
+  function LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) where {T1,T2}
     this = new("initialized",fname, Nullable{LJH.LJHFile}(), analyzer, product_writer, timeout_s, Channel{Bool}(1), progress_meter)
     task = @task this()
     this.task=task
@@ -85,7 +85,7 @@ function launch_reader(fname, analyzer, product_writer; continuous=true, timeout
   reader
 end
 
-immutable MassCompatibleAnalysisFeb2017
+struct MassCompatibleAnalysisFeb2017
   filter::Vector{Float64} # single lag filter
   filter_at::Vector{Float64} # single lag filter arrival time component
   npresamples::Int64 # number of sample trigger
@@ -98,8 +98,8 @@ immutable MassCompatibleAnalysisFeb2017
   pk_filename::String
 end
 
-abstract DataProduct
-immutable MassCompatibleDataProductFeb2017 <: DataProduct
+abstract type DataProduct end
+struct MassCompatibleDataProductFeb2017 <: DataProduct
   filt_value        ::Float32
   filt_phase        ::Float32
   timestamp         ::Float64
@@ -137,8 +137,8 @@ subtype `T` must have methods:
 `write_header_end(ds,ljh,analyzer)` which amends the header after all writing is finalized
 for things like number of records that are only known after all writing
 `close(ds)`"
-abstract DataSink
-immutable DataWriter <: DataSink
+abstract type DataSink end
+struct DataWriter <: DataSink
   f::IOStream
 end
 Base.write(dw::DataWriter,x...) = write(dw.f,x...)
@@ -157,7 +157,7 @@ end
 "`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`
 likewise for `close`, `write_header` and `write_header_end`"
-immutable MultipleDataSink{T} <: DataSink
+struct MultipleDataSink{T} <: DataSink
   t::T
 end
 MultipleDataSink(x...) = MultipleDataSink(x)

@@ -276,7 +276,7 @@ end
 immutable LJHGroupSlice{T<:AbstractArray}
     g::LJHGroup
     slice::T
-    function LJHGroupSlice(ljhgroup, slice)
+    function LJHGroupSlice{T}(ljhgroup, slice) where T
         isempty(slice) || maximum(slice)<=length(ljhgroup) || error("$(maximum(slice)) is greater than nrec=$(length(ljhgroup)) in $ljhgroup")
         new(ljhgroup, slice)
     end
@@ -307,7 +307,7 @@ end
 
 "Get all data from an `LJHGroupSlice`, returned as a tuple of Vectors `(data, rowcount, timestamp_usec)`."
 function get_data_rowcount_timestamp(g::LJHGroupSlice)
-    data = Array(Vector{UInt16},length(g))
+    data = Vector{Vector{UInt16}}(length(g))
     rowcount = zeros(Int64, length(g))
     timestamp_usec = zeros(Int64, length(g))
     get_data_rowcount_timestamp!(g,data,rowcount,timestamp_usec)

@@ -3,7 +3,7 @@ using HDF5
 "HDF5 appears to be inefficent for small writes, so this a simple buffer that
 allows me to write to HDF5 only once per unit time (typically one second) to
 limit the number of small writes."
-type BufferedHDF5Dataset{T}
+mutable struct BufferedHDF5Dataset{T}
   ds::HDF5Dataset
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
@@ -47,7 +47,7 @@ function g_require(parent::Union{HDF5File,HDF5Group}, name)
 	exists(parent,name) ? parent[name] : g_create(parent,name)
 end
 
-immutable MassCompatibleBufferedWriters <: DataSink
+struct MassCompatibleBufferedWriters <: DataSink
   filt_value        ::BufferedHDF5Dataset{Float32}
   filt_phase      ::BufferedHDF5Dataset{Float32}
   timestamp         ::BufferedHDF5Dataset{Float64}

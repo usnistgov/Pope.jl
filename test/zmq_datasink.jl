@@ -17,7 +17,7 @@ function recv_multipart(socket)
 end
 function recv_dataproduct(socket)
   out = recv_multipart(socket)
-  channel_string = takebuf_string(convert(IOStream, out[1]))
+  channel_string = String(take!(convert(IOStream, out[1])))
   channel_number = parse(Int, channel_string)
   dp = read(seekstart(convert(IOStream,out[2])),Pope.MassCompatibleDataProductFeb2017,1)[1]
   return channel_string, channel_number, dp

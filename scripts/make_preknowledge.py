@@ -190,14 +190,14 @@ else:
     exclude_channels=[]
 
 
-available_chans = mass.ljh_get_channels_both(path.join(dir_base, dir_p), path.join(dir_base, dir_n))
+available_chans = mass.ljh_util.ljh_get_channels_both(path.join(dir_base, dir_p), path.join(dir_base, dir_n))
 for chan in exclude_channels:
     available_chans.remove(chan)
 if len(available_chans) == 0:
     raise ValueError("no channels have both noise and pulse data")
 chan_nums = available_chans[:maxnchans]
-pulse_files = mass.ljh_chan_names(path.join(dir_base, dir_p), chan_nums)
-noise_files = mass.ljh_chan_names(path.join(dir_base, dir_n), chan_nums)
+pulse_files = mass.ljh_util.ljh_chan_names(path.join(dir_base, dir_p), chan_nums)
+noise_files = mass.ljh_util.ljh_chan_names(path.join(dir_base, dir_n), chan_nums)
 
 f=mass.LJHFile(pulse_files[0])
 pkfilename0 = args["basename"]+"_%gx%g_%gsamples.preknowledge"%(f.number_of_columns, f.number_of_rows, f.nSamples)
@@ -208,7 +208,7 @@ if args["fulloutputpath"] != "":
 
 #   popeonce.jl <ljhpath> <preknowledge> <output>
 def make_pope_hdf5_name(ljhname):
-    return mass.ljh_basename(ljhname)[0]+".ljh_pope.hdf5"
+    return mass.ljh_util.ljh_basename_channum(ljhname)[0]+".ljh_pope.hdf5"
 assert(make_pope_hdf5_name("/a/b/c/c_chan1.ljh")=="/a/b/c/c.ljh_pope.hdf5")
 pope_hdf5_name = make_pope_hdf5_name(pulse_files[0])
 bdir = path.dirname(os.path.realpath(__file__))

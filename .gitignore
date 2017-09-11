@@ -19,3 +19,5 @@ test/test
 *.pyc
 
 *.sh
+
+*.h5copy

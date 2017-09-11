@@ -7,6 +7,7 @@ include("ljh.jl")
 include("regression.jl")
 include("matter_simulator.jl")
 include("zmq_datasink.jl")
+include("ljhutil.jl")
 
 @testset "wait_for_file_to_exist" begin
   endchannel = Channel{Bool}(1)
@@ -68,37 +69,22 @@ d3 = analyzer(ljh[1])
 @test d2==d3
 # dump(product_writer)
 
-const preknowledge_filename = joinpath(@__DIR__,"preknowledge.h5")
-const mass_filename = joinpath(@__DIR__,"mass.h5")
 
-println(preknowledge_filename)
-println(!isfile(preknowledge_filename))
-if !isfile(preknowledge_filename)
-  println("before run")
-  mass_analyzer = joinpath(@__DIR__,"mass_analyzer.py")
-  run(`python $mass_analyzer $(Pkg.dir())`)
-  println("after run")
-end
 
-pkfile = h5open(preknowledge_filename,"r")
-analyzer = Pope.analyzer_from_preknowledge(pkfile["chan13"])
-output_fname = tempname()
-output_h5 = h5open(output_fname,"w")
-product_writer = Pope.make_buffered_hdf5_writer(output_h5, 13)
-reader = Pope.launch_reader(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename, analyzer, product_writer;continuous=false)
-try
-  wait(reader.task)
-catch ex
-  Base.show_backtrace(STDOUT,reader.task.backtrace)
-  throw(ex)
-end
-@test reader.status == "done"
-output_h5
-close(output_h5)
-# @show product_writer.timestamp_usec
+# create the following files
+const preknowledge_filename = joinpath(@__DIR__,"pk_1x32_3072samples.preknowledge")
+const mass_filename = joinpath(@__DIR__,"make_preknowledge_temp.hdf5")
+const pope_output_filename = joinpath(@__DIR__,"output.h5")
+isfile(preknowledge_filename) && rm(preknowledge_filename)
+isfile(mass_filename) && rm(mass_filename)
+isfile(pope_output_filename) && rm(pope_output_filename)
 
+# by running make_preknowledge and popeonce
+include("scripts.jl")
+
+# compare the values in the mass output to the values in the pope output
 massfile = h5open(mass_filename,"r")
-popefile = h5open(output_fname,"r")
+popefile = h5open(pope_output_filename,"r")
 names(popefile["chan13"])
 names(massfile["chan13"])
 for name in names(popefile["chan13"])
@@ -134,9 +120,5 @@ close(massfile)
 close(popefile)
 
 println("Run python script to open Pope HDF5 file.")
-run(`python mass_open_pope_hdf5.py $output_fname $(Pkg.dir())`)
+run(`python mass_open_pope_hdf5.py $pope_output_filename $(Pkg.dir())`)
 end #testset runtests misc
-
-# some scripts assume files exist that are created during runtests.jl
-# so put this last
-include("scripts.jl")

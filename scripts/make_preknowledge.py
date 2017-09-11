@@ -165,6 +165,7 @@ parser.add_argument('--fulloutputpath',help="provide the full output path to the
 parser.add_argument('--noprompt',help="skip the sanity check prompt (for automated use)",action='store_true')
 parser.add_argument('--f3db',help="set f3db for filters (default 20000 hz)",default="20000",type=float)
 parser.add_argument('--dont_popeonceafter',help="supply to avoid running popeonce with the new preknowledge, on pulse_file",action="store_true")
+parser.add_argument('--apply_filters',help="for testing this will apply filters with mass, this has no effect on the preknowledge file",action="store_true")
 args = vars(parser.parse_args())
 for (k,v) in args.iteritems():
     print("%s: %s"%(k, v))
@@ -275,6 +276,9 @@ if not s=="": print(s[:-2])
 
 data.avg_pulses_auto_masks(forceNew=forceNew)  # creates masks and compute average pulses
 data.compute_filters(f_3db=args["f3db"], forceNew=forceNew)
+if args["apply_filters"]:
+    print("applying filters per command line argument")
+    data.filter_data()
 
 
 print("writing preknowledge file")

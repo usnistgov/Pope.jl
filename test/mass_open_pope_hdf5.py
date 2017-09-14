@@ -37,7 +37,8 @@ def open_pope_hdf5_with_ljh(ljhfilename, noisefilename, hdf5_filename):
 
 
 if __name__ == "__main__":
-    print sys.argv # arguments should be: hdf5_filename
+    print("starting mass_open_pope_hdf5.py")
+    print(sys.argv) # arguments should be: hdf5_filename
     hdf5_filename = sys.argv[1]
     juliapkgdir = sys.argv[2]
     # open file with ljh files
@@ -50,4 +51,4 @@ if __name__ == "__main__":
 
     #open file without ljh files
     data1 = open_pope_hdf5_only(hdf5_filename)
-    print data1
+    print(data1)

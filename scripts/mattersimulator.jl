@@ -11,8 +11,8 @@ Usage:
 
 Options:
   --maxchannels=<mc>   Maximum number of channels to re-write. [default: 240].
-  --timeout=<to>       Maximum time (in seconds) to wait between writing successive pulses. [default: 0.01]
-  --fastforward=<ff>   Reduce the delays between pulses by this factor. Use with large timeout to replay fast, but with better synchronization. [default: 1.0]
+  --timeout=<to>       Maximum time (in seconds) to wait between writing successive pulses. Will not maintain synchronization between channels. [default: 0.01]
+  --fastforward=<ff>   Reduce the delays between pulses by this factor. Use with large timeout to replay fast, but with synchronization. [default: 1.0]
 
 Help exposition:
   Where <ljhpath> points to a single ljh file, and <output> points directory in which to re-write the ljh files.

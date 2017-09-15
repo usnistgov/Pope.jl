@@ -5,13 +5,14 @@ doc = """
 Matter Simulator (aka LJH Rewriter)
 Usage:
   mattersimulator.jl <ljhpath> [<output>]
-  mattersimulator.jl --maxchannels=4 <ljhpath> [<output>]
-  mattersimulator.jl --timeout=0 <ljhpath> [<output>]
+  mattersimulator.jl [--maxchannels=4] [--timeout=0] [--fastforward=3.2] <ljhpath> [<output>]
+  mattersimulator.jl <ljhpath> [<output>]
   mattersimulator.jl -h | --help
 
 Options:
   --maxchannels=<mc>   Maximum number of channels to re-write. [default: 240].
   --timeout=<to>       Maximum time (in seconds) to wait between writing successive pulses. [default: 0.01]
+  --fastforward=<ff>   Reduce the delays between pulses by this factor. Use with large timeout to replay fast, but with better synchronization. [default: 1.0]
 
 Help exposition:
   Where <ljhpath> points to a single ljh file, and <output> points directory in which to re-write the ljh files.
@@ -31,6 +32,7 @@ Help exposition:
 arguments = docopt(doc, version=v"0.0.1")
 maxchannels = parse(Int,arguments["--maxchannels"])
 timeout_s = parse(Float64,arguments["--timeout"])
+fastforward = parse(Float64,arguments["--fastforward"])
 ljhpath = expanduser(arguments["<ljhpath>"])
 output = arguments["<output>"]
 if output == nothing
@@ -45,4 +47,4 @@ if ulimit() <= 500
   exist()
 end
 
-Pope.mattersim(ljhpath, output, timeout_s, maxchannels)
+Pope.mattersim(ljhpath, output, timeout_s, fastforward, maxchannels)

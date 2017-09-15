@@ -22,16 +22,14 @@ function timed_ljh_rewriter(src, dest, timeout_s, fastforward, pulses_written, p
   end
   record = ljh0[1]
   tlast = record.timestamp_usec
-  to_sleep_s = 0.0
+  t_start = time()
+  tnext = t_start
   for record in ljh0
-    sleep_s = clamp((record.timestamp_usec-tlast)*1e-6/fastforward,0,timeout_s)
+    tnext += clamp((record.timestamp_usec-tlast)*1e-6/fastforward,0,timeout_s)
     tlast = record.timestamp_usec
-    to_sleep_s+=sleep_s
+    to_sleep_s = max(0.0,tnext-time())
     if to_sleep_s>=0.001 #minimum sleep time is 0.001 s, don't bother sleeping
-      tstart = time()
       sleep(to_sleep_s)
-      tdone = time()
-      to_sleep_s-=tdone-tstart #subtract actual time slept
     end
     write(ljh1,record)
     pulses_written[i]+=1

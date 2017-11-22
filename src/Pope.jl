@@ -1,5 +1,5 @@
 module Pope
-using HDF5, ProgressMeter, ZMQ
+using HDF5, ProgressMeter, ZMQ, TypedDelegation
 include("LJH.jl")
 include("ljhutil.jl")
 include("summarize.jl")
@@ -7,6 +7,50 @@ include("apply_filter.jl")
 include("matter_simulator.jl")
 include("zmq_datasink.jl")
 include("ports.jl")
+
+"Readers is like a Vector{LJHReaderFeb2017} with some additional smarts for
+contruct it with `rs=Readers()`
+then `push!` in intances of `LJHReaderFeb2017`
+then `schedule(rs)`
+later `stop(rs)` and if you want `wait(rs)`
+"
+mutable struct Readers{T} <: AbstractVector{T}
+  v::Vector{T}
+  endchannel::Channel{Bool}
+  task::Task
+  timeout_s::Float64
+end
+@delegate_onefield(Readers, v, [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
+Base.push!(rs::Readers,x) = (push!(rs.v,x);rs)
+Readers() = Readers(LJHReaderFeb2017[],Channel{Bool}(1), Task(nothing), 1.0)
+function write_headers(rs::Readers)
+  for r in rs
+    write_header(r)
+  end
+  r=first(rs)
+  write_header_allchannel(r)
+  rs.task = @schedule begin
+    while !isready(rs.endchannel)
+      sleep(rs.timeout_s)
+      flush(r.product_writer) # this task flushes the HDF5 file backing the product writer once per timeout_s
+    end
+    flush(r.product_writer)
+    end
+end
+function Base.schedule(rs::Readers)
+  write_headers(rs)
+  schedule.(rs)
+end
+"stop(rs::Readers) Tell all tasks in `rs` and in contents to stop. `wait(rs)` blocks until all tasks are complete."
+function stop(rs::Readers)
+  put!(rs.endchannel,true)
+  stop.(rs.v)
+end
+"wait(rs::Readers) Call after `stop`. Waits until all tasks associated with `rs` are done."
+function Base.wait(rs::Readers)
+  wait(rs.task)
+  wait.(rs.v)
+end
 
 "LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 If `r` is an instances you can
@@ -33,6 +77,13 @@ mutable struct LJHReaderFeb2017{T1,T2}
   end
 end
 LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
+Base.schedule(r::LJHReaderFeb2017) = schedule(r.task)
+stop(r::LJHReaderFeb2017) =   !isready(r.endchannel) && put!(r.endchannel,true)
+Base.wait(r::LJHReaderFeb2017) = wait(r.task)
+write_header(r::LJHReaderFeb2017) = write_header(r.product_writer, r)
+function write_header_allchannel(r::LJHReaderFeb2017)
+  write_header_allchannel(r.product_writer, r)
+end
 
 function (r::LJHReaderFeb2017)()
   fname, analyzer, product_writer, endchannel, timeout_s = r.fname, r.analyzer, r.product_writer, r.endchannel, r.timeout_s
@@ -45,11 +96,11 @@ function (r::LJHReaderFeb2017)()
   check_compatability(analyzer, ljh)
   r.ljh = Nullable(ljh)
   if r.progress_meter
-    progress_meter = Progress(length(ljh))
+    ch = LJHUtil.channel(r.fname)
+    progress_meter = Progress(length(ljh),0.25,"Channel $ch: ")
+    progress_meter.tlast -= 1 # make sure it prints at least once by setting tlast back by one second
     i=0
   end
-  #@show r.ljh
-  write_header(product_writer, ljh, r.analyzer)
   r.status = "running"
   while true
     while true # read and process all data
@@ -69,19 +120,14 @@ function (r::LJHReaderFeb2017)()
   r.status = "done"
 end
 
-function stop(r::LJHReaderFeb2017)
-  !isready(r.endchannel) && put!(r.endchannel,true)
-end
-Base.wait(r::LJHReaderFeb2017) = wait(r.task)
 
 
-"Launch create and launch an LJHReaderFeb2017.
+
+"create an LJHReaderFeb2017.
 If `continuous` is true is will continue trying to read from `fname` until something does
-`put!(reader.endchannel,true)`. If it `continuous` is false, it will stop as soon as it reads all data in the file."
-function launch_reader(fname, analyzer, product_writer; continuous=true, timeout_s=1, progress_meter=!continuous)
+`put!(reader.endchannel,true)`."
+function make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_meter=false)
   reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s, progress_meter)
-  !continuous && put!(reader.endchannel,true)
-  schedule(reader.task)
   reader
 end
 
@@ -133,9 +179,10 @@ end
 "asbstract DataSink
 subtype `T` must have methods:
 `write(ds::T, dp::S)` where `S` is a subtype of DataProduct
-`write_header(ds, ljh, analyzer)` where ljh is an LJHFile, and analyzer is a MassCompatibleAnalysisFeb2017
-`write_header_end(ds,ljh,analyzer)` which amends the header after all writing is finalized
-for things like number of records that are only known after all writing
+`write_header(ds::T, f::LJHReaderFeb2017)`
+`write_header_allchannel(ds::T, f::LJHReaderFeb2017)`
+`write_header_end(ds::T,ljh,analyzer)`
+`flush(ds::T)``
 `close(ds)`"
 abstract type DataSink end
 struct DataWriter <: DataSink
@@ -148,11 +195,13 @@ end
 Base.close(dw::DataWriter) = close(dw.f)
 function write_header_end(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
 end
-function write_header(dw::DataWriter,f::LJH.LJHFile, analzyer::MassCompatibleAnalysisFeb2017)
+function write_header(dw::DataWriter,r::LJHReaderFeb2017)
   # dump(dw.f,Pope.MassCompatibleDataProductFeb2017)
   # write(dw, "from file: $f.filename\n")
   # write(dw,"HEADER DONE\n")
 end
+write_header_allchannel(dw::DataWriter, r::LJHReaderFeb2017) = nothing
+Base.flush(dw::DataWriter) = flush(dw.f)
 
 "`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`
@@ -167,14 +216,20 @@ function Base.write(mds::MultipleDataSink, x...)
   end
 end
 Base.close(mds::MultipleDataSink) = map(close,mds.t)
-function write_header(mds::MultipleDataSink, ljh, analyzer)
+function write_header(mds::MultipleDataSink, x...)
   for ds in mds.t
-    write_header(ds,ljh,analyzer)
+    write_header(ds,x...)
   end
 end
-function write_header_end(mds::MultipleDataSink, ljh, analyzer)
+function write_header_end(mds::MultipleDataSink, x...)
   for ds in mds.t
-    write_header_end(ds,ljh,analyzer)
+    write_header_end(ds,x...)
+  end
+end
+Base.flush(mds::MultipleDataSink) = map(flush, mds.t)
+function write_header_allchannel(mds::MultipleDataSink, x...)
+  for ds in mds.t
+    write_header_allchannel(ds,x...)
   end
 end
 

@@ -28,7 +28,7 @@ using Pope
 
 pkfile = h5open(preknowledge_filename,"r")
 if !isfile(output_filename) || arguments["--overwriteoutput"]
-  output_file = h5open(output_filename,"w")
+  output_file = Pope.h5create(output_filename)
 else
   println("ERROR: $output_filename already exists, cannot use it as output file")
   exit()
@@ -41,6 +41,8 @@ println("starting Pope analysis:")
 println("")
 
 Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
+readers = Pope.Readers()
+channels = Int[]
 for name in names(pkfile)
   channel_number = parse(Int,name[5:end])
   ljh_filename = Pope.LJHUtil.fnames(ljhpath,channel_number)
@@ -54,11 +56,14 @@ for name in names(pkfile)
     println("Channel $channel_number: failed to generate analyzer from preknowledge file")
     continue
   end
-  println("Channel $channel_number: starting analysis")
   product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file, channel_number)
-  reader = Pope.launch_reader(ljh_filename, analyzer, product_writer;continuous=false)
-  wait(reader.task)
-  println("Channel $channel_number: finished analysis, status = $(reader.status)")
+  reader = Pope.make_reader(ljh_filename, analyzer, product_writer,progress_meter=true)
+  push!(readers, reader)
+  push!(channels, channel_number)
 end
+println("Channels: ",repr(channels))
+schedule(readers)
+Pope.stop(readers) # stop readers immediatley, they will analyze all pulses in each ljh, but not look for new pulses
+wait(readers)
 
 println("done")

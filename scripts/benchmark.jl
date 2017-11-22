@@ -77,8 +77,8 @@ println("Writing in progress")
 
 nozmq || Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 println("Starting analyzing")
-h5 = h5open(outputname,"w")
-readers = []
+h5 = h5open(outputname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
+readers = Pope.Readers()
 fname=""
 for channel in channels
   fname = LJHUtil.fnames(dname, channel)
@@ -88,9 +88,10 @@ for channel in channels
   else
     product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(h5, channel)
   end
-  reader = Pope.launch_reader(fname, analyzer, product_writer;continuous=true)
+  reader = Pope.make_reader(fname, analyzer, product_writer)
   push!(readers, reader)
 end
+schedule(readers)
 println("Analyzing in progress")
 println("Analyzing for $runtime_s seconds")
 wait(@schedule begin
@@ -107,8 +108,8 @@ wait(@schedule begin
   put!(endchannel,true)
   println("writing stopped") end);
 sleep(3) # make sure ljh files are all fully written, I get errors without this
-Pope.stop.(readers)
-wait.(readers)
+Pope.stop(readers)
+wait(readers)
 println("analyzing stopped")
 
 

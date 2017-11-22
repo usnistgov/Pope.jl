@@ -1,5 +1,8 @@
 using HDF5
 
+"Create and return an hdf5 file at path `fname`. This file is compatible with `HDF5.start_swmr_write` and other Pope requirements."
+h5create(fname) = h5open(fname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
+
 "HDF5 appears to be inefficent for small writes, so this a simple buffer that
 allows me to write to HDF5 only once per unit time (typically one second) to
 limit the number of small writes."
@@ -7,11 +10,11 @@ mutable struct BufferedHDF5Dataset{T}
   ds::HDF5Dataset
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
-  timeout_s::Float64 # interval in seconds at which to transfer data from v to ds
-  endchannel::Channel{Bool} # stop writing if this channel is ready
-  task::Task
 end
 
+"d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
+Equivalent to `d[range]=value` on an extendible on dimensional HDF5Dataset `d` except
+that the length of `d` is set to `maximum(range)` before writing."
 function d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
   set_dims!(d, (maximum(range),))
 	d[range] = value
@@ -28,28 +31,22 @@ function write_to_hdf5(b::BufferedHDF5Dataset)
   return
 end
 
-function Base.schedule(b::BufferedHDF5Dataset)
-  b.task=@schedule begin
-    while !isready(b.endchannel)
-      write_to_hdf5(b)
-      sleep(b.timeout_s)
-    end
-    write_to_hdf5(b)
-  end
-end
-stop(b::BufferedHDF5Dataset) = put!(b.endchannel,true)
-Base.wait(b::BufferedHDF5Dataset) = wait(b.task)
+
 
 Base.write{T}(b::BufferedHDF5Dataset{T},x::T) = push!(b.v,x)
 Base.write{T}(b::BufferedHDF5Dataset{T},x::Vector{T}) = append!(b.v,x)
 
+"g_require(parent::Union{HDF5File,HDF5Group}, name)
+Retrieve or create an hdf5 group with name `name` from or in `parent.`"
 function g_require(parent::Union{HDF5File,HDF5Group}, name)
 	exists(parent,name) ? parent[name] : g_create(parent,name)
 end
-
-struct MassCompatibleBufferedWriters <: DataSink
+mutable struct MassCompatibleBufferedWriters <: DataSink
+  endchannel        ::Channel{Bool}
+  timeout_s         ::Float64
+  task              ::Task
   filt_value        ::BufferedHDF5Dataset{Float32}
-  filt_phase      ::BufferedHDF5Dataset{Float32}
+  filt_phase        ::BufferedHDF5Dataset{Float32}
   timestamp         ::BufferedHDF5Dataset{Float64}
   rowcount          ::BufferedHDF5Dataset{Int64}
   pretrig_mean      ::BufferedHDF5Dataset{Float32}
@@ -62,10 +59,29 @@ struct MassCompatibleBufferedWriters <: DataSink
   peak_value        ::BufferedHDF5Dataset{UInt16}
   min_value         ::BufferedHDF5Dataset{UInt16}
 end
-
-function make_buffered_hdf5_writer(h5, channel_number,chunksize=1000, timeout_s=1.0)
+const mass_fieldnames = collect(fieldnames(MassCompatibleBufferedWriters)[4:end])
+hdf5file(b::MassCompatibleBufferedWriters) = file(b.filt_value.ds)
+function write_to_hdf5(b::MassCompatibleBufferedWriters)
+  write_to_hdf5.([b.filt_value, b.filt_phase, b.timestamp, b.rowcount, b.pretrig_mean, b.pretrig_rms, b.pulse_average,
+  b.pulse_rms, b.rise_time, b.postpeak_deriv, b.peak_index, b.peak_value, b.min_value])
+end
+function Base.schedule(b::MassCompatibleBufferedWriters)
+  b.task=@schedule begin
+    while !isready(b.endchannel)
+      write_to_hdf5(b)
+      sleep(b.timeout_s)
+    end
+    write_to_hdf5(b)
+  end
+end
+stop(b::MassCompatibleBufferedWriters) = put!(b.endchannel,true)
+Base.wait(b::MassCompatibleBufferedWriters) = wait(b.task)
+Base.close(b::MassCompatibleBufferedWriters) = (stop(b);wait(b))
+Base.flush(b::MassCompatibleBufferedWriters) = flush(hdf5file(b))
+function make_buffered_hdf5_writer(h5, channel_number, chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")
-  d=MassCompatibleBufferedWriters([BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(), 0,timeout_s, Channel{Bool}(1), @task nothing) for name in fieldnames(MassCompatibleBufferedWriters)]...)
+  buffered_datasets = [BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(),0) for name in mass_fieldnames]
+  d=MassCompatibleBufferedWriters(Channel{Bool}(1), timeout_s, Task(nothing), buffered_datasets...)
   schedule(d)
   d
 end
@@ -86,44 +102,40 @@ function Base.write(d::MassCompatibleBufferedWriters,x::MassCompatibleDataProduc
   write(d.min_value, x.min_value)
 end
 
-"used in make_buffered_hdf5_writer, shouldn't be used elsewhere"
-Base.schedule(d::MassCompatibleBufferedWriters) = [schedule(getfield(d,s)) for s in fieldnames(MassCompatibleBufferedWriters)]
-function Base.close(d::MassCompatibleBufferedWriters)
-  for s in fieldnames(MassCompatibleBufferedWriters)
-    stop(getfield(d,s))
-  end
-  wait(d)
-end
-
-function write_header(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
-  # this is called once per ljh file, but we only want to write to the
-  # top level of the HDF5 file once
-  a=attrs(d.filt_value.ds.file)
-  if !("nsamples" in names(a))
-    a["nsamples"]=ljh.record_nsamples
-    a["npresamples"]=ljh.pretrig_nsamples
-    a["frametime"]=ljh.frametime
-  end
-  # we can write to the group for this ljh file (eg chan13), other calls won't write to this group
+function write_header(d::MassCompatibleBufferedWriters,r::LJHReaderFeb2017)
   channelgroup = parent(d.filt_value.ds)
   g_create(channelgroup, "calculated_cuts")
-  channelgroup["calculated_cuts"]["pretrig_rms"]=analyzer.pretrigger_rms_cuts
-  channelgroup["calculated_cuts"]["postpeak_deriv"]=analyzer.postpeak_deriv_cuts
+  channelgroup["calculated_cuts"]["pretrig_rms"]=r.analyzer.pretrigger_rms_cuts
+  channelgroup["calculated_cuts"]["postpeak_deriv"]=r.analyzer.postpeak_deriv_cuts
   channelattrs = attrs(channelgroup)
-  channelattrs["filename"]=ljh.filename
-  channelattrs["pope_preknowledge_file"]=analyzer.pk_filename
-  channelattrs["channum"]=ljh.channum
+  channelattrs["filename"]=r.fname
+  channelattrs["pope_preknowledge_file"]=r.analyzer.pk_filename
+  channelattrs["channum"]=LJHUtil.channel(r.fname)
   channelattrs["noise_filename"]="analyzed by pope, see `pope_preknowledge_file`"
 end
 function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)
-  channelgroup = parent(d.filt_value.ds)
-  channelattrs = attrs(channelgroup)
-  # when write_header_end is called, some values may not be flushed to hdf5 yet
-  # so I add lasti (number pulses written to hdf5) + length(v) (number pulses to be written)
-  channelattrs["npulses"]=d.filt_value.lasti+length(d.filt_value.v)
+  # dont add datasets, groups or attributes after SWMR writing is started
+  # channelgroup = parent(d.filt_value.ds)
+  # channelattrs = attrs(channelgroup)
+  # # when write_header_end is called, some values may not be flushed to hdf5 yet
+  # # so I add lasti (number pulses written to hdf5) + length(v) (number pulses to be written)
+  # channelattrs["npulses"]=d.filt_value.lasti+length(d.filt_value.v)
+end
+"write_header_allchannel(d::MassCompatibleBufferedWriters, nsamples, npresamples, frametime)
+This function is only called once per ljh file, not once per channel. So you
+  can do something like start_swmr_write which should only be called once
+  per hdf5 file."
+function write_header_allchannel(d::MassCompatibleBufferedWriters, r::LJHReaderFeb2017)
+  h5 = hdf5file(d)
+  a = attrs(h5)
+  # execute only once for the whole HDF5 file
+  "nsamples" in names(a) && error("only call_write_header_allchannels once per ljh file set, not once per channel")
+  a["nsamples"]=r.analyzer.nsamples
+  a["npresamples"]=r.analyzer.npresamples
+  a["frametime"]=r.analyzer.frametime
+  flush(h5)
+  HDF5.start_swmr_write(h5)
 end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)
 end
-"used in make_buffered_hdf5_writer, shouldn't be used elsewhere"
-Base.wait(d::MassCompatibleBufferedWriters) = [wait(getfield(d,name).task) for name in fieldnames(typeof(d))]

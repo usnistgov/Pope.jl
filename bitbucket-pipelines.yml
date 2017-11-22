@@ -4,10 +4,10 @@ pipelines:
   default:
     - step:
         script:
+          - julia -e 'Pkg.clone("https://github.com/ggggggggg/ReferenceMicrocalFiles.jl")'
           - ls -a
           - pwd
           - cd ..
           - ls -a
-          - julia -e 'Pkg.clone("https://github.com/ggggggggg/ReferenceMicrocalFiles.jl")'
-          - cp -r ../Pope ~/.julia/v0.6/
+          - cp -r * ~/.julia/v0.6/Pope
           - julia -e 'Pkg.test("Pope")'

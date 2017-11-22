@@ -1,0 +1,9 @@
+image: julia:0.6.1
+
+pipelines:
+  default:
+    - step:
+        script:
+          - julia -e 'Pkg.add("Pope")'
+          - julia -e 'Pkg.add("ReferenceMicrocalFiles")'
+          - julia -e 'Pkg.test("Pope")'

@@ -14,7 +14,7 @@ Help exposition:
   Where <ljhpath> points to a single ljh file, and <preknowledge> points to a valid HDF5 file in the pope preknowledge format. <output> points to a location where the output hdf5 file will be written.
 
   If you have succesfully run `Pkg.test("Pope")` from within Julia, this should work:
-  ./popeonce.jl --overwriteoutput ~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh ~/.julia/v0.5/Pope/test/preknowledge.h5 output.h5
+  ./popeonce.jl --overwriteoutput ~/.julia/v0.6/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh ~/.julia/v0.6/Pope/test/preknowledge.h5 output.h5
 """
 
 

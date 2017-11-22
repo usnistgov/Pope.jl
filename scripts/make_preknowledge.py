@@ -140,7 +140,7 @@ def write_preknowledge_ds(g,ds):
         g["summarize"]["peak_index"]=ds.peakindex1
 
         g.require_group("cuts")
-        for (k,v) in ds.usedcuts.cuts_prm.iteritems():
+        for (k,v) in ds.usedcuts.cuts_prm.items():
             if v is not None:
                 g["cuts"][k] = np.array([v[0],v[1]])
 
@@ -166,8 +166,9 @@ parser.add_argument('--noprompt',help="skip the sanity check prompt (for automat
 parser.add_argument('--f3db',help="set f3db for filters (default 20000 hz)",default="20000",type=float)
 parser.add_argument('--dont_popeonceafter',help="supply to avoid running popeonce with the new preknowledge, on pulse_file",action="store_true")
 parser.add_argument('--filter_data',help="run data.filter_data in addition to bare minimum required for calculation preknowledge, for testing, makes things slower and puts meaningful filt_value and filt_phase in make_preknowledge_temp.hdf5",action="store_true")
+parser.add_argument('--apply_filters',help="for testing this will apply filters with mass, this has no effect on the preknowledge file",action="store_true")
 args = vars(parser.parse_args())
-for (k,v) in args.iteritems():
+for (k,v) in args.items():
     print("%s: %s"%(k, v))
 
 dir_p = args["pulse_file"]
@@ -276,7 +277,8 @@ if not s=="": print(s[:-2])
 
 data.avg_pulses_auto_masks(forceNew=forceNew)  # creates masks and compute average pulses
 data.compute_filters(f_3db=args["f3db"], forceNew=forceNew)
-if args["filter_data"]:
+if args["apply_filters"]:
+    print("applying filters per command line argument")
     data.filter_data()
 
 

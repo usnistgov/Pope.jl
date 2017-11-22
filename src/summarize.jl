@@ -1,4 +1,4 @@
-immutable PulseSummary
+struct PulseSummary
   pretrig_mean      ::Float64
   pretrig_rms       ::Float64
   pulse_average     ::Float64

@@ -10,6 +10,7 @@ def normalized_average_pulse(ds):
 
 def channels_with_odd_average_pulse(data,nsigma=5):
     channums = np.array([ds.channum for ds in data])
+    ds = data.first_good_dataset
     norm_avg_pulses = np.zeros((ds.nSamples, len(channums)))
     for i,ds in enumerate(data):
         norm_avg_pulses[:,i]=normalized_average_pulse(ds)

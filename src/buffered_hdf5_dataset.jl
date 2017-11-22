@@ -1,17 +1,20 @@
 using HDF5
 
-"Create an hdf5 file at path `fname`. This file is compatible with `HDF5.start_swmr_write` and other Pope requirements."
+"Create and return an hdf5 file at path `fname`. This file is compatible with `HDF5.start_swmr_write` and other Pope requirements."
 h5create(fname) = h5open(fname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
 
 "HDF5 appears to be inefficent for small writes, so this a simple buffer that
 allows me to write to HDF5 only once per unit time (typically one second) to
 limit the number of small writes."
-type BufferedHDF5Dataset{T}
+mutable struct BufferedHDF5Dataset{T}
   ds::HDF5Dataset
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
 end
 
+"d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
+Equivalent to `d[range]=value` on an extendible on dimensional HDF5Dataset `d` except
+that the length of `d` is set to `maximum(range)` before writing."
 function d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
   set_dims!(d, (maximum(range),))
 	d[range] = value
@@ -33,10 +36,12 @@ end
 Base.write{T}(b::BufferedHDF5Dataset{T},x::T) = push!(b.v,x)
 Base.write{T}(b::BufferedHDF5Dataset{T},x::Vector{T}) = append!(b.v,x)
 
+"g_require(parent::Union{HDF5File,HDF5Group}, name)
+Retrieve or create an hdf5 group with name `name` from or in `parent.`"
 function g_require(parent::Union{HDF5File,HDF5Group}, name)
 	exists(parent,name) ? parent[name] : g_create(parent,name)
 end
-type MassCompatibleBufferedWriters <: DataSink
+mutable struct MassCompatibleBufferedWriters <: DataSink
   endchannel        ::Channel{Bool}
   timeout_s         ::Float64
   task              ::Task

@@ -37,16 +37,18 @@ def open_pope_hdf5_with_ljh(ljhfilename, noisefilename, hdf5_filename):
 
 
 if __name__ == "__main__":
-    print sys.argv # arguments should be: hdf5_filename
+    print("starting mass_open_pope_hdf5.py")
+    print(sys.argv) # arguments should be: hdf5_filename
     hdf5_filename = sys.argv[1]
+    juliapkgdir = sys.argv[2]
     # open file with ljh files
     # make a copy of the ljh file first, so that it doesn't affect the next test without ljh files
-    fname = os.path.expanduser("~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
-    nfname = os.path.expanduser("~/.julia/v0.5/ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
+    fname = os.path.join(juliapkgdir,"ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
+    nfname = os.path.join(juliapkgdir,"ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
     hdf5_filename_copy = hdf5_filename+"copy"
     shutil.copy(hdf5_filename,hdf5_filename_copy)
     data0 = open_pope_hdf5_with_ljh(fname, nfname, hdf5_filename_copy)
 
     #open file without ljh files
     data1 = open_pope_hdf5_only(hdf5_filename)
-    print data1
+    print(data1)

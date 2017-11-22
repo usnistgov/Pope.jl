@@ -1,7 +1,8 @@
-julia 0.5
+julia 0.6
 HDF5
 DocOpt
 ProgressMeter
 DataStructures
 ZMQ
 TypedDelegation
+Distributions

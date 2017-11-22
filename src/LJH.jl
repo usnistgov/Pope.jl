@@ -34,7 +34,7 @@ function ljh_get_header_dict(io::IO)
     headerdict
 end
 
-type LJHFile{VersionInt, T<:IO}
+mutable struct LJHFile{VersionInt, T<:IO}
     filename             ::String   # filename
     io               ::IO         # IO to read from LJH file
     headerdict       ::Dict             # LJH file header data
@@ -48,7 +48,7 @@ type LJHFile{VersionInt, T<:IO}
     num_columns      ::Int16            # number of rows
     num_rows         ::Int16            # number of columns
 end
-immutable LJHRecord
+struct LJHRecord
     data::Vector{UInt16}
     rowcount::Int64
     timestamp_usec::Int64
@@ -195,7 +195,7 @@ end
 
 """Represent one or more LJHFiles as a seamless sequence that can be addressed
 by record number from 1 to the sum of all records in the group."""
-type LJHGroup
+mutable struct LJHGroup
     ljhfiles::Vector{LJHFile}
     lengths::Vector{Int}
 end
@@ -273,10 +273,10 @@ end
 
 
 "LJHGroupSlice is used to allow acces to ranges of LJH records, eg `[r.data for r in ljh[1:100]]`."
-immutable LJHGroupSlice{T<:AbstractArray}
+struct LJHGroupSlice{T<:AbstractArray}
     g::LJHGroup
     slice::T
-    function LJHGroupSlice(ljhgroup, slice)
+    function LJHGroupSlice{T}(ljhgroup, slice) where T
         isempty(slice) || maximum(slice)<=length(ljhgroup) || error("$(maximum(slice)) is greater than nrec=$(length(ljhgroup)) in $ljhgroup")
         new(ljhgroup, slice)
     end
@@ -307,7 +307,7 @@ end
 
 "Get all data from an `LJHGroupSlice`, returned as a tuple of Vectors `(data, rowcount, timestamp_usec)`."
 function get_data_rowcount_timestamp(g::LJHGroupSlice)
-    data = Array(Vector{UInt16},length(g))
+    data = Vector{Vector{UInt16}}(length(g))
     rowcount = zeros(Int64, length(g))
     timestamp_usec = zeros(Int64, length(g))
     get_data_rowcount_timestamp!(g,data,rowcount,timestamp_usec)

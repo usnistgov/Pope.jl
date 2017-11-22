@@ -10,8 +10,9 @@ src = ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename
 dest = tempdir()
 timeout_s=0.0001
 maxchannels = 4
+fastforward = 1
 
-sim = @schedule Pope.mattersim(src,dest,timeout_s, maxchannels)
+sim = @schedule Pope.mattersim(src, dest, timeout_s, fastforward, maxchannels)
 sleep(0.1)
 filename0, writingbool0 = Pope.LJHUtil.matter_writing_status()
 wait(sim)

@@ -14,13 +14,13 @@ then `push!` in intances of `LJHReaderFeb2017`
 then `schedule(rs)`
 later `stop(rs)` and if you want `wait(rs)`
 "
-type Readers{T} <: AbstractVector{T}
+mutable struct Readers{T} <: AbstractVector{T}
   v::Vector{T}
   endchannel::Channel{Bool}
   task::Task
   timeout_s::Float64
 end
-@delegate_oneField(Readers, v, [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
+@delegate_onefield(Readers, v, [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
 Base.push!(rs::Readers,x) = (push!(rs.v,x);rs)
 Readers() = Readers(LJHReaderFeb2017[],Channel{Bool}(1), Task(nothing), 1.0)
 function write_headers(rs::Readers)
@@ -46,6 +46,7 @@ function stop(rs::Readers)
   put!(rs.endchannel,true)
   stop.(rs.v)
 end
+"wait(rs::Readers) Call after `stop`. Waits until all tasks associated with `rs` are done."
 function Base.wait(rs::Readers)
   wait(rs.task)
   wait.(rs.v)
@@ -58,7 +59,7 @@ If `r` is an instances you can
 `wait(r)` to wait on r.task, which will exit after the analysis finishes up
 It is probably better to use `launch_reader` than to call this directly
 "
-type LJHReaderFeb2017{T1,T2}
+mutable struct LJHReaderFeb2017{T1,T2}
   status::String
   fname::String
   ljh::Nullable{LJH.LJHFile}
@@ -68,7 +69,7 @@ type LJHReaderFeb2017{T1,T2}
   endchannel::Channel{Bool}
   progress_meter::Bool # only use this on static ljh files
   task::Task
-  function LJHReaderFeb2017(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
+  function LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) where {T1,T2}
     this = new("initialized",fname, Nullable{LJH.LJHFile}(), analyzer, product_writer, timeout_s, Channel{Bool}(1), progress_meter)
     task = @task this()
     this.task=task
@@ -130,7 +131,7 @@ function make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_met
   reader
 end
 
-immutable MassCompatibleAnalysisFeb2017
+struct MassCompatibleAnalysisFeb2017
   filter::Vector{Float64} # single lag filter
   filter_at::Vector{Float64} # single lag filter arrival time component
   npresamples::Int64 # number of sample trigger
@@ -143,8 +144,8 @@ immutable MassCompatibleAnalysisFeb2017
   pk_filename::String
 end
 
-abstract DataProduct
-immutable MassCompatibleDataProductFeb2017 <: DataProduct
+abstract type DataProduct end
+struct MassCompatibleDataProductFeb2017 <: DataProduct
   filt_value        ::Float32
   filt_phase        ::Float32
   timestamp         ::Float64
@@ -183,8 +184,8 @@ subtype `T` must have methods:
 `write_header_end(ds::T,ljh,analyzer)`
 `flush(ds::T)``
 `close(ds)`"
-abstract DataSink
-immutable DataWriter <: DataSink
+abstract type DataSink end
+struct DataWriter <: DataSink
   f::IOStream
 end
 Base.write(dw::DataWriter,x...) = write(dw.f,x...)
@@ -205,7 +206,7 @@ Base.flush(dw::DataWriter) = flush(dw.f)
 "`ds=MultipleDataSink((a,b))` or `ds=MultipleDataSink(a,b)`
 creates a type where `write(ds,x)` writes to both `a` and `b`
 likewise for `close`, `write_header` and `write_header_end`"
-immutable MultipleDataSink{T<:Tuple} <: DataSink
+struct MultipleDataSink{T} <: DataSink
   t::T
 end
 MultipleDataSink(x...) = MultipleDataSink(x)
@@ -248,7 +249,7 @@ end
 function analyzer_from_preknowledge(pk::HDF5Group)
   MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
   read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
-  read(pk["cuts"]["postpeak_deriv"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
+  read(pk["cuts"]["pretrigger_rms"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
   )
 end
 

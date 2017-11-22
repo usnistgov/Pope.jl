@@ -37,7 +37,7 @@ function sendfast(socket::Socket, zmsg::Message, SNDMORE::Bool=false)
 end
 
 
-immutable ZMQDataSink
+struct ZMQDataSink
   s::ZMQ.Socket
   channel_number::Int
 end

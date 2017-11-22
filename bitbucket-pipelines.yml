@@ -9,5 +9,6 @@ pipelines:
           - pwd
           - cd ..
           - ls -a
+          - julia -e 'println(Pkg.dir())'
           - cp -r * ~/.julia/v0.6/Pope
           - julia -e 'Pkg.test("Pope")'

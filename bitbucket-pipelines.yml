@@ -10,5 +10,5 @@ pipelines:
           - cd ..
           - ls -a
           - julia -e 'println(Pkg.dir())'
-          - cp -r * ~/.julia/v0.6/Pope
+          - cp -r build ~/.julia/v0.6/Pope
           - julia -e 'Pkg.test("Pope")'

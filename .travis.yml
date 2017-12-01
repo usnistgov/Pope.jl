@@ -1,11 +1,11 @@
 # Documentation: http://docs.travis-ci.com/user/languages/julia/
 language: julia
 os:
-  - linux
+  #- linux
   - osx
 julia:
   - release
-  - nightly
+  #- nightly
 notifications:
   email: true
 # uncomment the following lines to override the default test script
@@ -13,6 +13,9 @@ notifications:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("Pope"); Pkg.test("Pope"; coverage=true)'
 after_success:
+  # deploy docs
+  - julia -e 'Pkg.add("Documenter")'
+  - julia -e 'cd(Pkg.dir("PACKAGE_NAME")); include(joinpath("docs", "make.jl"))'
   # push coverage results to Coveralls
   - julia -e 'cd(Pkg.dir("Pope")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
   # push coverage results to Codecov

@@ -9,7 +9,7 @@ julia:
 notifications:
   email: true
 env:
-  - NOMASS=nomass # test pope without depending on mass
+  - POPE_NOMASS=true # test pope without depending on mass
 # uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi

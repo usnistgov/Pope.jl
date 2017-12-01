@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 import sys
-try:
-    import mass
-except:
-    print("make_preknowledge failed to import mass")
-    sys.exit()
+import mass
 import numpy as np
 from os import path
 import os

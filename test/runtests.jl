@@ -66,7 +66,9 @@ end #testset single reader with DataWriter
 
 
 
-
+# clean out the artifacts directory
+rm("artifacts",recursive=true)
+mkdir("artifacts")
 # create the following files
 const mass_filename = joinpath(@__DIR__,"artifacts","make_preknowledge_temp.hdf5")
 const pope_output_filename = joinpath(@__DIR__,"artifacts","output.h5")

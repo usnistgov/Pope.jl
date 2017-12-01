@@ -1,23 +1,17 @@
 #!/usr/bin/env python
+import sys
+try:
+    import mass
+except:
+    print("make_preknowledge failed to import mass")
+    sys.exit()
 import numpy as np
-# import pylab as plt
-import mass
 from os import path
 import os
-# import shutil
-# import traceback, sys
-# from matplotlib.backends.backend_pdf import PdfPages
-# import datetime
-# import pickle
-# import lmfit
 import time
-# import parse_logs
-# from mono_calibration_transfer import *
-# import collections
 import h5py
 import argparse
 
-import sys
 
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
@@ -167,6 +161,8 @@ parser.add_argument('--f3db',help="set f3db for filters (default 20000 hz)",defa
 parser.add_argument('--dont_popeonceafter',help="supply to avoid running popeonce with the new preknowledge, on pulse_file",action="store_true")
 parser.add_argument('--filter_data',help="run data.filter_data in addition to bare minimum required for calculation preknowledge, for testing, makes things slower and puts meaningful filt_value and filt_phase in make_preknowledge_temp.hdf5",action="store_true")
 parser.add_argument('--apply_filters',help="for testing this will apply filters with mass, this has no effect on the preknowledge file",action="store_true")
+parser.add_argument('--temp_out_dir',default=".", help="directory in which make_preknowledge_temp and make_preknowledge_noise_temp are created. These are mass hdf5 files created as a byproduct of make_preknowledge, and they inspected for testing purposes.")
+parser.add_argument('--overwriteoutput',help="pass this if you want to overwrite an exsiting output file with the same name",action="store_true")
 args = vars(parser.parse_args())
 for (k,v) in args.items():
     print("%s: %s"%(k, v))
@@ -226,7 +222,7 @@ if not args["dont_popeonceafter"]:
     print(popeoncecommand)
 
 print("Output name: %s"%pkfilename)
-if path.isfile(pkfilename):
+if path.isfile(pkfilename) and not args["overwriteoutput"]:
     print("%s already exists, manually move or remove it if you want to use that name"%pkfilename)
     sys.exit()
 if not args["noprompt"]:
@@ -235,7 +231,8 @@ if not args["noprompt"]:
         print("aborting")
         sys.exit()
 
-hdf5_filename, hdf5_noisefilename = "make_preknowledge_temp.hdf5", "make_preknowledge_noise_temp.hdf5"
+hdf5_filename = path.join(args["temp_out_dir"],"make_preknowledge_temp.hdf5")
+hdf5_noisefilename =  path.join(args["temp_out_dir"],"make_preknowledge_noise_temp.hdf5")
 if path.isfile(hdf5_filename):
     os.remove(hdf5_filename)
 if path.isfile(hdf5_noisefilename):

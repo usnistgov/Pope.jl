@@ -68,14 +68,9 @@ end #testset single reader with DataWriter
 
 
 # create the following files
-const preknowledge_filename = joinpath(@__DIR__,"pk_1x32_3072samples.preknowledge")
-const mass_filename = joinpath(@__DIR__,"make_preknowledge_temp.hdf5")
-const pope_output_filename = joinpath(@__DIR__,"output.h5")
-isfile(preknowledge_filename) && rm(preknowledge_filename)
-isfile(mass_filename) && rm(mass_filename)
-isfile(pope_output_filename) && rm(pope_output_filename)
-
-# by running make_preknowledge and popeonce
+const mass_filename = joinpath(@__DIR__,"artifacts","make_preknowledge_temp.hdf5")
+const pope_output_filename = joinpath(@__DIR__,"artifacts","output.h5")
+# by running make_preknowledge and popeonce in "scripts.jl"
 include("scripts.jl")
 
 # compare the values in the mass output to the values in the pope output

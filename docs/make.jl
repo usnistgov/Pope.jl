@@ -9,6 +9,6 @@ deploydocs(
     repo   = "github.com/usnistgov/Pope.jl.git",
     target = "pope",
     deps   = nothing,
-    osname = "osx",
+    osname = "linux",
     julia = "release"
 )

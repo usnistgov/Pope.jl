@@ -14,6 +14,10 @@ env:
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("Pope"); Pkg.test("Pope"; coverage=true)'
+addons:
+  apt:
+    packages:
+    - hdf5-tools
 after_success:
   # deploy docs
   - julia -e 'Pkg.add("Documenter")'

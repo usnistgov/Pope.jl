@@ -18,6 +18,7 @@ addons:
   apt:
     packages:
     - hdf5-tools
+    - libzmq3
 after_success:
   # deploy docs
   - julia -e 'Pkg.add("Documenter")'

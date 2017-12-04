@@ -134,7 +134,11 @@ function write_header_allchannel(d::MassCompatibleBufferedWriters, r::LJHReaderF
   a["npresamples"]=r.analyzer.npresamples
   a["frametime"]=r.analyzer.frametime
   flush(h5)
-  HDF5.start_swmr_write(h5)
+  try
+    HDF5.start_swmr_write(h5)
+  catch
+    println("SKIPPING START_SWMR_WRITE")
+  end
 end
 function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
   write(d,x)

@@ -1,9 +1,12 @@
 # Pope is the Pass One Pulse Examiner
 
+Pope is super alpha, expect zero support.
+
 The primary way to interact with Pope is through the scripts in Pope/scripts.
 
 For MassCompatibleAnalysisFeb2017 you will use `make_preknowledge.py` followed
 by one or both of `popeonce.jl` and `popewatchesmatter.jl`.
+
 
 ```@contents
 Pages = ["pope.md",

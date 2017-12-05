@@ -73,7 +73,7 @@ for name in names(popefile["chan13"])
   if name in ["calculated_cuts"] # skip things that aren't per pulse quantities
     continue
   end
-  println(name)
+  # println(name)
   a=popefile["chan13"][name][:]
   b=massfile["chan13"][name][:]
   if eltype(a)==UInt16 #avoid overflow errors in testing

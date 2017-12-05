@@ -6,7 +6,8 @@ makedocs(
     format = :html,
     Pages = ["Home" => "index.md",
              "LJH" => "ljh.md",
-             "Pope" => "pope.md"
+             "Pope" => "pope.md",
+             "News" => "news.md"
              ]
 )
 
@@ -15,8 +16,8 @@ deploydocs(
     osname = "linux",
     deps   = nothing,
     julia = "release",
-    target= "build",
-    make= ()->nothing
+    target = "build",
+    make= nothing
 )
 
 println("finished make.jl")

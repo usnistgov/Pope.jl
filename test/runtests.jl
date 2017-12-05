@@ -113,5 +113,7 @@ end
 close(massfile)
 close(popefile)
 
-println("Run python script to open Pope HDF5 file.")
-!haskey(ENV,"POPE_NOMASS") && run(`python mass_open_pope_hdf5.py $pope_output_filename $(Pkg.dir())`)
+if !haskey(ENV,"POPE_NOMASS")
+  println("Run python script to open Pope HDF5 file.")
+  run(`python mass_open_pope_hdf5.py $pope_output_filename $(Pkg.dir())`)
+end

@@ -4,7 +4,6 @@ makedocs(
     sitename = "Pope.jl",
     modules = [Pope, LJH],
     format = :html,
-    html_prettyurls = !("local" in ARGS),
     Pages = ["Home" => "index.md",
              "LJH" => "ljh.md",
              "Pope" => "pope.md"
@@ -14,8 +13,10 @@ makedocs(
 deploydocs(
     repo   = "github.com/usnistgov/Pope.jl.git",
     osname = "linux",
-    deps   = Deps.pip("mkdocs", "python-markdown-math"),
+    deps   = nothing,
     julia = "release",
+    target= "build",
+    make= ()->nothing
 )
 
 println("finished make.jl")

@@ -1,6 +1,6 @@
 # LJH
 LJH is a module for reading and writing LJH files. It supports versions 2.1 and
-2.2 of LJH, and provides a way to handle multiple LJH files.
+2.2 of LJH, and provides a way to handle multiple LJH files. It is a submodule of Pope so you will want to `using Pope.LJH`.
 
 ```@meta
 DocTestSetup = quote using Pope.LJH end

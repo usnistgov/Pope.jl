@@ -4,9 +4,10 @@ makedocs(
     sitename = "Pope.jl",
     modules = [Pope, LJH],
     format = :html,
-    Pages = ["Home" => "index.md",
+    pages = ["Home" => "index.md",
+             "Scripts" => "scripts.md",
              "LJH" => "ljh.md",
-             "Pope" => "pope.md",
+             "Pope Internals" => "pope.md",
              "News" => "news.md"
              ]
 )

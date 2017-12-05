@@ -1,5 +1,5 @@
 module Pope
-using HDF5, ProgressMeter, ZMQ, TypedDelegation
+using HDF5, ProgressMeter, ZMQ, TypedDelegation, Distributions
 include("LJH.jl")
 include("ljhutil.jl")
 include("summarize.jl")
@@ -254,6 +254,5 @@ function analyzer_from_preknowledge(pk::HDF5Group)
 end
 
 include("buffered_hdf5_dataset.jl")
-
 
 end # module

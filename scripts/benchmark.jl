@@ -39,11 +39,69 @@ if nprocs() == 1
   addprocs(1)
   println("added 1 proc")
 end
+
+
+@everywhere begin
 using ProgressMeter
 using Pope: LJH, LJHUtil
 using HDF5
-import Distributions.Exponential
+using Distributions: Distribution, Exponential
+"    gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=tempdir(); version=\"2.2.0\")
+generate ljhs files (1 per channel) in directory `dname`, with the specified parameters
+return a Vector{LJHFile} of the created files, with both read and write intents"
+function gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version="2.2.0")
+  !isdir(dname) && mkdir(dname)
+  basename = last(split(dname,'/'))
+  ljhs = LJH.LJHFile[]
+  for ch in channels
+    fname = joinpath(dname, basename*"_chan$ch.ljh")
+    ljh=LJH.create(fname,dt, npre, nsamp; version=version, channel=ch)
+    push!(ljhs,ljh)
+  end
+  ljhs
+end
+function launch_stocastic_writer{T}(endchannel, ljh::LJH.LJHFile{LJH.LJH_22,T}, d::Distribution, data=zeros(UInt16,ljh.record_nsamples))
+  @schedule begin
+    i=0
+    while !isready(endchannel)
+      sleep(rand(d))
+      write(ljh,data,i+=1,round(Int, 1e6*time()))
+    end
+    close(ljh)
+  end
+end
 
+function launch_stocastic_writers(endchannel, ljhs::Vector{LJH.LJHFile}, d::Distribution, data)
+  for ljh in ljhs
+    launch_stocastic_writer(endchannel, ljh, d, data)
+  end
+end
+
+ulimit() = a=parse(Int,readstring(`bash -c "ulimit -n"`))
+
+"    launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version=\"2.2.0\")
+Opens one LJH file per channel in `channels` and starts writing pulse records with `data`
+"
+function launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version="2.2.0")
+  nprocs() >= 2 || error("nprocs needs to be 2 or greater, try starting julia with `julia -p 1`")
+  ulimit() >= 50+length(channels) || error("open file limit too low, run `ulimit -n 1000` before opening julia")
+  endchannel = RemoteChannel(1)
+  ljhmadechannel = RemoteChannel(1)
+  s=@spawn begin
+    ljhs = gen_ljh_files(dt, npre, nsamp, channels, dname; version=version)
+    localendchannel = Channel(1)
+    launch_stocastic_writers(localendchannel, ljhs, d, data)
+    put!(ljhmadechannel,true)
+    @schedule begin
+      # checking a RemoteChannel causes lots of CPU usage in both tasks, avoid checking it alot
+      wait(endchannel)
+      put!(localendchannel,true)
+    end
+    @show s
+  end
+  return dname, endchannel, ljhmadechannel, s
+end
+end #@everywhere
 data = collect(UInt16(0):UInt16(nsamples-1))
 filter_values = zeros(nsamples-1)
 filter_at = zeros(nsamples-1)
@@ -70,7 +128,7 @@ println("check activity monitor or top for CPU/memory usage")
 println("temporary files are probably delted after you reboot, but you may want to check on your platform")
 
 println("Starting writing")
-dname,endchannel,ljhmadechannel,s=LJH.launch_writer_other_process(d=d,dt=frametime,channels=channels,npre=npresamples,data=data, dname=dname)
+dname,endchannel,ljhmadechannel,s=launch_writer_other_process(d=d,dt=frametime,channels=channels,npre=npresamples,data=data, dname=dname)
 wait(ljhmadechannel) # makes sure all the LJH files are created before moving on
 println("Writing in progress")
 

@@ -6,18 +6,11 @@ test/test
 
 *.h5
 
-*ignore*
-
 *.preknowledge
-
 *.hdf5
-
 *.preknowledgecp
-
 *.pdf
-
 *.pyc
-
 *.sh
-
 *.h5copy
+*.ljh

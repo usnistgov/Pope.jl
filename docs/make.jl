@@ -1,7 +1,9 @@
-using Documenter, Pope
+using Documenter, Pope, Pope.LJH
 
 makedocs(
-    sitename = "Pope.jl"
+    sitename = "Pope.jl",
+    modules = [Pope, LJH],
+    # format = :html,
 )
 
 deploydocs(

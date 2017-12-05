@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/usnistgov/Pope.jl.svg?branch=master)](https://travis-ci.org/usnistgov/Pope.jl)
 
 # Documentation
-[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://USER_NAME.github.io/PACKAGE_NAME.jl/latest)
+[![](https://img.shields.io/badge/docs-latest-blue.svg)](https://usnistgov.github.io/Pope.jl/latest)
 
 
 # Pope

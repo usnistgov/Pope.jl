@@ -15,7 +15,8 @@ deploydocs(
     repo   = "github.com/usnistgov/Pope.jl.git",
     osname = "linux",
     deps   = nothing, #Deps.pip("mkdocs", "python-markdown-math"),
-    julia = "release"
+    julia = "release",
+    make = ()->nothing # use native html generation
 )
 
 println("finished make.jl")

@@ -21,9 +21,8 @@ addons:
     - libzmq3
 after_success:
   # deploy docs
-  - julia -e 'Pkg.add("Documenter")'
-  - julia -e 'cd(Pkg.dir("Pope")); include(joinpath("docs", "make.jl"))'
+  - julia -e 'Pkg.add("Documenter");cd(Pkg.dir("Pope")); include(joinpath("docs", "make.jl"))'
   # push coverage results to Coveralls
-  - julia -e 'cd(Pkg.dir("Pope")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
+  # - julia -e 'cd(Pkg.dir("Pope")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
   # push coverage results to Codecov
-  - julia -e 'cd(Pkg.dir("Pope")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
+  # - julia -e 'cd(Pkg.dir("Pope")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'

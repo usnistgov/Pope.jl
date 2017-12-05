@@ -1,13 +1,70 @@
-"LJH is a module for working with LJH files. The intended interface is to use `LJHGroup` exclusivley, `LJHFile` is for internal use only.
-`ljh=LJHGroup(filename)` will open one file. If you instead pass a vector of filenames from the same channel, you will open all the files
-and be able to access them as if they were one continuous LJH file.
-`ljh[1]` returns the first `LJHRecord`. `LJHRecord` has 3 fields `data`, `rowcount`, `timestamp_usec`. If you want all of the pulse data
-but no rowcount or timestamp information do do `[r.data for r in ljh]`. If you want just a few pulse records do `collect(ljh[5:10])`.
-Alternativley you can use `get_data_rowcount_timestamp` and `get_data_rowcount_timestamp!`.
-Use `record_nsamples`, `pretrig_nsamples`, `frametime`, `filenames`, `lengths`, `column`, `row`, `num_columns`, `num_rows` to access
-additional information about the LJH file. If you really need to get access to extra information in the header you can access
-`ljh.ljhsfiles[1].headerdict`.
-`LJH.writeljhheader` and `LJH.writeljhdata` can be used to write LJH files."
+"""
+LJH is a module for reading and writing LJH files.
+
+```@meta
+using Pope.LJH
+```
+# Writing LJH Files
+```jlddoctest ljh
+julia> dt = 9.6e-6; npre = 200; nsamp = 1000; nrow = 30; rowcount = 1; timestamp=2;
+
+julia> ljh = LJH.create(tempname(), dt, npre, nsamp; version="2.2.0", number_of_rows=nrow)
+LJHFile /var/folders/_0/25kp6h7x25v6vyjv2yjlcnkm000wrm/T/julia7agApC
+0 records
+record_nsamlpes 1000, pretrig_nsamples 200.
+Channel 1, row 0, column 0, frametime 9.6e-6 s.
+
+julia> write(ljh, Vector{UInt16}(1:nsamp), rowcount, timestamp)
+2016
+
+julia> write(ljh, Vector{UInt16}(1:nsamp), rowcount, timestamp)
+2016
+
+julia> close(ljh)
+```
+
+# Reading LJH Files
+```jlddoctest ljh
+julia> ljhr = LJH.LJHFile(LJH.filename(ljh))
+LJHFile /var/folders/_0/25kp6h7x25v6vyjv2yjlcnkm000wrm/T/julia7agApC
+2 records
+record_nsamlpes 1000, pretrig_nsamples 200.
+Channel 1, row 0, column 0, frametime 9.6e-6 s.
+
+julia> record = ljhr[1];
+
+julia> LJH.data(record)' # transpose for less verbose output
+1×1000 RowVector{UInt16,Array{UInt16,1}}:
+ 0x0001  0x0002  0x0003  0x0004  0x0005  …  0x03e5  0x03e6  0x03e7  0x03e8
+
+julia> LJH.rowcount(record)
+1
+
+julia> LJH.timestamp_usec(record)
+2
+
+julia> records = collect(ljhr)
+2-element Array{Any,1}:
+ Pope.LJH.LJHRecord(UInt16[0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a  …  0x03df, 0x03e0, 0x03e1, 0x03e2, 0x03e3, 0x03e4, 0x03e5, 0x03e6, 0x03e7, 0x03e8], 1, 2)
+ Pope.LJH.LJHRecord(UInt16[0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a  …  0x03df, 0x03e0, 0x03e1, 0x03e2, 0x03e3, 0x03e4, 0x03e5, 0x03e6, 0x03e7, 0x03e8], 1, 2)
+
+julia> LJH.rowcount.(records)
+2-element Array{Int64,1}:
+ 1
+ 1
+
+ julia> records2 = collect(ljhr[1:1])
+1-element Array{Any,1}:
+ Pope.LJH.LJHRecord(UInt16[0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a  …  0x03df, 0x03e0, 0x03e1, 0x03e2, 0x03e3, 0x03e4, 0x03e5, 0x03e6, 0x03e7, 0x03e8], 1, 2)
+```
+
+julia> data, rowcount, timestamp_usec = LJH.get_data_rowcount_timestamp(ljhr)
+(UInt16[0x0001 0x0001; 0x0002 0x0002; … ; 0x03e7 0x03e7; 0x03e8 0x03e8], [1, 1], [2, 2])
+
+julia> close(ljhr)
+
+```
+"""
 module LJH
 
 export LJHGroup, channel, record_nsamples, pretrig_nsamples, frametime, filenames, lengths, column, row, num_columns, num_rows, get_data_rowcount_timestamp
@@ -53,6 +110,9 @@ struct LJHRecord
     rowcount::Int64
     timestamp_usec::Int64
 end
+data(r::LJHRecord) = r.data
+rowcount(r::LJHRecord) = r.rowcount
+timestamp_usec(r::LJHRecord) = r.timestamp_usec
 import Base: ==
 ==(a::LJHRecord, b::LJHRecord) = a.data==b.data && a.rowcount == b.rowcount && a.timestamp_usec == b.timestamp_usec
 
@@ -88,11 +148,13 @@ function LJHFile(fname::String,io::IO)
 end
 LJHFile(f::LJHFile) = f
 
-"Return number of bytes per record in LJH file, based on version number"
-record_nbytes{T}(f::LJHFile{LJH_21,T}) = 6+2*f.record_nsamples
-record_nbytes{T}(f::LJHFile{LJH_22,T}) = 16+2*f.record_nsamples
+"record_nbytes(f::LJHFile)
+    Return number of bytes per record in LJH file, based on version number"
+record_nbytes(f::LJHFile{LJH_21,T}) where T = 6+2*f.record_nsamples
+record_nbytes(f::LJHFile{LJH_22,T}) where T = 16+2*f.record_nsamples
 
-"ljh_number_of_records(f::LJHFile) Return the number of complete records currently available to read from `f`."
+"    ljh_number_of_records(f::LJHFile)
+Return the number of complete records currently available to read from `f`."
 function ljh_number_of_records(f::LJHFile)
     # oldpos = position(f.io)
     # endpos = position(seekend(f.io))
@@ -129,12 +191,30 @@ Base.endof(f::LJHFile) = ljh_number_of_records(f)
 Base.start(f::LJHFile) = (seekto(f,1);1)
 Base.next(f::LJHFile,j) = pop!(f),j+1
 Base.done(f::LJHFile,j) = j==length(f)+1
+filename(f::LJHFile) = f.filename
+record_nsamples(f::LJHFile) = f.record_nsamples
+pretrig_nsamples(f::LJHFile) = f.pretrig_nsamples
+channel(f::LJHFile) = f.channum
+row(f::LJHFile) = f.row
+column(f::LJHFile) = f.column
+frametime(f::LJHFile) = f.frametime
+function Base.show(io::IO, g::LJHFile)
+    print(io, "LJHFile $(filename(g))\n")
+    print(io, "$(length(g)) records\n")
+    print(io, "record_nsamlpes $(record_nsamples(g)), pretrig_nsamples $(pretrig_nsamples(g)).\n")
+    print(io, "Channel $(channel(g)), row $(row(g)), column $(column(g)), frametime $(frametime(g)) s.\n")
+end
 
 # open and close
-Base.open(f::LJHFile) = open(f.io)
 Base.close(f::LJHFile) = close(f.io)
 
-# tryread
+"""
+    tryread{T}(f::LJHFile)
+
+Attempt to read an `LJHRecord` from `f`. Return a `Nullable{LJHRecord}` containing
+that record if succesful, or one that `isnull` if not. On success the file position
+moves forward, on failure the file position does not change.
+"""
 function tryread{T}(f::LJHFile{LJH_22,T})
   d = read(f.io,record_nbytes(f))
   if length(d) == record_nbytes(f)
@@ -219,9 +299,11 @@ num_columns(g::LJHGroup) = (assert(length(fieldvalue(g, :num_columns))==1);g.ljh
 num_rows(g::LJHGroup) = (assert(length(fieldvalue(g, :num_rows))==1);g.ljhfiles[1].num_rows)
 filenames(g::LJHGroup) = [f.filename for f in g.ljhfiles]
 lengths(g::LJHGroup) = g.lengths
-"watch(g::LJHGroup, timeout_s) calls `watch_file` on the last LJH file in `g`, passes `timeout_s` through."
+"    watch(g::LJHGroup, timeout_s)
+calls `watch_file` on the last LJH file in `g`, passes `timeout_s` through."
 watch(g::LJHGroup, timeout_s) = watch_file(last(g.ljhfiles).filename, timeout_s)
-"examine the underlying LJHFiles to determine if any grew. If the last one grew, update `g.lengths`, otherwise throw an error"
+"    update_num_records(g::LJHGroup)
+examine the underlying LJHFiles to determine if any grew. If the last one grew, update `g.lengths`, otherwise throw an error"
 function update_num_records(g::LJHGroup)
     old_lengths = copy(g.lengths)
     new_lengths = Int[length(f) for f in g.ljhfiles]
@@ -232,7 +314,8 @@ function update_num_records(g::LJHGroup)
     end
     g.lengths=new_lengths
 end
-"filenum_recordnum(g::LJHGroup, j::Int) The record `g[j]` is actually `g.ljhfiles[i][k]`, return `i,k`. "
+"    filenum_recordnum(g::LJHGroup, j::Int)
+The record `g[j]` is actually `g.ljhfiles[i][k]`, return `i,k`."
 function filenum_recordnum(g::LJHGroup, j::Int)
     for (i,len) in enumerate(g.lengths)
         j <= len ? (return i,j) : (j-=len)
@@ -264,15 +347,15 @@ function Base.done(g::LJHGroup, state)
 end
 function Base.show(io::IO, g::LJHGroup)
     print(io, "LJHGroup with $(length(g.ljhfiles)) files, $(length(g)) records, split as $(lengths(g)),")
-    print(io, " record_nsampes $(record_nsamples(g)),\n")
-    print(io,"  pretrig_nsamples $(pretrig_nsamples(g)).")
-    print(io,"channel $(channel(g)), row $(row(g)), column $(column(g)), frametime $(frametime(g)) s.\n")
-    print("  First filename $(g.ljhfiles[1].filename)")
+    print(io, "record_nsampes $(record_nsamples(g)),\n")
+    print(io, "pretrig_nsamples $(pretrig_nsamples(g)).")
+    print(io, "channel $(channel(g)), row $(row(g)), column $(column(g)), frametime $(frametime(g)) s.\n")
+    print(io, "First filename $(g.ljhfiles[1].filename)")
 end
 
 
 
-"LJHGroupSlice is used to allow acces to ranges of LJH records, eg `[r.data for r in ljh[1:100]]`."
+"`LJHGroupSlice` is used to allow acces to ranges of LJH records, eg `[r.data for r in ljh[1:100]]`."
 struct LJHGroupSlice{T<:AbstractArray}
     g::LJHGroup
     slice::T
@@ -304,41 +387,36 @@ function Base.done{T<:UnitRange}(g::LJHGroupSlice{T}, state)
     filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
 end
 
-
-"Get all data from an `LJHGroupSlice`, returned as a tuple of Vectors `(data, rowcount, timestamp_usec)`."
-function get_data_rowcount_timestamp(g::LJHGroupSlice)
-    data = Vector{Vector{UInt16}}(length(g))
+const LJHLike = Union{LJHFile, LJHGroup, LJHGroupSlice}
+"    get_data_rowcount_timestamp(g::LJHGroup)
+Get all data from an `LJHGroup`, returned as a tuple of Vectors `(data, rowcount, timestamp_usec)`."
+function get_data_rowcount_timestamp(g::LJHLike)
+    data = Matrix{UInt16}(record_nsamples(g),length(g))
     rowcount = zeros(Int64, length(g))
     timestamp_usec = zeros(Int64, length(g))
     get_data_rowcount_timestamp!(g,data,rowcount,timestamp_usec)
 end
-"get_data_rowcount_timestamp!(g,data::Vector{Vector{UInt16}},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
+"    get_data_rowcount_timestamp!(g::LJHGroupSlice),data::Matrix{UInt16},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
 Get all data from an `LJHGroupSlice`, pass in vectors of length `length(g)` and correct type to be filled with the answers."
-function get_data_rowcount_timestamp!(g,data::Vector{Vector{UInt16}},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
+function get_data_rowcount_timestamp!(g::LJHLike,data::Matrix{UInt16},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
     state = start(g)
     i=0
-    @assert length(data)==length(rowcount)==length(timestamp_usec)==length(g) "data, rowcount, timestap_usec: length mismatch: lengths $((length(data), length(rowcount), length(timestamp_usec), length(g)))"
+    @assert size(data,2)==length(rowcount)==length(timestamp_usec)==length(g) "data, rowcount, timestap_usec: length mismatch: lengths $((size(data,2), length(rowcount), length(timestamp_usec), length(g)))"
     while !done(g, state)
         i+=1
         record, state = next(g,state)
-        data[i] = record.data
+        data[:,i] = record.data
         rowcount[i] = record.rowcount
         timestamp_usec[i] = record.timestamp_usec
     end
     @assert i==length(g) "iterated $i times, should have been $(length(g))"
     data,rowcount,timestamp_usec
 end
-"Get all data from an `LJHGroup`, returned as a tuple of Vectors `(data, rowcount, timestamp_usec)`."
-get_data_rowcount_timestamp(g::LJHGroup) = get_data_rowcount_timestamp(g[1:end])
-function get_data_rowcount_timestamp!(g::LJHGroup,data::Vector{Vector{UInt16}},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
-    get_data_rowcount_timestamp!(g[1:end],data,rowcount, timestamp_usec)
-end
 
 
 
 
-
-"gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=tempdir(); version=\"2.2.0\")
+"    gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=tempdir(); version=\"2.2.0\")
 generate ljhs files (1 per channel) in directory `dname`, with the specified parameters
 return a Vector{LJHFile} of the created files, with both read and write intents"
 function gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=joinpath(tempdir(),randstring(12)); version="2.2.0")
@@ -347,10 +425,7 @@ function gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=jo
   ljhs = LJHFile[]
   for ch in channels
     fname = joinpath(dname, basename*"_chan$ch.ljh")
-    f = open(fname,"w")
-    writeljhheader(f,dt, npre, nsamp; version=version, channel=ch)
-    close(f)
-    ljh = LJHFile(fname,open(fname,"r+"))
+    ljh=LJH.create(fname,dt, npre, nsamp; version=version, channel=ch)
     push!(ljhs,ljh)
   end
   ljhs
@@ -375,8 +450,7 @@ end
 
 ulimit() = a=parse(Int,readstring(`bash -c "ulimit -n"`))
 
-"
-launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version=\"2.2.0\")
+"    launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version=\"2.2.0\")
 Opens one LJH file per channel in `channels` and starts writing pulse records with `data`
 "
 function launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000),dt=9.6e-6, npre=200, nsamp=length(data),channels=1:2:480,dname=joinpath(tempdir(),randstring(12)), version="2.2.0")
@@ -400,18 +474,35 @@ function launch_writer_other_process(;d=Exponential(0.01),data=zeros(UInt16,1000
 end
 
 
-
-"""Write a header for an LJH file.
-writeljhheader(filename::String, dt, npre, nsamp; version="2.2.0",channel=1)
-writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1)
 """
-function writeljhheader(filename::String, dt, npre, nsamp; version="2.2.0",channel=1)
+    create(filename::AbstractString, dt, npre, nsamp; version="2.2.0",
+    channel=1, number_of_rows=32, number_of_columns=8)
+
+Create a new file, write an LJH Header to it, and return an `LJHFile` ready for
+writing with `write`.  `dt` in seconds. `npre` is the number of presamples.
+`nsamp` is the number of samples per record. Versions "2.2.0" and "2.1.0" are supported.
+"""
+function create(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, number_of_rows=32, number_of_columns=8)
+    f = open(filename,"w+")
+    writeljhheader(f, dt, npre, nsamp; version=version, channel=channel, number_of_rows=number_of_rows, number_of_columns=number_of_columns)
+    LJHFile(filename,seekstart(f))
+end
+
+"""
+    writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0",channel=1, number_of_rows=32, number_of_columns=8)
+    writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1, number_of_rows=32, number_of_columns=8)
+
+Write a header for an LJH file. `dt` in seconds. `npre` is the number of presamples.
+`nsamp` is the number of samples per record. Versions "2.2.0" and "2.1.0" are supported.
+`create_ljh` is easier to use.
+"""
+function writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, number_of_rows=32, number_of_columns=8)
     open(filename, "w") do f
     writeljhheader(f, dt, npre, nsamp; version=version)
     end #do
 end
 
-function writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1, number_of_rows=32, number_of_columns=8)
+function writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0", channel=1, number_of_rows=32, number_of_columns=8)
     write(io,
 "#LJH Memorial File Format
 Save File Format Version: $version
@@ -471,28 +562,28 @@ Discrimination level (%%): 1.000000
 flush(io)
 end
 
-# Write LJH v2.2+ data, with rowcount and timestamp
-"Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})"
+"    write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})"
 function Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
     for j = 1:length(times)
         write(ljh, traces[:,j], rowcounts[j], times[j])
     end
 end
-"Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)"
+"    write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)"
 function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, timestamp_usec::Int64)
     write(ljh.io, rowcount, timestamp_usec, trace)
 end
-"Base.write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)"
+"    write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)"
 function Base.write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)
   write(ljh, record.data, record.rowcount, record.timestamp_usec)
 end
 
-# Write LJH v2.1 data, with rowcount
+"    write{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64})"
 function Base.write{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64})
     for j = 1:length(rowcounts)
         write(ljh, traces[:,j], rowcounts[j])
     end
 end
+"    write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64)"
 function Base.write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64)
   lsync_us = 1e6*ljh.frametime/ljh.num_rows
   timestamp_us = round(Int, rowcount*lsync_us)
@@ -504,6 +595,7 @@ function Base.write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::
   write(ljh.io, timestamp_ms)
   write(ljh.io, trace)
 end
+"    Base.write{T}(ljh::LJHFile{LJH_21,T}, record::LJHRecord)"
 function Base.write{T}(ljh::LJHFile{LJH_21,T}, record::LJHRecord)
   write(ljh, record.data, record.rowcount)
 end

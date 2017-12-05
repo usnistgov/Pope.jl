@@ -2,7 +2,7 @@
 
 # Documentation
 [![](https://img.shields.io/badge/docs-latest-blue.svg)](https://usnistgov.github.io/Pope.jl/latest)
-
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://usnistgov.github.io/Pope.jl/stable)
 
 # Pope
 To install:

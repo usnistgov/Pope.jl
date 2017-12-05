@@ -83,11 +83,9 @@ grp.ljhfiles[1].record_nsamples=0
 @test_throws AssertionError record_nsamples(grp)
 
 data_r, rowcount_r, timestamp_usec_r = get_data_rowcount_timestamp(ljh22)
-for i = 1:N
-  @assert data[:,1]==data_r[1]
-end
-@assert rowcount_r==rowcount
-@assert timestamp_usec_r == timestamps
+@test data==data_r
+@test rowcount_r==rowcount
+@test timestamp_usec_r == timestamps
 
 # test tryread
 ljh = LJH.LJHFile(name22)

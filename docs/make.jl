@@ -7,6 +7,7 @@ makedocs(
 deploydocs(
     repo   = "github.com/usnistgov/Pope.jl.git",
     osname = "linux",
+    deps   = Deps.pip("mkdocs", "python-markdown-math"),
     julia = "release"
 )
 

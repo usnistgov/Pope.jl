@@ -1,7 +1,8 @@
 module LJH
-
-export LJHGroup, channel, record_nsamples, pretrig_nsamples, frametime, filenames, lengths, column, row, num_columns, num_rows, get_data_rowcount_timestamp
-
+export LJHGroup, LJHFile
+include("ljhutil.jl")
+"    ljh_get_header_dict(io::IO)
+Return a Dict{String,String} mapping entries in the header. "
 function ljh_get_header_dict(io::IO)
     headerdict = Dict()
     while true

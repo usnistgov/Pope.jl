@@ -1,6 +1,6 @@
 using ProgressMeter
 
-"timed_ljh_rewriter(src, dest, timeout_s, pulses_written, pulses_total, i)
+"    timed_ljh_rewriter(src, dest, timeout_s, pulses_written, pulses_total, i)
 Open the ljh file at path `src`. Copy it's header to a file at `dest`, overwiting any existing file with that name.
 Then write records from `src` to `dest`, pausing between each write by the difference between successive timestamps.
 The maximum pause time (in seconds) for a single record is given by `timeout_s`. After completion the files `src` and `dest`
@@ -42,8 +42,8 @@ end
 function mattersimprogress(srcnames, destnames, tasks, channels, timeout_s, pulses_written, pulses_total)
   println("\nMatter Simulator Running on $(length(channels)) channels, with timeout = $timeout_s s")
   println("Channel numbers: $channels")
-  println("First input file: $(srcnames[1])")
-  println("First output file: $(destnames[1])")
+  println("First input file: $(first(srcnames))")
+  println("First output file: $(first(destnames))")
   println("Process pid = $(getpid())")
   flush(STDOUT)
   # srcs_size = sum(stat(src).size for src in srcnames)
@@ -74,25 +74,23 @@ function mattersimprogress(srcnames, destnames, tasks, channels, timeout_s, puls
   println("Total bytes written $dests_size.")
 end
 
-"mattersim(srcdir, destdir, timeout_s=0.01, maxchannels=240)"
+"    mattersim(srcdir, destdir, timeout_s=0.01, maxchannels=240)"
 function mattersim(srcdir, destdir, timeout_s=0.01, fastforward=1.0, maxchannels=240)
   maxchannels<=0 && error("maxchannels must be positive, was $maxchannels")
-  channels = LJHUtil.allchannels(srcdir)
-  channels = channels[1:min(maxchannels, length(channels))]
-  srcnames = LJHUtil.fnames(srcdir, channels)
-  length(srcnames)>0 || error("found no ljh files in $srcdir")
+  ljhdict = LJH.allchannels(srcdir, maxchannels) # ordered dict mapping channel number to filename
+  length(ljhdict)>0 || error("found no ljh files in $srcdir")
   isdir(destdir) || mkdir(destdir)
-  destnames = LJHUtil.fnames(destdir, channels)
-  pulses_written = zeros(Int, length(channels)) # used to record how many pulses have been written
-  pulses_total = zeros(Int, length(channels))
+  destnames = LJH.fnames(destdir, keys(ljhdict))
+  pulses_written = zeros(Int, length(ljhdict)) # used to record how many pulses have been written
+  pulses_total = zeros(Int, length(ljhdict))
   # i is an index for writinginto pulses_written and pulses_total
-  tasks = [@task timed_ljh_rewriter(src, dest, timeout_s, fastforward, pulses_written, pulses_total, i) for (i,(src,dest)) in enumerate(zip(srcnames, destnames))]
-  LJHUtil.write_sentinel_file(destnames[1],true)
+  tasks = [@task timed_ljh_rewriter(src, dest, timeout_s, fastforward, pulses_written, pulses_total, i) for (i,(src,dest)) in enumerate(zip(values(ljhdict), destnames))]
+  LJH.write_sentinel_file(destnames[1],true)
   println("Matter simulator wrote sentinel file: $(destnames[1]), true")
-  progresstask = @schedule mattersimprogress(srcnames, destnames, tasks, channels, timeout_s, pulses_written, pulses_total)
+  progresstask = @schedule mattersimprogress(values(ljhdict), destnames, tasks, keys(ljhdict), timeout_s, pulses_written, pulses_total)
   schedule.(tasks)
   wait.(tasks)
   wait(progresstask)
-  LJHUtil.write_sentinel_file(destnames[1],false)
+  LJH.write_sentinel_file(destnames[1],false)
   println("Matter simulator wrote sentinel file: $(destnames[1]), false")
 end

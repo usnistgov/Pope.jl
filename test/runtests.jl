@@ -1,4 +1,4 @@
-using Pope: LJH, LJHUtil, HDF5
+using Pope: LJH, HDF5
 using ReferenceMicrocalFiles
 using Base.Test
 const WT = false # run @code_warntype

@@ -1,6 +1,7 @@
 module Pope
 using HDF5, ProgressMeter, ZMQ, TypedDelegation, Distributions
 include("LJH.jl")
+include("NoiseAnalysis.jl")
 include("ljhutil.jl")
 include("summarize.jl")
 include("apply_filter.jl")

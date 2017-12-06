@@ -1,6 +1,9 @@
 """
 Tools for the analysis of noise data, including computation of the noise
 autocorrelation and power-spectral density.
+
+Power spectra require a window function. We suggest `NoiseAnalysis.bartlett` as
+a default. Package DSP.jl has many others in module `DSP.Windows`.
 """
 module NoiseAnalysis
 
@@ -71,5 +74,79 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
     ac /= (nseg-seg_skipped)
     ac ./ (m:-1:m-nlags+1)
 end
+
+# Power spectra and window functions:
+"""
+    bartlett(n)
+
+Bartlett window of length `n`.
+"""
+function bartlett(n::Integer)
+    [(1 - abs(k*2/(n-1) - 1)) for k=0:(n-1)]
+end
+
+"""
+    welch(n)
+
+Welch window of length `n`.
+"""
+function welch(n::Integer)
+    [(1 - ((k*2/(n-1)) - 1)^2) for k=0:(n-1)]
+end
+
+"""
+    hann(n)
+
+Hann window of length `n`.
+"""
+function hann(n::Integer)
+    [1-cos(2π*k/(n-1)) for k=0:(n-1)]
+end
+
+# See package DSP.jl with module DSP.Windows for more window functions.
+
+"""
+    compute_psd(data, nfreq, dt)
+
+Compute the Power-Spectral Density of `data`, which was sampled at
+equal time steps of size `dt`, at `nfreq` frequencies equal to
+`fsamp = linspace(0, 0.5/dt, nfreq)`. Generally, you want `nfreq` to be
+1 more than a power of 2, and you need `nfreq ≤ div(1+length(data), 2)`
+(ideally, much less than).
+
+The `data` are assumed to be a continuous sequence of noise samples.
+Use overlapping segments of the exact needed length (`2(nfreq-1)`), offset by
+approximately half their length.
+"""
+compute_psd(data::AbstractArray, nfreq::Integer, dt::Real; max_exc=1e99) =
+    compute_psd(vec(data), nfreq, dt, max_exc=max_exc)
+
+function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e99)
+
+    nsamp = 2(nfreq-1)
+    window = hann(nsamp)
+    window = window / sqrt(sum(window.^2)) # proper normalization
+
+    if length(data) < nsamp
+        error("data must be at least 2(nfreq-1) in length.")
+    end
+
+    nseg = Int(ceil(length(data)/nsamp))
+    seg_step = 1
+    if nseg>1
+        seg_step = Int(floor((length(data)+1-nsamp)/(nseg-1)))
+    end
+
+    r = zeros(Float64, nfreq)
+    datamean = mean(data)
+    for i=1:nseg
+        idx0 = (i-1)*seg_step+1
+        seg = window .* (data[idx0:idx0+nsamp-1] - datamean)
+        r += abs2.(rfft(seg))
+    end
+    r * 2dt / nseg
+end
+
+psd_freq(nfreq::Integer, dt::Real) = linspace(0, 0.5/dt, nfreq)
 
 end # module

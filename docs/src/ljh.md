@@ -1,6 +1,10 @@
 # LJH
 LJH is a module for reading and writing LJH files. It supports versions 2.1 and
-2.2 of LJH, and provides a way to handle multiple LJH files. It is a submodule of Pope so you will want to `using Pope.LJH`.
+2.2 of LJH, and provides a way to handle multiple LJH files. It is a submodule of Pope so you will want to `using Pope.LJH` or `using Pope: LJH`.
+
+```@contents
+Depth = 2
+```
 
 ```@meta
 DocTestSetup = quote using Pope.LJH end
@@ -119,6 +123,60 @@ julia> collect(g[7:8])
 ```@meta
 DocTestSetup = nothing
 ```
+
+## LJH Filename Handling
+There are a set of utility functions for handling LJH filenames. These are some
+of the most useful functions.
+```@meta
+DocTestSetup = quote
+using Pope.LJH
+dir = "ljhutil_doctest"
+isdir(dir) || mkdir(dir)
+fnames = LJH.fnames(joinpath(dir,"ljhutil_doctest"),1:2:480)
+for fname in fnames
+    touch(fname)
+end
+end
+```
+
+```jldoctest
+julia> # the second argument is `maxchannels` to limit output length
+       ljhdict = LJH.allchannels("ljhutil_doctest/ljhutil_doctest_chan1.ljh",4)
+DataStructures.OrderedDict{Int64,String} with 4 entries:
+  1 => "ljhutil_doctest/ljhutil_doctest_chan1.ljh"
+  3 => "ljhutil_doctest/ljhutil_doctest_chan3.ljh"
+  5 => "ljhutil_doctest/ljhutil_doctest_chan5.ljh"
+  7 => "ljhutil_doctest/ljhutil_doctest_chan7.ljh"
+
+julia> dir,base,ext = LJH.dir_base_ext(first(values(ljhdict)))
+("ljhutil_doctest", "ljhutil_doctest", ".ljh")
+
+julia> LJH.pope_output_hdf5_name_from_ljh(first(values(ljhdict)))
+"ljhutil_doctest_pope.hdf5"
+
+julia> channels,fnames = collect(keys(ljhdict)), collect(values(ljhdict))
+([1, 3, 5, 7], String["ljhutil_doctest/ljhutil_doctest_chan1.ljh", "ljhutil_doctest/ljhutil_doctest_chan3.ljh", "ljhutil_doctest/ljhutil_doctest_chan5.ljh", "ljhutil_doctest/ljhutil_doctest_chan7.ljh"])
+```
+
+```@meta
+CurrentModule = LJH
+DocTestSetup = nothing
+```
+
+```@docs
+allchannels
+dir_base_ext
+pope_output_hdf5_name_from_ljh
+```
+
+## Matter Sentinel File Handling
+```@docs
+matter_writing_status
+write_sentinel_file
+change_writing_status
+```
+
+
 
 ## Autodocs LJH
 ```@autodocs

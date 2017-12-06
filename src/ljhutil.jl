@@ -2,7 +2,7 @@ using DataStructures
 """    dir_base_ext(ljhname::AbstractString)
 Given an ljh filename like "somedir/a_chan1.ljh" returns ("somedir,")
 """
-function dir_base_ext(ljhname::AbstractString)
+function dir_base_ext(ljhname::AbstractString)::Tuple{String,String,String}
     if isdir(ljhname)
         dname = ljhname # removes trailing /
         bname = last(split(dname,'/'))
@@ -11,12 +11,12 @@ function dir_base_ext(ljhname::AbstractString)
     bname,ext = splitext(basename(ljhname))
     ext = isempty(ext) ? ".ljh" : ext
     m = match(r"_chan\d+", bname)
-    dirname(ljhname), m == nothing ? bname : bname[1:m.offset-1], ext
+    dirname(ljhname), String(m == nothing ? bname : bname[1:m.offset-1]), ext
 end
 "    channel(ljhname::AbstractString)
 Return the Channel number determined from the filename of an ljh file, looks for
 the _chan1 part. Returns -1 if not found."
-function channel(ljhname::AbstractString)
+function channel(ljhname::AbstractString)::Int
     m = match(r"_chan(\d+)", ljhname)
     m == nothing ? -1 : parse(Int,m.captures[1])
 end
@@ -25,7 +25,7 @@ Returns a `Vector{String}` of ljh filenames `ljhname`, but with different
 channel numbers one for each channel number in `chans`."
 function fnames(ljhname::AbstractString, chans)
     dname, bname, ext = dir_base_ext(ljhname)
-    [joinpath(dname, "$(bname)_chan$c$ext") for c in chans]
+    String[joinpath(dname, "$(bname)_chan$c$ext") for c in chans]
 end
 "   fnames(ljhname::AbstractString, c::Int)
 Retuns a new ljh filename with channel number `c`."
@@ -51,18 +51,13 @@ function allchannels(ljhname::AbstractString,maxchannels=typemax(Int))
     channels = allchannelnumbers(ljhname)
     n = min(length(channels), maxchannels)
     channels = channels[1:n]
-    OrderedDict(ch=>fname for (ch,fname) in zip(channels, fnames(ljhname, channels)))
+    OrderedDict{Int,String}(ch=>fname for (ch,fname) in zip(channels, fnames(ljhname, channels)))
 end
 
-function hdf5_name_from_ljh(ljhnames::AbstractString...)
-	dname, bname, ext = dir_base_ext(ljhnames[1])
-	fname = prod([dir_base_ext(f)[2] for f in ljhnames])
-	joinpath(dname,hdf5_name_from_ljh(fname))
-end
-"    hdf5_name_from_ljh(ljhname::AbstractString)
+"    pope_output_hdf5_name_from_ljh(ljhname::AbstractString)
 Returns the filename that pope will use by default for it's output file for a
 for a given `ljhname` input."
-hdf5_name_from_ljh(ljhname::AbstractString) = ljhname*"_pope.hdf5"
+pope_output_hdf5_name_from_ljh(ljhname::AbstractString) = dir_base_ext(ljhname)[2]*"_pope.hdf5"
 
 const sentinel_file_path = joinpath(expanduser("~"),".daq","latest_ljh_pulse.cur")
 "    matter_writing_status()

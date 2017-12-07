@@ -125,8 +125,10 @@ DocTestSetup = nothing
 ```
 
 ## LJH Filename Handling
-There are a set of utility functions for handling LJH filenames. These are some
-of the most useful functions.
+There are a set of utility functions for handling LJH filenames. These are some of the most useful functions. These function can accept either a fully qualified ljh filename like `ljhutil_doctest/ljhutil_doctest_chan1.ljh` or a directory as long as it exists, and contains ljh files whose "base" name is the same as the directory name. So passing `ljhutil_doctest` should have the same result as passing that fully qualified name.
+
+The following examples work if a directory `ljhutil_doctest` exists, and contains ljh files. 
+
 ```@meta
 DocTestSetup = quote
 using Pope.LJH

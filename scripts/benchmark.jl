@@ -158,11 +158,11 @@ wait(@schedule begin
   runtime_ms = round(Int, 1000*runtime_s)
   p = Progress(runtime_ms,1,"livetest/benchmark: ")
   while tdiff<runtime_s
-    update!(p,round(Int,1000*(tdiff)))
+    ProgressMeter.update!(p,round(Int,1000*(tdiff)))
     sleep(min(1,tdiff))
     tdiff = time()-tstart
   end
-  update!(p,runtime_ms)
+  ProgressMeter.update!(p,runtime_ms)
   put!(endchannel,true)
   println("writing stopped") end);
 sleep(3) # make sure ljh files are all fully written, I get errors without this

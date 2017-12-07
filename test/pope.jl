@@ -21,7 +21,10 @@ let
   summary = Pope.summarize(data, npresamples, nsamples, average_pulse_peak_index, frametime)
   WT && @code_warntype Pope.summarize(data, npresamples, nsamples, average_pulse_peak_index, frametime)
   WT && @code_warntype Pope.estimate_rise_time(data, npresamples+1:summary.peak_index, summary.peak_value,summary.pretrig_mean,frametime)
-  WT && @code_warntype Pope.max_timeseries_deriv_simple(data, summary.peak_index)
+  WT && @code_warntype Pope.max_timeseries_deriv_mass(data, summary.peak_index)
+  @inferred Pope.summarize(data, npresamples, nsamples, average_pulse_peak_index, frametime)
+  @inferred Pope.estimate_rise_time(data, npresamples+1:summary.peak_index, summary.peak_value,summary.pretrig_mean,frametime)
+  @inferred Pope.max_timeseries_deriv_mass(data, summary.peak_index)
 end
 
 @testset "single reader with DataWriter" begin

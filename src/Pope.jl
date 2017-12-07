@@ -1,5 +1,5 @@
 module Pope
-using HDF5, ProgressMeter, ZMQ, TypedDelegation, Distributions
+using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
 include("LJH.jl")
 include("summarize.jl")
 include("apply_filter.jl")
@@ -19,7 +19,7 @@ mutable struct Readers{T} <: AbstractVector{T}
   task::Task
   timeout_s::Float64
 end
-@delegate_onefield(Readers, v, [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
+DataStructures.@delegate Readers.v [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex]
 Base.push!(rs::Readers,x) = (push!(rs.v,x);rs)
 Readers() = Readers(LJHReaderFeb2017[],Channel{Bool}(1), Task(nothing), 1.0)
 function write_headers(rs::Readers)

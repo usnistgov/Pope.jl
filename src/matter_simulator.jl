@@ -53,7 +53,7 @@ function mattersimprogress(srcnames, destnames, tasks, channels, timeout_s, puls
   p = Progress(ntotal,0.5,"Matter Simulator: ")
   i=0
   while nwritten < ntotal && !all(istaskdone.(tasks))
-    update!(p,nwritten)
+    ProgressMeter.update!(p,nwritten)
     sleep(0.5)
     i+=1
     if i==10
@@ -63,7 +63,7 @@ function mattersimprogress(srcnames, destnames, tasks, channels, timeout_s, puls
     nwritten = sum(pulses_written)
     # dests_size = sum(stat(dest).size for dest in destnames)
   end
-  update!(p, nwritten) # make sure it reads 100% finished if it  is
+  ProgressMeter.update!(p, nwritten) # make sure it reads 100% finished if it  is
   if nwritten == ntotal
     println("\nMatter Simulator finished.")
   else

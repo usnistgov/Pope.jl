@@ -43,10 +43,8 @@ value in either direction, the chunk will not be used. By default, `max_exc` is
 large (1e99), but it is smart to set it to a more reasonable value for your
 application.
 """
-function compute_autocorr(data::AbstractMatrix, nlags::Integer;
-        chunk_multiple=7, max_exc=1e99)
-    compute_autocorr(vec(data), nlags, chunk_multiple=chunk_multiple, max_exc=max_exc)
-end
+compute_autocorr(data::AbstractMatrix, nlags::Integer; kwargs...) =
+    compute_autocorr(vec(data), nlags; kwargs)
 
 function compute_autocorr(data::AbstractVector, nlags::Integer;
         chunk_multiple=7, max_exc=1e99)
@@ -118,19 +116,24 @@ The `data` are assumed to be a continuous sequence of noise samples.
 Use overlapping segments of the exact needed length (`2(nfreq-1)`), offset by
 approximately half their length.
 """
-compute_psd(data::AbstractArray, nfreq::Integer, dt::Real; max_exc=1e99) =
-    compute_psd(vec(data), nfreq, dt, max_exc=max_exc)
+compute_psd(data::AbstractArray, nfreq::Integer, dt::Real; kwargs...) =
+    compute_psd(vec(data), nfreq, dt; kwargs)
 
 function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e99)
 
     nsamp = 2(nfreq-1)
-    window = hann(nsamp)
-    window = window / sqrt(sum(window.^2)) # proper normalization
-
     if length(data) < nsamp
         error("data must be at least 2(nfreq-1) in length.")
     end
 
+    # If you have any appreciable power at DC and wish to understand the low-freq
+    # power spectrum, you want the hann window or no window, because only these
+    # have zero leakage for bins 3:end (zero leakage into bin 2, also, if using
+    # no window at all).
+    window = hann(nsamp)
+    window = window / sqrt(sum(window.^2)) # proper normalization
+
+    # Break data up into half-overlapping segments of the right separation
     nseg = Int(ceil(length(data)/nsamp))
     seg_step = 1
     if nseg>1

@@ -1,7 +1,12 @@
-using Pope: LJH, HDF5
+using Pope: LJH
+using HDF5
 using ReferenceMicrocalFiles
 using Base.Test
 const WT = false # run @code_warntype
+
+# clean out the artifacts directory
+isdir("artifacts") && rm("artifacts",recursive=true)
+mkdir("artifacts")
 
 include("ljh.jl")
 include("regression.jl")

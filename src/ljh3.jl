@@ -1,9 +1,8 @@
 using JSON
 
 mutable struct LJH3File
-    io::IO
+    io::IOStream
     index::Vector{Int} # 1 more than number of records
-    furthestread::Int
     frametime::Float64
     header::OrderedDict{String,Any}
 end
@@ -14,7 +13,7 @@ function LJH3File(io::IO; shouldseekstart=true)
     frametime = header["frametime"]
     @assert header["File Format"]=="LJH3"
     @assert header["File Format Version"] == "3.0.0"
-    LJH3File(io,Int[position(io)],position(io),frametime, header)
+    LJH3File(io,Int[position(io)],frametime, header)
 end
 struct LJH3Record
     data::Vector{UInt16}
@@ -29,6 +28,7 @@ timestamp_usec(r::LJH3Record) = r.timestamp_usec
 Base.close(ljh::LJH3File) = close(ljh.io)
 function Base.write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, rowcount::Int64, timestamp_usec::Int64)
     write(ljh.io, UInt32(length(trace)), UInt32(first_rising_sample), rowcount, timestamp_usec, trace)
+    push!(ljh.index,position(ljh.io))
 end
 function create3(filename::AbstractString, frametime, header_extra = Dict();version="3.0.0")
     io = open(filename,"w+")
@@ -56,14 +56,13 @@ function Base.pop!(ljh::LJH3File)
     timestamp_usec = read(ljh.io, Int64)
     data = read(ljh.io, UInt16, trace_samples)
     pos = position(ljh.io)
-    if pos>ljh.furthestread
-        ljh.furthestread=pos
+    if pos>ljh.index[end]
         push!(ljh.index,pos)
     end
     LJH3Record(data, first_rising_sample, rowcount, timestamp_usec)
 end
 function index!(ljh::LJH3File)
-    if stat(ljh.io).size > ljh.furthestread
+    if stat(ljh.io).size > ljh.index[end]
         collect(ljh)
     end
     return nothing
@@ -83,7 +82,7 @@ Base.endof(ljh::LJH3File) = ljh_number_of_records(ljh)
 # iterator interface
 Base.start(ljh::LJH3File) = (seekto(ljh,1);1)
 Base.next(ljh::LJH3File,j) = pop!(ljh),j+1
-Base.done(ljh::LJH3File,j) = ljh.furthestread==stat(ljh.io).size
+Base.done(ljh::LJH3File,j) = ljh.index[end]==stat(ljh.io).size
 Base.iteratorsize(ljh::LJH3File) = Base.SizeUnknown()
 # getindex with strings
 Base.getindex(ljh::LJH3File,key::AbstractString) = ljh.header[key]

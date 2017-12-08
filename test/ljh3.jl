@@ -12,13 +12,13 @@ rowcounts = 1:length(traces)
 timestamp_usecs = rowcounts.*1000
 
 for i = 1:length(traces)
-    Base.write(f, traces[i],first_rising_samples[i],
+    write(f, traces[i],first_rising_samples[i],
      rowcounts[i], timestamp_usecs[i])
 end
 close(f)
 
-f = LJH.LJH3File(fname)
-f2 = LJH.LJH3File(fname)
+f = LJH3File(fname)
+f2 = LJH3File(fname)
 records = [record for record in f]
 @testset "ljh3" begin
     @test traces == [record.data for record in records]

@@ -1,5 +1,5 @@
 module LJH
-export LJHGroup, LJHFile
+export LJHGroup, LJHFile, LJH3File
 include("ljhutil.jl")
 "    ljh_get_header_dict(io::IO)
 Return a Dict{String,String} mapping entries in the header. "

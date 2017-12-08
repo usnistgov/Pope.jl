@@ -29,7 +29,9 @@ records = [record for record in f]
     @test f[77].data == traces[77]
     @test all(f[key]==f.header[key] for key in keys(f))
     @test all(f[key]==f.header[key] for key in keys(header_extra))
-    @test length(f2) == length(traces)
+    @test length(f2) == length(traces) # test that length works before collect is called on f2
     @test f2.index == f.index
 end
 close(f)
+close(f2)
+rm(fname)

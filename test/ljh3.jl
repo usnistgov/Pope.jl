@@ -1,8 +1,10 @@
 using Pope: LJH
+using DataStructures
 using Base.Test
 
+headerdict = OrderedDict(["a"=>"b","c"=>"d","e"=>Dict("ea"=>"eb")])
 fname = tempname()
-f = LJH.create3(fname)
+f = LJH.create3(fname, 9.6e-6, headerdict)
 
 traces = [rand(UInt16,rand(1:1000)) for i=1:100]
 first_rising_samples = [rand(1:length(trace)) for trace in traces]
@@ -16,10 +18,18 @@ end
 close(f)
 
 f = LJH.LJH3File(fname)
+f2 = LJH.LJH3File(fname)
 records = [record for record in f]
-@test traces == [record.data for record in records]
-@test first_rising_samples == [record.first_rising_sample for record in records]
-@test collect(rowcounts) == [record.rowcount for record in records]
-@test timestamp_usecs == [record.timestamp_usec for record in records]
-@test f[1].data == traces[1]
-@test f[77].data == traces[77]
+@testset "ljh3" begin
+    @test traces == [record.data for record in records]
+    @test first_rising_samples == [record.first_rising_sample for record in records]
+    @test collect(rowcounts) == [record.rowcount for record in records]
+    @test timestamp_usecs == [record.timestamp_usec for record in records]
+    @test f[1].data == traces[1]
+    @test f[77].data == traces[77]
+    @test f.headerdict == headerdict
+    @test all(f[key]==headerdict[key] for key in keys(f))
+    # @test length(f2) == length(traces)
+    # @test f2.index == f.index
+end
+close(f)

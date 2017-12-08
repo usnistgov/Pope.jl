@@ -3,7 +3,6 @@ using Base.Test
 
 fname = tempname()
 f = LJH.create3(fname)
-println(f)
 
 traces = [rand(UInt16,rand(1:1000)) for i=1:100]
 first_rising_samples = [rand(1:length(trace)) for trace in traces]

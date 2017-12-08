@@ -477,5 +477,5 @@ function Base.write{T}(ljh::LJHFile{LJH_21,T}, record::LJHRecord)
 end
 
 #
-include("LJH3.jl")
+include("ljh3.jl")
 end #module

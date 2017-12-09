@@ -41,7 +41,7 @@ function create3(filename::AbstractString, frametime, header_extra = Dict();vers
     for (k,v) in header_extra
         header[k]=v
     end
-    JSON.print(io, header)
+    JSON.print(io, header, 4) # last argument uses pretty printing
     LJH3File(io)
 end
 function seekto(ljh::LJH3File, i::Int)

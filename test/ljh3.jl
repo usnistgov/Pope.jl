@@ -48,5 +48,5 @@ end
 
 
 # using BenchmarkTools
-# @benchmark read(seekstart(f.io)) setup=(f=LJH3File(fname)) teardown=close(f)
-# @benchmark collect(f) setup=(f=LJH3File(fname)) teardown=close(f)
+# @benchmark read(seekstart(f.io)) setup=(f=LJH3File(fname)) teardown=close(f) evals=1
+# @benchmark collect(f) setup=(f=LJH3File(fname)) teardown=close(f) evals=1

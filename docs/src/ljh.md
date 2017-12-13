@@ -127,7 +127,7 @@ DocTestSetup = nothing
 ## LJH Filename Handling
 There are a set of utility functions for handling LJH filenames. These are some of the most useful functions. These function can accept either a fully qualified ljh filename like `ljhutil_doctest/ljhutil_doctest_chan1.ljh` or a directory as long as it exists, and contains ljh files whose "base" name is the same as the directory name. So passing `ljhutil_doctest` should have the same result as passing that fully qualified name.
 
-The following examples work if a directory `ljhutil_doctest` exists, and contains ljh files. 
+The following examples work if a directory `ljhutil_doctest` exists, and contains ljh files.
 
 ```@meta
 DocTestSetup = quote
@@ -178,7 +178,19 @@ write_sentinel_file
 change_writing_status
 ```
 
+## LJH3
 
+LJH3 is a new version of LJH intended to allow the use of variable length records for analyses such as multi-pulse fitting or single pulse fitting. LJH3 files have a JSON header containing at least 3 keys: "sampleperiod", "File Format"="LJH3", and "File Format Version". It should contains additional keys with information about the readout, but these are not currently required.
+
+After the header, records are written as flat binary data. Each record consists of a UInt32 record length, a UInt32 offset into the record pointing to the first rising sample as determined by the trigger algorithm, a Int64 samplecount of the first sample in the record, and an Int64 posix timestamp in units of microseconds since the epoch. The samplecount is provided by the readout system, and may have arbitrary offset, such that comparisons across different LJH3 files from the same readout system are not meaningful.
+
+
+```@docs
+LJH3File
+LJH3Record
+create3
+write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
+```
 
 ## Autodocs LJH
 ```@autodocs

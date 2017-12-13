@@ -7,6 +7,14 @@ struct LJH3File
     sampleperiod::Float64
     header::OrderedDict{String,Any}
 end
+"""    LJH3File(fname::AbstractString)
+Open an LJH3 file. Records can be accessed by indexing with integers like an `AbstractVector`,
+eg `ljh[1]` or by iteration eg `collect(ljh)` or `for record in ljh dosomething() end`.
+Due to the possibility of unequal record lengths, random access will be slow until
+the file is fully indexed. Indexing occurs automatically whenever you access a record.
+An `LJH3File` presents a dictionary like interface for accessing the header,
+eg `ljh["File Format Version"]` or `keys(ljh)`. Use `sampleperiod(ljh)` to get the
+time between succesive samples in seconds."""
 LJH3File(fname::AbstractString) = LJH3File(open(fname,"r"))
 function LJH3File(io::IO; shouldseekstart=true)
     shouldseekstart && seekstart(io)
@@ -16,6 +24,10 @@ function LJH3File(io::IO; shouldseekstart=true)
     @assert header["File Format Version"] == "3.0.0"
     LJH3File(io,Int[position(io)],sampleperiod, header)
 end
+sampleperiod(ljh::LJH3File) = ljh.sampleperiod
+"`LJH3Record` are returned when accessing a record in an `LJH3File`. Use functions
+`data(r)`, `first_rising_sample(r)`, count(r)`, and `timestamp_usec(r)` to extract
+information from a record `r`."
 struct LJH3Record
     data::Vector{UInt16}
     first_rising_sample::UInt32
@@ -23,24 +35,33 @@ struct LJH3Record
     timestamp_usec::Int64
 end
 data(r::LJH3Record) = r.data
+first_rising_sample(r::LJH3Record) = r.first_rising_sample
 samplecount(r::LJH3Record) = r.samplecount
 timestamp_usec(r::LJH3Record) = r.timestamp_usec
 
 ==(a::LJH3Record, b::LJH3Record) = a.data == b.data && a.first_rising_sample == b.first_rising_sample && a.samplecount == b.samplecount && a.timestamp_usec == b.timestamp_usec
 Base.close(ljh::LJH3File) = close(ljh.io)
+"    write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
+Write a single record to `ljh`. Assumes `ljh.io` is at the same position it would be if you had
+called `seekend(ljh.io)`."
 function Base.write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
     write(ljh.io, UInt32(length(trace)), UInt32(first_rising_sample), samplecount, timestamp_usec, trace)
     push!(ljh.index,position(ljh.io))
 end
+"""    create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
+Return an `LJH3File` ready for writing with `write`. The header will contain "sampleperiod",
+"File Format", "File Format Version" and any items in `header_extra`. The three listed items
+will overwrite items in `header_extra`.
+"""
 function create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
     io = open(filename,"w+")
     header = OrderedDict{String,Any}()
-    header["File Format"] = "LJH3"
-    header["File Format Version"] = version
-    header["sampleperiod"]=sampleperiod
     for (k,v) in header_extra
         header[k]=v
     end
+    header["File Format"] = "LJH3"
+    header["File Format Version"] = version
+    header["sampleperiod"]=sampleperiod
     JSON.print(io, header, 4) # last argument uses pretty printing
     LJH3File(io)
 end

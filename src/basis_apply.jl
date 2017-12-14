@@ -33,7 +33,21 @@ struct BasisDataProduct <: DataProduct
 end
 
 struct BasisAnalyzer
-    basis::Array{Float32,2}
+    basis::Array{Float32,2} # size (nbasis,nsamples)
+end
+function (a::BasisAnalyzer)(record::LJH.LJHRecord)
+  reduced = a.basis*record.data
+  data_subspace = a.basis'*reduced
+  residual_std = std(data_subspace-record.data)
+  BasisDataProduct(reduced, residual_std, LJH.rowcount(record),
+    LJH.timestamp_usec(record), 0, length(record))
+end
+function (a::BasisAnalyzer)(record::LJH.LJH3Record)
+  reduced = a.basis*record.data
+  data_subspace = a.basis'*reduced
+  residual_std = std(data_subspace-record.data)
+  BasisDataProduct(reduced, residual_std, LJH.samplecount(record),
+    LJH.timestamp_usec(record), LJH.first_rising_sample(record), length(record))
 end
 
 struct BasisBufferedWriter <: DataSink

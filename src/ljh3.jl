@@ -38,6 +38,7 @@ data(r::LJH3Record) = r.data
 first_rising_sample(r::LJH3Record) = r.first_rising_sample
 samplecount(r::LJH3Record) = r.samplecount
 timestamp_usec(r::LJH3Record) = r.timestamp_usec
+Base.length(r::LJH3Record) = length(r.data)
 
 ==(a::LJH3Record, b::LJH3Record) = a.data == b.data && a.first_rising_sample == b.first_rising_sample && a.samplecount == b.samplecount && a.timestamp_usec == b.timestamp_usec
 Base.close(ljh::LJH3File) = close(ljh.io)

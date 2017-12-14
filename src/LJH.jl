@@ -47,6 +47,7 @@ end
 data(r::LJHRecord) = r.data
 rowcount(r::LJHRecord) = r.rowcount
 timestamp_usec(r::LJHRecord) = r.timestamp_usec
+Base.length(r::LJHRecord) = length(r.data)
 import Base: ==
 ==(a::LJHRecord, b::LJHRecord) = a.data==b.data && a.rowcount == b.rowcount && a.timestamp_usec == b.timestamp_usec
 

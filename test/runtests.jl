@@ -8,10 +8,11 @@ const WT = false # run @code_warntype
 isdir("artifacts") && rm("artifacts",recursive=true)
 mkdir("artifacts")
 
-include("ljh.jl")
-include("ljh3.jl")
+# include("ljh.jl")
+# include("ljh3.jl")
 # include("regression.jl")
 # include("matter_simulator.jl")
 # include("zmq_datasink.jl")
 # include("ljhutil.jl")
 # include("pope.jl")
+include("bufferedhdf5dataset2d.jl")

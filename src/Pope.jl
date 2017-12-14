@@ -122,8 +122,8 @@ end
 
 
 
-"create an LJHReaderFeb2017.
-If `continuous` is true is will continue trying to read from `fname` until something does
+"    make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_meter=false)
+create an `LJHReaderFeb2017`. If `continuous` is true is will continue trying to read from `fname` until something does
 `put!(reader.endchannel,true)`."
 function make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_meter=false)
   reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s, progress_meter)
@@ -175,7 +175,7 @@ function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary.postpeak_deriv, summary.peak_index, summary.peak_value,summary.min_value )
 end
 
-"asbstract DataSink
+"abstract DataSink
 subtype `T` must have methods:
 `write(ds::T, dp::S)` where `S` is a subtype of DataProduct
 `write_header(ds::T, f::LJHReaderFeb2017)`
@@ -253,5 +253,6 @@ function analyzer_from_preknowledge(pk::HDF5Group)
 end
 
 include("buffered_hdf5_dataset.jl")
+include("basis_apply.jl")
 
 end # module

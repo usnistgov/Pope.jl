@@ -55,7 +55,7 @@ Base.write{T}(b::BufferedHDF5Dataset{T},x::Vector{T}) = append!(b.v,x)
 
 
 
-
+abstract type BufferedWriter <: DataSink end
 """
     MassCompatibleBufferedWriters <: DataSink
 
@@ -65,7 +65,7 @@ Contains many `BufferedHDF5Dataset` and organizes writing to them. Supports
 `write_header_end`, `write_header_allchannel`. If you have an instance `d`,
 then `d(x)` is equivalent to `write(d,x)`.
 """
-mutable struct MassCompatibleBufferedWriters <: DataSink
+mutable struct MassCompatibleBufferedWriters <: BufferedWriter
   endchannel        ::Channel{Bool}
   timeout_s         ::Float64
   task              ::Task
@@ -91,7 +91,7 @@ function write_to_hdf5(b::MassCompatibleBufferedWriters)
   write_to_hdf5.([b.filt_value, b.filt_phase, b.timestamp, b.rowcount, b.pretrig_mean, b.pretrig_rms, b.pulse_average,
   b.pulse_rms, b.rise_time, b.postpeak_deriv, b.peak_index, b.peak_value, b.min_value])
 end
-function Base.schedule(b::MassCompatibleBufferedWriters)
+function Base.schedule(b::BufferedWriter)
   b.task=@schedule begin
     while !isready(b.endchannel)
       write_to_hdf5(b)
@@ -100,10 +100,10 @@ function Base.schedule(b::MassCompatibleBufferedWriters)
     write_to_hdf5(b)
   end
 end
-stop(b::MassCompatibleBufferedWriters) = put!(b.endchannel,true)
-Base.wait(b::MassCompatibleBufferedWriters) = wait(b.task)
-Base.close(b::MassCompatibleBufferedWriters) = (stop(b);wait(b))
-Base.flush(b::MassCompatibleBufferedWriters) = flush(hdf5file(b))
+stop(b::BufferedWriter) = put!(b.endchannel,true)
+Base.wait(b::BufferedWriter) = wait(b.task)
+Base.close(b::BufferedWriter) = (stop(b);wait(b))
+Base.flush(b::BufferedWriter) = flush(hdf5file(b))
 function make_buffered_hdf5_writer(h5, channel_number, chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")
   buffered_datasets = [BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(),0) for name in mass_fieldnames]
@@ -170,6 +170,6 @@ function write_header_allchannel(d::MassCompatibleBufferedWriters, r::LJHReaderF
     println("SKIPPING START_SWMR_WRITE, HDF5 VERSION TOO LOW")
   end
 end
-function (d::MassCompatibleBufferedWriters)(x::MassCompatibleDataProductFeb2017)
-  write(d,x)
-end
+# function (d::T)(x) where T<:BufferedWriter
+#   write(d,x)
+# end

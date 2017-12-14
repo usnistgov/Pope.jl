@@ -41,6 +41,10 @@ mutable struct BufferedHDF5Dataset{T}
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
 end
+function BufferedHDF5Dataset{T}(g::Union{HDF5File,HDF5Group}, name, chunksize) where T
+  ds = d_create(g, name, T, ((1,),(-1,)), "chunk", chunksize)
+  BufferedHDF5Dataset{T}(ds, Vector{T}(), 0)
+end
 function write_to_hdf5(b::BufferedHDF5Dataset)
   r = b.lasti + (1:length(b.v))
   if length(r)>0
@@ -106,8 +110,9 @@ Base.close(b::BufferedWriter) = (stop(b);wait(b))
 Base.flush(b::BufferedWriter) = flush(hdf5file(b))
 function make_buffered_hdf5_writer(h5, channel_number, chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")
-  buffered_datasets = [BufferedHDF5Dataset(d_create(g, string(name), fieldtype(MassCompatibleDataProductFeb2017,name), ((1,), (-1,)), "chunk", (chunksize,)), Vector{fieldtype(MassCompatibleDataProductFeb2017,name)}(),0) for name in mass_fieldnames]
-  d=MassCompatibleBufferedWriters(Channel{Bool}(1), timeout_s, Task(nothing), buffered_datasets...)
+  d=MassCompatibleBufferedWriters(Channel{Bool}(1), timeout_s, Task(nothing),
+   [BufferedHDF5Dataset{fieldtype(MassCompatibleDataProductFeb2017,name)}(g,
+       string(name), chunksize) for name in mass_fieldnames]...)
   schedule(d)
   d
 end

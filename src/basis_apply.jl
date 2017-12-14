@@ -1,4 +1,4 @@
-
+"    BufferedHDF5Dataset2D{T}(g::Union{HDF5File,HDF5Group}, name, nbases, chunksize)"
 mutable struct BufferedHDF5Dataset2D{T}
   ds::HDF5Dataset
   v::Vector{Vector{T}} #naievley you want a 2d array here, but there is no
@@ -6,7 +6,10 @@ mutable struct BufferedHDF5Dataset2D{T}
   # see https://github.com/JuliaLang/julia/issues/10546
   lastrow::Int64 # last index in hdf5 dataset
 end
-BufferedHDF5Dataset2D(ds)= BufferedHDF5Dataset2D(ds, Vector{Vector{eltype(ds)}}(), 0)
+function BufferedHDF5Dataset2D{T}(g::Union{HDF5File,HDF5Group}, name, nbases, chunksize) where T
+  ds = d_create(g, name, T, ((nbases,1), (nbases,-1)), "chunk", (nbases,chunksize))
+  BufferedHDF5Dataset2D{T}(ds, Vector{Vector{T}}(),0)
+end
 function write_to_hdf5(b::BufferedHDF5Dataset2D)
   r = b.lastrow + (1:length(b.v))
   if length(r)>0
@@ -50,7 +53,7 @@ function (a::BasisAnalyzer)(record::LJH.LJH3Record)
     LJH.timestamp_usec(record), LJH.first_rising_sample(record), length(record))
 end
 
-struct BasisBufferedWriter <: DataSink
+mutable struct BasisBufferedWriter <: BufferedWriter
     endchannel           ::Channel{Bool}
     timeout_s            ::Float64
     task                 ::Task
@@ -61,22 +64,35 @@ struct BasisBufferedWriter <: DataSink
     first_rising_sample  ::BufferedHDF5Dataset{UInt32}
     nsamples             ::BufferedHDF5Dataset{UInt32}
 end
-
-const basis_fieldnames = collect(fieldnames(BasisBufferedWriter)[4:end])
+function BasisBufferedWriter(h5::HDF5File, channel_number, nbases, chunksize, timeout_s;start=true)
+  BasisBufferedWriter(g_create(h5,"$channel_number"),nbases,chunksize,timeout_s,start=start)
+end
+function BasisBufferedWriter(g::HDF5Group, nbases, chunksize, timeout_s;start=true)
+  b=BasisBufferedWriter(Channel{Bool}(1), timeout_s, Task(nothing),
+  BufferedHDF5Dataset2D{Float32}(g,"reduced", nbases, chunksize),
+  BufferedHDF5Dataset{Float32}(g,"residual_std", chunksize),
+  BufferedHDF5Dataset{Int}(g,"samplecount", chunksize),
+  BufferedHDF5Dataset{Int}(g,"timestamp_usec", chunksize),
+  BufferedHDF5Dataset{UInt32}(g,"first_rising_sample", chunksize),
+  BufferedHDF5Dataset{UInt32}(g,"nsamples", chunksize), )
+  start && schedule(b)
+  b
+end
 "    hdf5file(b::MassCompatibleBufferedWriters)
 Return the filename of the hdf5 file associated with `b`."
 hdf5file(b::BasisBufferedWriter) = file(b.residual_std.ds)
 function write_to_hdf5(b::BasisBufferedWriter)
-  write_to_hdf5.([b.residual_std, b.samplecount,
-  b.timestamp_usec, b.first_rising_sample, b.nsamples])
+  write_to_hdf5(b.reduced);write_to_hdf5(b.residual_std);write_to_hdf5(b.samplecount)
+  write_to_hdf5(b.timestamp_usec);write_to_hdf5(b.first_rising_sample);write_to_hdf5(b.nsamples)
 end
 function Base.write(b::BasisBufferedWriter,x::BasisDataProduct)
-  write(d.reduced, x.reduced)
-  write(d.residual_std, x.residual_std)
-  write(d.samplecount, x.samplecount)
-  write(d.timestamp_usec, x.timestamp_usec)
-  write(d.first_rising_sample, x.first_rising_sample)
-  write(d.nsamples, x.nsamples)
+  write(b.reduced, x.reduced)
+  write(b.residual_std, x.residual_std)
+  write(b.samplecount, x.samplecount)
+  write(b.timestamp_usec, x.timestamp_usec)
+  write(b.first_rising_sample, x.first_rising_sample)
+  write(b.nsamples, x.nsamples)
+  return nothing
 end
 
 function write_header(d::BasisBufferedWriter,r)

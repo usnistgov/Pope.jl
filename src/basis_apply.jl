@@ -31,8 +31,8 @@ struct BasisDataProduct <: DataProduct
     residual_std::Float32
     samplecount::Int
     timestamp_usec::Int
-    first_rising_sample::UInt32
-    nsamples::UInt32
+    first_rising_sample::Int32
+    nsamples::Int32
 end
 
 struct BasisAnalyzer
@@ -62,8 +62,8 @@ mutable struct BasisBufferedWriter <: BufferedWriter
     residual_std         ::BufferedHDF5Dataset{Float32}
     samplecount          ::BufferedHDF5Dataset{Int}
     timestamp_usec       ::BufferedHDF5Dataset{Int}
-    first_rising_sample  ::BufferedHDF5Dataset{UInt32}
-    nsamples             ::BufferedHDF5Dataset{UInt32}
+    first_rising_sample  ::BufferedHDF5Dataset{Int32}
+    nsamples             ::BufferedHDF5Dataset{Int32}
 end
 function BasisBufferedWriter(h5::HDF5File, channel_number, nbases, chunksize, timeout_s;start=true)
   BasisBufferedWriter(g_create(h5,"$channel_number"),nbases,chunksize,timeout_s,start=start)
@@ -74,8 +74,8 @@ function BasisBufferedWriter(g::HDF5Group, nbases, chunksize, timeout_s;start=tr
   BufferedHDF5Dataset{Float32}(g,"residual_std", chunksize),
   BufferedHDF5Dataset{Int}(g,"samplecount", chunksize),
   BufferedHDF5Dataset{Int}(g,"timestamp_usec", chunksize),
-  BufferedHDF5Dataset{UInt32}(g,"first_rising_sample", chunksize),
-  BufferedHDF5Dataset{UInt32}(g,"nsamples", chunksize), )
+  BufferedHDF5Dataset{Int32}(g,"first_rising_sample", chunksize),
+  BufferedHDF5Dataset{Int32}(g,"nsamples", chunksize), )
   start && schedule(b)
   b
 end

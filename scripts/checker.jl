@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
 using HDF5, DataStructures
-using Pope: LJHUtil
+using Pope: LJH
 using DocOpt
 
 doc = """
@@ -26,7 +26,7 @@ function Base.show(io::IO,fs::FolderStatus)
 		print(io, "$(fs.n_ljh_file) ljh files found, $(fs.n_channels_in_hdf5) channels in hdf5, $(fs.n_channels_in_hdf5_matching_ljh_found) channels match between ljh and hdf5, $(fs.n_channels_hdf5_and_ljh_match_length) channels have matching lengths. $(fs.n_channels_filt_value_nonzero) have nonzero first filt_value.")
 	else
 		print(io, "$(fs.n_ljh_file) ljh files found, no pope hdf5 found.")
-	end	
+	end
 end
 
 
@@ -40,17 +40,10 @@ function get_pope_hdf5_fname(dir)
 	end
 end
 
-function get_ljh_filenames(dir)
-	channel_numbers = Pope.LJHUtil.allchannels(dir)
-	filenames = LJHUtil.fnames(dir,LJHUtil.allchannels(dir))
-	OrderedDict(collect(ch=>fname for (ch,fname) in zip(channel_numbers, filenames)))
-end
-
-
 function comparechannels(popefilename, ljhdict,verbose)
 	nchannels = 0
 	nchannelsmatchlength = 0
-	nchannelsfiltvaluenonzero = 0  
+	nchannelsfiltvaluenonzero = 0
 	p = h5open(popefilename,"r")
 	n_hdf5_channel = length(filter(s->startswith(s,"chan"),names(p)))
 	for ch in 1:2:480
@@ -75,9 +68,9 @@ end
 
 "comparechannels(d;verbose=false)
 Look in directory `d` for a pope hdf5 file, and return a FolderStatus object containing info used to determine if the folder is a re-analysis candidate."
-function comparechannels(d;verbose=false) 
+function comparechannels(d;verbose=false)
 	pope_hdf5_nullable = get_pope_hdf5_fname(d)
-	ljhdict = get_ljh_filenames(d)
+	ljhdict = LJH.allchannels(d)
 	if isnull(pope_hdf5_nullable)
 		return FolderStatus(length(ljhdict), false, 0, 0, 0, 0)
 	else
@@ -88,7 +81,7 @@ function is_renalysis_candidate(f::FolderStatus, missing_hdf5_is_candidate::Bool
 	f.n_ljh_file==0 && return false
 	!f.pope_hdf5_found && return missing_hdf5_is_candidate
 	return f.n_channels_hdf5_and_ljh_match_length != f.n_channels_in_hdf5_matching_ljh_found
-end 
+end
 
 #test for is_reanalysis_candidate
 # missing_hdf5_is_candidate
@@ -107,7 +100,7 @@ function get_reanalysis_candidates(dirs, missing_hdf5_is_candidate::Bool, verbos
 end
 
 function report_candidates(fsdict)
-	println("Review these $(length(fsdict)) re-analysis candidates (must have ljh files in them, also depends on --missing_hdf5_is_candidate flag):")	
+	println("Review these $(length(fsdict)) re-analysis candidates (must have ljh files in them, also depends on --missing_hdf5_is_candidate flag):")
 	for (k,v) in fsdict
 		println("$k")
 		println("\tWhy? $v")
@@ -115,7 +108,7 @@ function report_candidates(fsdict)
 end
 
 function prompt_yes_no(s;exit_on_no=false)
-	while true	
+	while true
 		println(s)
 		print("[y/n]?")
 		r = lowercase(chomp(readline()))
@@ -127,14 +120,14 @@ function prompt_yes_no(s;exit_on_no=false)
 			else
 				return false
 			end
-		end	
-	end	
+		end
+	end
 end
 
 function make_reanalysis_command(pkfilename, candidate)
 	k,v=candidate
-	chan1 = Pope.LJHUtil.fnames(k,1)
-	outputpath = Pope.LJHUtil.hdf5_name_from_ljh(chan1)
+	chan1 = LJH.fnames(k,1)
+	outputpath = LJH.hdf5_name_from_ljh(chan1)
 	"./popeonce.jl --overwriteoutput $k $pkfilename $outputpath"
 end
 
@@ -149,7 +142,7 @@ println(lscmd)
 println(chomp(readstring(lscmd)))
 searchdirslocal = [d for d in readdir(startdir) if isdir(joinpath(startdir,d))]
 searchdirs = [joinpath(startdir,d) for d in searchdirslocal]
-println("Found $(length(searchdirs)) subdirs") 
+println("Found $(length(searchdirs)) subdirs")
 candidates = get_reanalysis_candidates(searchdirs,missing_hdf5_is_candidate,false)
 #for (k,v) in candidates
 #	println(k)

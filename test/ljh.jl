@@ -36,10 +36,10 @@ ljh22 = LJHGroup(name22)
 
 # Test that the header info is correct
 for ljh in (ljh21, ljh22)
-    @test record_nsamples(ljh) == nsamp
-    @test pretrig_nsamples(ljh) == npre
-    @test frametime(ljh) == dt
-    @test length(ljh) == N
+    @test LJH.record_nsamples(ljh) == nsamp
+    @test LJH.pretrig_nsamples(ljh) == npre
+    @test LJH.frametime(ljh) == dt
+    @test LJH.length(ljh) == N
 
     # Test indexed access
     ranges = (1:N, N:-1:1, 1:3:N, N:-2:1)
@@ -50,10 +50,10 @@ for ljh in (ljh21, ljh22)
             @test record.timestamp_usec==timestamps[i]
         end
     end
-    row(ljh)
-    column(ljh)
-    num_rows(ljh)
-    num_columns(ljh)
+    LJH.row(ljh)
+    LJH.column(ljh)
+    LJH.num_rows(ljh)
+    LJH.num_columns(ljh)
 
     # test slices
     for (r1,r2) in zip(collect(ljh[2:4]), collect(ljh)[2:4])
@@ -77,12 +77,12 @@ for (r1,r2) in zip(collect(grp[3:10]), collect(grp)[3:10])
     @test r1.rowcount == r2.rowcount
     @test r1.timestamp_usec == r2.timestamp_usec
 end
-@test lengths(grp) == [N,N,N]
+@test LJH.lengths(grp) == [N,N,N]
 
 grp.ljhfiles[1].record_nsamples=0
-@test_throws AssertionError record_nsamples(grp)
+@test_throws AssertionError LJH.record_nsamples(grp)
 
-data_r, rowcount_r, timestamp_usec_r = get_data_rowcount_timestamp(ljh22)
+data_r, rowcount_r, timestamp_usec_r = LJH.get_data_rowcount_timestamp(ljh22)
 @test data==data_r
 @test rowcount_r==rowcount
 @test timestamp_usec_r == timestamps

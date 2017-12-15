@@ -4,5 +4,5 @@ DocOpt
 ProgressMeter
 DataStructures
 ZMQ
-TypedDelegation
 Distributions
+JSON

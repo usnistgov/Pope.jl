@@ -1,6 +1,10 @@
 # LJH
 LJH is a module for reading and writing LJH files. It supports versions 2.1 and
-2.2 of LJH, and provides a way to handle multiple LJH files. It is a submodule of Pope so you will want to `using Pope.LJH`.
+2.2 of LJH, and provides a way to handle multiple LJH files. It is a submodule of Pope so you will want to `using Pope.LJH` or `using Pope: LJH`.
+
+```@contents
+Depth = 2
+```
 
 ```@meta
 DocTestSetup = quote using Pope.LJH end
@@ -118,6 +122,74 @@ julia> collect(g[7:8])
 ```
 ```@meta
 DocTestSetup = nothing
+```
+
+## LJH Filename Handling
+There are a set of utility functions for handling LJH filenames. These are some of the most useful functions. These function can accept either a fully qualified ljh filename like `ljhutil_doctest/ljhutil_doctest_chan1.ljh` or a directory as long as it exists, and contains ljh files whose "base" name is the same as the directory name. So passing `ljhutil_doctest` should have the same result as passing that fully qualified name.
+
+The following examples work if a directory `ljhutil_doctest` exists, and contains ljh files.
+
+```@meta
+DocTestSetup = quote
+using Pope.LJH
+dir = "ljhutil_doctest"
+isdir(dir) || mkdir(dir)
+fnames = LJH.fnames(joinpath(dir,"ljhutil_doctest"),1:2:480)
+for fname in fnames
+    touch(fname)
+end
+end
+```
+
+```jldoctest
+julia> # the second argument is `maxchannels` to limit output length
+       ljhdict = LJH.allchannels("ljhutil_doctest/ljhutil_doctest_chan1.ljh",4)
+DataStructures.OrderedDict{Int64,String} with 4 entries:
+  1 => "ljhutil_doctest/ljhutil_doctest_chan1.ljh"
+  3 => "ljhutil_doctest/ljhutil_doctest_chan3.ljh"
+  5 => "ljhutil_doctest/ljhutil_doctest_chan5.ljh"
+  7 => "ljhutil_doctest/ljhutil_doctest_chan7.ljh"
+
+julia> dir,base,ext = LJH.dir_base_ext(first(values(ljhdict)))
+("ljhutil_doctest", "ljhutil_doctest", ".ljh")
+
+julia> LJH.pope_output_hdf5_name_from_ljh(first(values(ljhdict)))
+"ljhutil_doctest_pope.hdf5"
+
+julia> channels,fnames = collect(keys(ljhdict)), collect(values(ljhdict))
+([1, 3, 5, 7], String["ljhutil_doctest/ljhutil_doctest_chan1.ljh", "ljhutil_doctest/ljhutil_doctest_chan3.ljh", "ljhutil_doctest/ljhutil_doctest_chan5.ljh", "ljhutil_doctest/ljhutil_doctest_chan7.ljh"])
+```
+
+```@meta
+CurrentModule = LJH
+DocTestSetup = nothing
+```
+
+```@docs
+allchannels
+dir_base_ext
+pope_output_hdf5_name_from_ljh
+```
+
+## Matter Sentinel File Handling
+```@docs
+matter_writing_status
+write_sentinel_file
+change_writing_status
+```
+
+## LJH3
+
+LJH3 is a new version of LJH intended to allow the use of variable length records for analyses such as multi-pulse fitting or single pulse fitting. LJH3 files have a JSON header containing at least 3 keys: "sampleperiod", "File Format"="LJH3", and "File Format Version". It should contains additional keys with information about the readout, but these are not currently required.
+
+After the header, records are written as flat binary data. Each record consists of a UInt32 record length, a UInt32 offset into the record pointing to the first rising sample as determined by the trigger algorithm, a Int64 samplecount of the first sample in the record, and an Int64 posix timestamp in units of microseconds since the epoch. The samplecount is provided by the readout system, and may have arbitrary offset, such that comparisons across different LJH3 files from the same readout system are not meaningful.
+
+
+```@docs
+LJH3File
+LJH3Record
+create3
+write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
 ```
 
 ## Autodocs LJH

@@ -1,4 +1,4 @@
-using Pope
+using Pope: LJH
 using Base.Test
 using ReferenceMicrocalFiles
 
@@ -14,9 +14,9 @@ fastforward = 1
 
 sim = @schedule Pope.mattersim(src, dest, timeout_s, fastforward, maxchannels)
 sleep(0.1)
-filename0, writingbool0 = Pope.LJHUtil.matter_writing_status()
+filename0, writingbool0 = LJH.matter_writing_status()
 wait(sim)
-filename1, writingbool1 = Pope.LJHUtil.matter_writing_status()
+filename1, writingbool1 = LJH.matter_writing_status()
 
 @test writingbool0
 @test !writingbool1

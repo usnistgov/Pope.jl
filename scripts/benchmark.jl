@@ -43,7 +43,7 @@ end
 
 @everywhere begin
 using ProgressMeter
-using Pope: LJH, LJHUtil
+using Pope: LJH, LJH
 using HDF5
 using Distributions: Distribution, Exponential
 "    gen_ljh_files(dt=9.6e-6, npre=200, nsamp=1000,channels=1:2:480,dname=tempdir(); version=\"2.2.0\")
@@ -139,7 +139,7 @@ h5 = h5open(outputname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_L
 readers = Pope.Readers()
 fname=""
 for channel in channels
-  fname = LJHUtil.fnames(dname, channel)
+  fname = LJH.fnames(dname, channel)
   analyzer = Pope.MassCompatibleAnalysisFeb2017(filter_values, filter_at, npresamples, nsamples, average_pulse_peak_index, frametime, shift_threshold, pretrigger_rms_cuts, postpeak_deriv_cuts, analyzer_pk_string)
   if nozmq
     product_writer = Pope.make_buffered_hdf5_writer(h5, channel)
@@ -158,11 +158,11 @@ wait(@schedule begin
   runtime_ms = round(Int, 1000*runtime_s)
   p = Progress(runtime_ms,1,"livetest/benchmark: ")
   while tdiff<runtime_s
-    update!(p,round(Int,1000*(tdiff)))
+    ProgressMeter.update!(p,round(Int,1000*(tdiff)))
     sleep(min(1,tdiff))
     tdiff = time()-tstart
   end
-  update!(p,runtime_ms)
+  ProgressMeter.update!(p,runtime_ms)
   put!(endchannel,true)
   println("writing stopped") end);
 sleep(3) # make sure ljh files are all fully written, I get errors without this
@@ -172,7 +172,7 @@ println("analyzing stopped")
 
 
 function check_values(channel, h5)
-  fname = LJHUtil.fnames(dname, channel)
+  fname = LJH.fnames(dname, channel)
   ljh = LJH.LJHFile(fname)
   # @assert 80<length(ljh)/runtime_s<120  # the efault value in launch_writer_other_process has 100 cps
   g = h5["chan$channel"]

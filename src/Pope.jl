@@ -1,5 +1,5 @@
 module Pope
-using HDF5, ProgressMeter, ZMQ, TypedDelegation, Distributions
+using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
 include("LJH.jl")
 include("NoiseAnalysis.jl")
 include("ljhutil.jl")
@@ -9,11 +9,11 @@ include("matter_simulator.jl")
 include("zmq_datasink.jl")
 include("ports.jl")
 
-"Readers is like a Vector{LJHReaderFeb2017} with some additional smarts for
+"Readers is like a `Vector{LJHReaderFeb2017}` with some additional smarts for
 contruct it with `rs=Readers()`
 then `push!` in intances of `LJHReaderFeb2017`
 then `schedule(rs)`
-later `stop(rs)` and if you want `wait(rs)`
+later `stop(rs)` and if you want `wait(rs)`LJH.
 "
 mutable struct Readers{T} <: AbstractVector{T}
   v::Vector{T}
@@ -21,7 +21,7 @@ mutable struct Readers{T} <: AbstractVector{T}
   task::Task
   timeout_s::Float64
 end
-@delegate_onefield(Readers, v, [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex])
+DataStructures.@delegate Readers.v [Base.length, Base.size, Base.eltype, Base.start, Base.next, Base.done, Base.endof, Base.setindex!, Base.getindex]
 Base.push!(rs::Readers,x) = (push!(rs.v,x);rs)
 Readers() = Readers(LJHReaderFeb2017[],Channel{Bool}(1), Task(nothing), 1.0)
 function write_headers(rs::Readers)
@@ -97,7 +97,7 @@ function (r::LJHReaderFeb2017)()
   check_compatability(analyzer, ljh)
   r.ljh = Nullable(ljh)
   if r.progress_meter
-    ch = LJHUtil.channel(r.fname)
+    ch = LJH.channel(r.fname)
     progress_meter = Progress(length(ljh),0.25,"Channel $ch: ")
     progress_meter.tlast -= 1 # make sure it prints at least once by setting tlast back by one second
     i=0

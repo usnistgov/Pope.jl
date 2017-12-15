@@ -136,7 +136,7 @@ function write_header(d::MassCompatibleBufferedWriters,r::LJHReaderFeb2017)
   channelattrs = attrs(channelgroup)
   channelattrs["filename"]=r.fname
   channelattrs["pope_preknowledge_file"]=r.analyzer.pk_filename
-  channelattrs["channum"]=LJHUtil.channel(r.fname)
+  channelattrs["channum"]=LJH.channel(r.fname)
   channelattrs["noise_filename"]="analyzed by pope, see `pope_preknowledge_file`"
 end
 function write_header_end(d::MassCompatibleBufferedWriters,ljh,analyzer::MassCompatibleAnalysisFeb2017)

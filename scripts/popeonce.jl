@@ -24,7 +24,7 @@ ljhpath = expanduser(arguments["<ljhpath>"])
 output_filename = expanduser(arguments["<output>"])
 
 
-using Pope
+using Pope: LJH
 
 pkfile = h5open(preknowledge_filename,"r")
 if !isfile(output_filename) || arguments["--overwriteoutput"]
@@ -45,7 +45,7 @@ readers = Pope.Readers()
 channels = Int[]
 for name in names(pkfile)
   channel_number = parse(Int,name[5:end])
-  ljh_filename = Pope.LJHUtil.fnames(ljhpath,channel_number)
+  ljh_filename = LJH.fnames(ljhpath,channel_number)
   if !isfile(ljh_filename)
     println("Channel $channel_number: exists in preknowledge file, but ljh does not exist")
     continue

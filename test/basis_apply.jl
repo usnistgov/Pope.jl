@@ -1,6 +1,7 @@
 using Pope, HDF5
 using Pope.LJH
 using Base.Test
+using ReferenceMicrocalFiles
 
 @testset "BufferedHDF5Dataset2D" begin
     for name in ["ds","1/ds"]
@@ -27,6 +28,8 @@ end
     @test dataproduct.reduced == dataproduct3.reduced
     @test dataproduct.residual_std == dataproduct3.residual_std
     @test dataproduct.timestamp_usec == LJH.timestamp_usec(r)
+    @test dataproduct.first_rising_sample == 0
+    @test dataproduct.nsamples == length(r)
 end
 
 @testset "BasisBufferedWriter" begin
@@ -38,11 +41,35 @@ end
     Pope.stop(b)
     wait(b)
     @test read(h5["1/reduced"]) == reshape(1:6,(6,1))
-    @test read(h5["1/residual_std"]) == [1]
-    @test read(h5["1/samplecount"]) == [2]
-    @test read(h5["1/timestamp_usec"]) == [3]
-    @test read(h5["1/first_rising_sample"]) == [4]
-    @test read(h5["1/nsamples"]) == [5]
+    @test read(h5["1/residual_std"]) == [dataproduct.residual_std]
+    @test read(h5["1/samplecount"]) == [dataproduct.samplecount]
+    @test read(h5["1/timestamp_usec"]) == [dataproduct.timestamp_usec]
+    @test read(h5["1/first_rising_sample"]) == [dataproduct.first_rising_sample]
+    @test read(h5["1/nsamples"]) == [dataproduct.nsamples]
     close(h5)
+    rm(h5.filename)
+end
+
+@testset "LJHFile with BasisAnalyzer" begin
+    nbases = 6
+    ljh = LJHFile(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename)
+    analyzer = Pope.BasisAnalyzer(rand(nbases,3072));
+    h5 = Pope.h5create(tempname());
+    g = HDF5.g_create(h5,"1");
+    product_writer = Pope.BasisBufferedWriter(g, nbases, 1000, 0.001, start=true);
+    ljhreader = Pope.make_reader(ljh.filename,
+        analyzer, product_writer, progress_meter=true);
+    readers = Pope.Readers();
+    push!(readers, ljhreader)
+    schedule(readers)
+    Pope.stop(readers)
+    wait(readers)
+    close(h5)
+    h5r = h5open(h5.filename,"r")
+    @test (nbases,length(ljh)) == size(h5r["1/reduced"])
+    @test all(LJH.record_nsamples(ljh) .== read(h5r["1/nsamples"]))
+    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["1/samplecount"]) )
+    close(ljh)
+    close(h5r)
     rm(h5.filename)
 end

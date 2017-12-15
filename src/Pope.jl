@@ -162,6 +162,9 @@ end
 function Base.write(io::IO, d::MassCompatibleDataProductFeb2017)
   write(io, reinterpret(UInt8,[d]))
 end
+"    check_compatability(a, ljh)
+Where `a` is an analyzer, and `ljh` is a pulse record souce. Throw an error if incompatible.
+Return value is not used."
 function check_compatability(a::MassCompatibleAnalysisFeb2017, ljh::LJH.LJHFile)
   ljh.record_nsamples == a.nsamples || error("Channel $(ljh.channum) has $(ljh.record_nsamples) samples, anlyzer has $(a.nsamples).")
   ljh.pretrig_nsamples == a.npresamples || error("Channel $(ljh.channum) has $(ljh.pretrig_nsamples) pretrigger samples, anlyzer has $(a.npresamples).")

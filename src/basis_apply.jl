@@ -38,6 +38,7 @@ end
 struct BasisAnalyzer
     basis::Array{Float32,2} # size (nbasis,nsamples)
 end
+check_compatability(a::BasisAnalyzer, ljh) = nothing
 function (a::BasisAnalyzer)(record::LJH.LJHRecord)
   reduced = a.basis*record.data
   data_subspace = a.basis'*reduced
@@ -96,16 +97,18 @@ function Base.write(b::BasisBufferedWriter,x::BasisDataProduct)
 end
 
 function write_header(d::BasisBufferedWriter,r)
-  channelgroup = parent(d.filt_value.ds)
+  channelgroup = parent(d.residual_std.ds)
   channelgroup["header"]="header"
 end
-function write_header_end(d::BasisBufferedWriter,ljh,analyzer::MassCompatibleAnalysisFeb2017)
+function write_header_end(d::BasisBufferedWriter,ljh,analyzer::BasisAnalyzer)
   # dont add datasets, groups or attributes after SWMR writing is started
   # channelgroup = parent(d.filt_value.ds)
   # channelattrs = attrs(channelgroup)
 end
-function write_header_allchannel(d::BasisBufferedWriter, r)
+function write_header_allchannel(d::BasisBufferedWriter, r::LJHReaderFeb2017)
+  # should be called exact once when `schedule` is called on a Readers
   h5 = hdf5file(d)
+  h5["BasisBufferedWriterHeader"]="BasisBufferedWriterHeader"
   h5["jointheader"]="jointheader"
   # execute only once for the whole HDF5 file
   flush(h5)

@@ -57,7 +57,7 @@ end
     h5 = Pope.h5create(tempname());
     g = HDF5.g_create(h5,"1");
     product_writer = Pope.BasisBufferedWriter(g, nbases, 1000, 0.001, start=true);
-    ljhreader = Pope.make_reader(ljh.filename,
+    ljhreader = Pope.make_reader(LJH.filename(ljh),
         analyzer, product_writer, progress_meter=true);
     readers = Pope.Readers();
     push!(readers, ljhreader)
@@ -73,3 +73,21 @@ end
     close(h5r)
     rm(h5.filename)
 end
+
+nbases = 6
+nsamples = 1000
+ljhw = LJH.create3(tempname(), 9.6e-6)
+for i=1:10 write(ljhw,rand(UInt16,1000),i,i*1000, i*1_000_000) end
+close(ljhw)
+ljh = LJH3File(LJH.filename(ljhw))
+analyzer = Pope.BasisAnalyzer(rand(nbases,nsamples));
+h5 = Pope.h5create(tempname());
+g = HDF5.g_create(h5,"1");
+product_writer = Pope.BasisBufferedWriter(g, nbases, 1000, 0.001, start=true);
+ljhreader = Pope.make_reader(LJH.filename(ljh),
+    analyzer, product_writer, progress_meter=true);
+readers = Pope.Readers();
+push!(readers, ljhreader)
+schedule(readers)
+Pope.stop(readers)
+wait(readers)

@@ -25,12 +25,27 @@ function LJH3File(io::IO; shouldseekstart=true)
     LJH3File(io,Int[position(io)],sampleperiod, header)
 end
 sampleperiod(ljh::LJH3File) = ljh.sampleperiod
+Base.close(ljh::LJH3File) = close(ljh.io)
+filename(ljh::LJH3File) = ljh.io.name[7:end-1]
+"    ljhopen(fname::AbstractString)
+Open file `fname` as an `LJH3File` or `LJHFile` depending on contents."
+function ljhopen(fname::AbstractString)
+    try
+        return LJH3File(fname)
+    catch
+        try
+            return LJHFile(fname)
+        catch
+            error("$fname failed to open as LJH or LJH3")
+        end
+    end
+end
 "`LJH3Record` are returned when accessing a record in an `LJH3File`. Use functions
 `data(r)`, `first_rising_sample(r)`, count(r)`, and `timestamp_usec(r)` to extract
 information from a record `r`."
 struct LJH3Record
     data::Vector{UInt16}
-    first_rising_sample::UInt32
+    first_rising_sample::Int32
     samplecount::Int64
     timestamp_usec::Int64
 end
@@ -39,14 +54,12 @@ first_rising_sample(r::LJH3Record) = r.first_rising_sample
 samplecount(r::LJH3Record) = r.samplecount
 timestamp_usec(r::LJH3Record) = r.timestamp_usec
 Base.length(r::LJH3Record) = length(r.data)
-
 ==(a::LJH3Record, b::LJH3Record) = a.data == b.data && a.first_rising_sample == b.first_rising_sample && a.samplecount == b.samplecount && a.timestamp_usec == b.timestamp_usec
-Base.close(ljh::LJH3File) = close(ljh.io)
 "    write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
 Write a single record to `ljh`. Assumes `ljh.io` is at the same position it would be if you had
 called `seekend(ljh.io)`."
 function Base.write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
-    write(ljh.io, UInt32(length(trace)), UInt32(first_rising_sample), samplecount, timestamp_usec, trace)
+    write(ljh.io, Int32(length(trace)), Int32(first_rising_sample), samplecount, timestamp_usec, trace)
     push!(ljh.index,position(ljh.io))
 end
 """    create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
@@ -74,8 +87,8 @@ function seekto(ljh::LJH3File, i::Int)
     end
 end
 function _readrecord(ljh::LJH3File,i)
-    num_samples = read(ljh.io, UInt32)
-    first_rising_sample = read(ljh.io, UInt32)
+    num_samples = read(ljh.io, Int32)
+    first_rising_sample = read(ljh.io, Int32)
     samplecount = read(ljh.io, Int64)
     timestamp_usec = read(ljh.io, Int64)
     data = read(ljh.io, UInt16, num_samples)
@@ -93,14 +106,14 @@ function tryread(ljh::LJH3File)
         seek(ljh.io, position(ljh.io)-length(d1)) # go back to the start of the record
         return Nullable{LJH3Record}()
     end
-    num_samples = reinterpret(UInt32,d1)[1]
+    num_samples = reinterpret(Int32,d1)[1]
     rest_of_record_length = 20+2*num_samples
     d2 = read(ljh.io,rest_of_record_length)
     if length(d2) < rest_of_record_length
         seek(ljh.io, position(ljh.io)-length(d1)-length(d2)) # go back to the start of the record
         return Nullable{LJH3ecord}()
     end
-    first_rising_sample = reinterpret(UInt32,d2[1:4])[1]
+    first_rising_sample = reinterpret(Int32,d2[1:4])[1]
     samplecount = reinterpret(Int64,d2[5:12])[1]
     timestamp_usec = reinterpret(Int64,d2[13:20])[1]
     data = reinterpret(UInt16,d2[21:end])

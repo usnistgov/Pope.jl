@@ -22,7 +22,7 @@ end
 close(fw)
 
 f = LJH3File(fname)
-f2 = LJH3File(fname)
+f2 = ljhopen(fname)
 records = [record for record in f];
 @test fw.index == f.index
 @test traces == [record.data for record in records]
@@ -40,6 +40,7 @@ LJH.seekto(f,length(traces)-1)
 @test get(LJH.tryread(f))==records[end-1]
 @test get(LJH.tryread(f))==records[end]
 @test isnull(LJH.tryread(f))
+@test LJH.filename(f) == LJH.filename(fw) == fname
 close(f)
 close(f2)
 rm(fname)

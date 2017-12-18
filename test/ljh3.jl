@@ -4,7 +4,7 @@ using Base.Test
 
 @testset "ljh3" begin
 
-header_extra = OrderedDict(["a"=>"b","c"=>"d","e"=>Dict("ea"=>"eb")])
+header_extra = Dict(["a"=>"b","c"=>"d","e"=>Dict("ea"=>"eb")])
 fname = tempname()
 fw = LJH.create3(fname, 9.6e-6, header_extra)
 

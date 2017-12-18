@@ -1,12 +1,13 @@
-using JSON
+using YAML
 import Base: ==
 
 struct LJH3File
     io::IOStream
     index::Vector{Int} # points to the start of records, and potential next record
     sampleperiod::Float64
-    header::OrderedDict{String,Any}
+    header::Dict{String,Any}
 end
+
 """    LJH3File(fname::AbstractString)
 Open an LJH3 file. Records can be accessed by indexing with integers like an `AbstractVector`,
 eg `ljh[1]` or by iteration eg `collect(ljh)` or `for record in ljh dosomething() end`.
@@ -18,13 +19,15 @@ time between succesive samples in seconds."""
 LJH3File(fname::AbstractString) = LJH3File(open(fname,"r"))
 function LJH3File(io::IO; shouldseekstart=true)
     shouldseekstart && seekstart(io)
-    header = JSON.parse(io, dicttype=OrderedDict)
+    header = YAML.load(io)
     sampleperiod = header["sampleperiod"]
     @assert header["File Format"]=="LJH3"
     @assert header["File Format Version"] == "3.0.0"
     LJH3File(io,Int[position(io)],sampleperiod, header)
 end
+
 sampleperiod(ljh::LJH3File) = ljh.sampleperiod
+
 "`LJH3Record` are returned when accessing a record in an `LJH3File`. Use functions
 `data(r)`, `first_rising_sample(r)`, count(r)`, and `timestamp_usec(r)` to extract
 information from a record `r`."
@@ -41,30 +44,38 @@ timestamp_usec(r::LJH3Record) = r.timestamp_usec
 
 ==(a::LJH3Record, b::LJH3Record) = a.data == b.data && a.first_rising_sample == b.first_rising_sample && a.samplecount == b.samplecount && a.timestamp_usec == b.timestamp_usec
 Base.close(ljh::LJH3File) = close(ljh.io)
+
 "    write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
 Write a single record to `ljh`. Assumes `ljh.io` is at the same position it would be if you had
 called `seekend(ljh.io)`."
-function Base.write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
+function Base.write(ljh::LJH3File, trace::Vector{UInt16}, first_rising_sample, samplecount::Int64, timestamp_usec::Int64)
     write(ljh.io, UInt32(length(trace)), UInt32(first_rising_sample), samplecount, timestamp_usec, trace)
     push!(ljh.index,position(ljh.io))
 end
+
 """    create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
 Return an `LJH3File` ready for writing with `write`. The header will contain "sampleperiod",
 "File Format", "File Format Version" and any items in `header_extra`. The three listed items
 will overwrite items in `header_extra`.
 """
-function create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
-    io = open(filename,"w+")
+function create3(filename::AbstractString, sampleperiod, header_extra = Dict(); version="3.0.0")
     header = OrderedDict{String,Any}()
-    for (k,v) in header_extra
-        header[k]=v
-    end
     header["File Format"] = "LJH3"
     header["File Format Version"] = version
     header["sampleperiod"]=sampleperiod
-    JSON.print(io, header, 4) # last argument uses pretty printing
+    for (k,v) in header_extra
+        header[k]=v
+    end
+
+    io = open(filename,"w+")
+    @printf(io, "---\n") # start-of-YAML marker
+    for (k,v) in header
+        @printf(io, "%-24s: %s\n", k, v)
+    end
+    @printf(io, "...\n") # end-of-YAML marker
     LJH3File(io)
 end
+
 function seekto(ljh::LJH3File, i::Int)
     if length(ljh.index) >= i
         @inbounds seek(ljh.io, ljh.index[i])
@@ -72,6 +83,7 @@ function seekto(ljh::LJH3File, i::Int)
         error("LJH3 Bounds Error")
     end
 end
+
 function _readrecord(ljh::LJH3File,i)
     num_samples = read(ljh.io, UInt32)
     first_rising_sample = read(ljh.io, UInt32)
@@ -86,6 +98,7 @@ function _readrecord(ljh::LJH3File,i)
     end
     LJH3Record(data, first_rising_sample, samplecount, timestamp_usec)
 end
+
 function tryread(ljh::LJH3File)
     d1 = read(ljh.io,4)
     if length(d1)<4
@@ -105,6 +118,7 @@ function tryread(ljh::LJH3File)
     data = reinterpret(UInt16,d2[21:end])
     Nullable(LJH3Record(data,first_rising_sample, samplecount, timestamp_usec))
 end
+
 # Array interface
 function Base.getindex(ljh::LJH3File,i::Int)
     seekto(ljh, i)
@@ -121,6 +135,7 @@ function Base.length(ljh::LJH3File)
     return length(ljh.index)-1
 end
 Base.endof(ljh::LJH3File) = length(ljh)
+
 # iterator interface
 Base.start(ljh::LJH3File) = (seekto(ljh,1);(1,stat(ljh.io).size))
 function Base.next(ljh::LJH3File,state)

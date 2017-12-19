@@ -5,47 +5,36 @@ using Pope: NoiseAnalysis, LJH
 
 function analyze_one_file(filename::AbstractString, channum::Integer,
         outputname::AbstractString, overwrite::Bool, nlags::Integer=0,
-        nfreq::Integer=0)
+        nfreq::Integer=0; max_samples=50000000)
     @printf("Analyzing file %s (chan %3d) => %s\n", filename, channum, outputname)
 
     # Open the LJH file for reading
     f = LJHFile(filename)
     const frametime = LJH.frametime(f)
-    rawdata = vcat([rec.data for rec in f]...)
+    const nsamp = LJH.record_nsamples(f)
+    nrec = LJH.ljh_number_of_records(f)
+    if nsamp*nrec > max_samples
+        nrec = max_samples // nsamp
+    end
+    rawdata = vcat([rec.data for rec in f[1:nrec]]...)
+    const samplesUsed = length(rawdata)
+    @show samplesUsed
+
     if nlags <= 0
-        nlags = LJH.record_nsamples(f)
+        nlags = nsamp
     end
     if nfreq <= 0
-        nfreq = LJH.record_nsamples(f)
-        nfreq = round_up_dft_length(nfreq)
+        nfreq = round_up_dft_length(nsamp)
     end
+
+    autocorr = compute_autocorr(rawdata, nlags, max_exc=1000)
+    psd = compute_psd(rawdata, nfreq, frametime, max_exc=1000)
+    freq = NoiseAnalysis.psd_freq(nfreq, frametime)
+    freqstep = freq[2]-freq[1]
+    noise = NoiseResult(autocorr, psd, samplesUsed, freqstep, filename)
 
     # Open the HDF5 file for writing
-    chanstring = string(channum)
-    if !isfile(outputname)
-        h5open(outputname, "w") do x
-            g_create(x, "noise")
-        end
-    end
-    h5open(outputname, "r+") do noisefile
-        noisegroup = noisefile["noise"]
-        if chanstring in names(noisegroup)
-            if !overwrite
-                text = @sprintf("instructed not to overwrite existing HDF5 group noise/%s", chanstring)
-                error(text)
-            end
-            o_delete(noisegroup, chanstring)
-        end
-        grp = g_create(noisegroup, chanstring)
-
-        @printf("Analysis here \n")
-
-        autocorr = compute_autocorr(rawdata, nlags, max_exc=1000)
-        grp["autocorr"] = autocorr
-
-        psd = compute_psd(rawdata, nfreq, frametime, max_exc=1000)
-        grp["power_spectrum"] = psd
-    end
+    NoiseAnalysis.marshal(noise, outputname, channum)
 end
 
 function parse_commandline()
@@ -96,6 +85,7 @@ function main()
     overwrite = parsed_args["updateoutput"]
     nlags = parsed_args["nlags"]
     nfreq = parsed_args["nfreq"]
+    println()
 
     for fname in parsed_args["ljhfile"]
         full_prefix, channum = parse_filename(fname)

@@ -7,7 +7,45 @@ a default. Package DSP.jl has many others in module `DSP.Windows`.
 """
 module NoiseAnalysis
 
-export compute_autocorr, compute_psd
+export compute_autocorr, compute_psd, NoiseResult
+
+using ARMA
+using HDF5
+
+struct NoiseResult
+    autocorr::Vector{Float64}
+    psd::Vector{Float64}
+
+    samplesused::Int
+    freqstep::Float64
+    datasource::String
+end
+
+
+function marshal(nr::NoiseResult, hdf5filename::AbstractString, channum::Integer)
+    chanstring = string(channum)
+    if !isfile(hdf5filename)
+        h5open(hdf5filename, "w") do h5file
+            io = IOBuffer()
+            versioninfo(io)
+            attrs(h5file)["juliaversion"] = String(io)
+        end
+    end
+    h5open(hdf5filename, "r+") do h5file
+        if chanstring in names(h5file)
+            message = @sprintf("cannot add a new NoiseResult to HDF5 file '%s'", hdf5filename)
+            error(message)
+        end
+        g1 = g_create(h5file, chanstring)
+        g = g_create(g1, "noise")
+
+        attrs(g)["samplesused"] = nr.samplesused
+        attrs(g)["freqstep"] = nr.freqstep
+        g["autocorr"] = nr.autocorr
+        g["powerspectrum"] = nr.psd
+        g["source"] = nr.datasource
+    end
+end
 
 """
     round_up_dft_length(n)

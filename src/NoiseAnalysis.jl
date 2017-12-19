@@ -7,7 +7,7 @@ a default. Package DSP.jl has many others in module `DSP.Windows`.
 """
 module NoiseAnalysis
 
-export compute_autocorr
+export compute_autocorr, compute_psd
 
 """
     round_up_dft_length(n)
@@ -44,7 +44,7 @@ large (1e99), but it is smart to set it to a more reasonable value for your
 application.
 """
 compute_autocorr(data::AbstractMatrix, nlags::Integer; kwargs...) =
-    compute_autocorr(vec(data), nlags; kwargs)
+    compute_autocorr(vcat(data...), nlags; kwargs)
 
 function compute_autocorr(data::AbstractVector, nlags::Integer;
         chunk_multiple=7, max_exc=1e99)
@@ -117,7 +117,7 @@ Use overlapping segments of the exact needed length (`2(nfreq-1)`), offset by
 approximately half their length.
 """
 compute_psd(data::AbstractArray, nfreq::Integer, dt::Real; kwargs...) =
-    compute_psd(vec(data), nfreq, dt; kwargs)
+    compute_psd(vcat(data...), nfreq, dt; kwargs)
 
 function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e99)
 

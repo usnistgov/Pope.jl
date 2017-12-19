@@ -180,9 +180,9 @@ change_writing_status
 
 ## LJH3
 
-LJH3 is a new version of LJH intended to allow the use of variable length records for analyses such as multi-pulse fitting or single pulse fitting. LJH3 files have a JSON header containing at least 3 keys: "sampleperiod", "File Format"="LJH3", and "File Format Version". It should contains additional keys with information about the readout, but these are not currently required.
+LJH3 is a new version of LJH intended to allow the use of variable length records for analyses such as multi-pulse fitting or single pulse fitting. LJH3 files have a JSON header containing at least 3 keys: "sampleperiod", "File Format"="LJH3", and "File Format Version". It should contain additional keys with information about the readout, but these are not currently required. The JSON is followed by a single newline "\n".
 
-After the header, records are written as flat binary data. Each record consists of a `Int32` record length, a `Int32` offset into the record pointing to the first rising sample as determined by the trigger algorithm, a `Int64` samplecount of the first sample in the record, and an `Int64` posix timestamp in units of microseconds since the epoch. The samplecount is provided by the readout system, and may have arbitrary offset, such that comparisons across different LJH3 files from the same readout system are not meaningful.
+Immediatley following the header, records are written as flat binary data. Each record consists of a `Int32` record length, a `Int32` offset into the record pointing to the first rising sample as determined by the trigger algorithm, a `Int64` samplecount of the first sample in the record, and an `Int64` posix timestamp in units of microseconds since the epoch. The samplecount is provided by the readout system, and may have arbitrary offset, such that comparisons across different LJH3 files from the same readout system are not meaningful.
 
 
 ```@docs

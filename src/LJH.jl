@@ -98,8 +98,14 @@ function ljh_number_of_records(f::LJHFile)
     number_of_records = div(nbytes, record_nbytes(f))
 end
 
-Base.divrem(f::LJHFile) = divrem(stat(f.filename).size-f.datastartpos,record_nbytes(f))
-
+"    progresssize(f::Union{LJHFile, LJH3File)
+Return the value that `progressposition` will return when the file is at `seekend(f.io)`.
+Used to allow `ProgressBar` to work for both `LJHFile` and `LJH3File`."
+progresssize(f::LJHFile) = length(f)
+"    progressposition(f::LJHFile)
+Return a value to pass to `update!(p::ProgressBar,position)`. Used to allow
+`ProgressBar` to work for both `LJHFile` and `LJH3File`."
+progressposition(f::LJHFile) = div(position(f.io)-f.datastartpos,record_nbytes(f))
 
 # support for ljhfile[1:7] syntax
 seekto(f::LJHFile, i::Int) = seek(f.io,f.datastartpos+(i-1)*record_nbytes(f))

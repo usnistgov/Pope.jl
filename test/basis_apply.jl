@@ -55,7 +55,7 @@ end
     ljh = LJHFile(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename)
     analyzer = Pope.BasisAnalyzer(rand(nbases,3072));
     h5 = Pope.h5create(tempname());
-    g = HDF5.g_create(h5,"1");
+    g = HDF5.g_create(h5,"$(LJH.channel(ljh))");
     product_writer = Pope.BasisBufferedWriter(g, nbases, 1000, 0.001, start=true);
     ljhreader = Pope.make_reader(LJH.filename(ljh),
         analyzer, product_writer, progress_meter=true);
@@ -66,9 +66,9 @@ end
     wait(readers)
     close(h5)
     h5r = h5open(h5.filename,"r")
-    @test (nbases,length(ljh)) == size(h5r["1/reduced"])
-    @test all(LJH.record_nsamples(ljh) .== read(h5r["1/nsamples"]))
-    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["1/samplecount"]) )
+    @test (nbases,length(ljh)) == size(h5r["$(LJH.channel(ljh))/reduced"])
+    @test all(LJH.record_nsamples(ljh) .== read(h5r["$(LJH.channel(ljh))/nsamples"]))
+    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/samplecount"]) )
     close(ljh)
     close(h5r)
     rm(h5.filename)
@@ -76,7 +76,7 @@ end
 
 nbases = 6
 nsamples = 1000
-ljhw = LJH.create3(tempname(), 9.6e-6)
+ljhw = LJH.create3("artifacts/ljh3_chan1.ljh", 9.6e-6)
 for i=1:10 write(ljhw,rand(UInt16,1000),i,i*1000, i*1_000_000) end
 close(ljhw)
 ljh = LJH3File(LJH.filename(ljhw))
@@ -89,5 +89,11 @@ ljhreader = Pope.make_reader(LJH.filename(ljh),
 readers = Pope.Readers();
 push!(readers, ljhreader)
 schedule(readers)
+sleep(1)
 Pope.stop(readers)
 wait(readers)
+close(h5)
+h5r = h5open(h5.filename,"r")
+@test read(h5r["1/nsamples"]) == length.(collect(ljh))
+@test read(h5r["1/samplecount"]) == LJH.samplecount.(collect(ljh))
+@test length(read(h5r["1/residual_std"])) == length(ljh)

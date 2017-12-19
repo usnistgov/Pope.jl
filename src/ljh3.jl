@@ -27,6 +27,8 @@ end
 sampleperiod(ljh::LJH3File) = ljh.sampleperiod
 Base.close(ljh::LJH3File) = close(ljh.io)
 filename(ljh::LJH3File) = ljh.io.name[7:end-1]
+progresssize(ljh::LJH3File) = stat(ljh.io).size
+progressposition(ljh::LJH3File) = position(ljh.io)
 "    ljhopen(fname::AbstractString)
 Open file `fname` as an `LJH3File` or `LJHFile` depending on contents."
 function ljhopen(fname::AbstractString)

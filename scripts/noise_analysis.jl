@@ -51,9 +51,13 @@ channels cannot be replaced)."""
 
     @add_arg_table s begin
         "--outputfile", "-o"
-            help = "store the results in OUTPUTFILE (an HDF5 file)"
+            help = "store the results in OUTPUTFILE (an HDF5 file) instead of the inferred file or files"
             arg_type = String
-        "--replacefile", "-r"
+        # Example Input not implemented yet. It turns whatever_chan1.ljh into whatever_chan*.ljh, effectively.
+        # "--exampleinput", "-e"
+        #     help = "analyze all noise files for all channel numbers that otherwise match this example file name"
+        #     arg_type = String
+        "--replaceoutput", "-r"
             help = "delete and replace any existing output files (default: false)"
             action = :store_true
         "--updateoutput", "-u"
@@ -68,8 +72,7 @@ channels cannot be replaced)."""
             arg_type = Int
             default = 0
         "ljhfile"
-            help = "an LJH-format data file "
-            required = true
+            help = "1 or more LJH-format data files (optional if -p is used)"
             arg_type = String
             action = :store_arg
             nargs = '+'
@@ -92,7 +95,7 @@ function main()
     parsed_args = parse_commandline()
 
     appendoutput = parsed_args["updateoutput"]
-    clobberoutput = parsed_args["replacefile"]
+    clobberoutput = parsed_args["replaceoutput"]
     if clobberoutput && appendoutput
         error("Cannot specify both --updateoutput and --replacefile")
     end

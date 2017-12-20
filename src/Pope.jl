@@ -63,7 +63,7 @@ It is probably better to use `launch_reader` than to call this directly
 mutable struct LJHReaderFeb2017{T1,T2}
   status::String
   fname::String
-  ljh::Nullable{LJH.LJHFile}
+  ljh::Nullable{Union{LJH.LJHFile, LJH.LJH3File}}
   analyzer::T1
   product_writer::T2
   timeout_s::Float64
@@ -93,39 +93,49 @@ function (r::LJHReaderFeb2017)()
     r.status = "file did not exist before was instructed to end"
     return
   end
-  ljh = LJH.LJHFile(fname)
+  ljh = LJH.ljhopen(fname)
   check_compatability(analyzer, ljh)
   r.ljh = Nullable(ljh)
   if r.progress_meter
     ch = LJH.channel(r.fname)
-    progress_meter = Progress(length(ljh),0.25,"Channel $ch: ")
+    progress_meter = Progress(LJH.progresssize(ljh),0.25,"Channel $ch: ")
     progress_meter.tlast -= 1 # make sure it prints at least once by setting tlast back by one second
-    i=0
+  else
+    progress_meter = Progress(1,0.25,"POPE SHOULDNT SHOW THIS!")
+    next!(progress_meter) # immediatley finish it
   end
   r.status = "running"
+  _ljhreaderfeb2017_coreloop(ljh, analyzer, product_writer, progress_meter,
+    r.progress_meter, endchannel, timeout_s)
+  write_header_end(product_writer, ljh, r.analyzer)
+  close(ljh)
+  close(product_writer)
+  r.status = "done"
+end
+"    _ljhreaderfeb2017_coreloop(ljh,analyzer,product_writer,progress_meter,  progress_meter_enable, endchannel, timeout_s)
+Internal use only, used to introduce a function barrier in `function (r::LJHReaderFeb2017)()`
+so that the core loop is type stable."
+function _ljhreaderfeb2017_coreloop(ljh,analyzer,product_writer,progress_meter,
+  progress_meter_enable, endchannel, timeout_s)
   while true
     while true # read and process all data
       data=LJH.tryread(ljh)
       isnull(data) && break
       analysis_products = analyzer(get(data))
       write(product_writer,analysis_products)
-      r.progress_meter && next!(progress_meter)
+      if progress_meter_enable
+        ProgressMeter.update!(progress_meter, LJH.progressposition(ljh))
+      end
     end
     isready(endchannel) && break
-    # watch_file(ljh,timeout_s)
     sleep(timeout_s)
   end
-  write_header_end(product_writer, ljh, r.analyzer)
-  close(ljh)
-  close(product_writer)
-  r.status = "done"
 end
 
 
 
-
-"create an LJHReaderFeb2017.
-If `continuous` is true is will continue trying to read from `fname` until something does
+"    make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_meter=false)
+create an `LJHReaderFeb2017`. If `continuous` is true is will continue trying to read from `fname` until something does
 `put!(reader.endchannel,true)`."
 function make_reader(fname, analyzer, product_writer ; timeout_s=1, progress_meter=false)
   reader = LJHReaderFeb2017(fname, analyzer, product_writer, timeout_s, progress_meter)
@@ -164,6 +174,9 @@ end
 function Base.write(io::IO, d::MassCompatibleDataProductFeb2017)
   write(io, reinterpret(UInt8,[d]))
 end
+"    check_compatability(a, ljh)
+Where `a` is an analyzer, and `ljh` is a pulse record souce. Throw an error if incompatible.
+Return value is not used."
 function check_compatability(a::MassCompatibleAnalysisFeb2017, ljh::LJH.LJHFile)
   ljh.record_nsamples == a.nsamples || error("Channel $(ljh.channum) has $(ljh.record_nsamples) samples, anlyzer has $(a.nsamples).")
   ljh.pretrig_nsamples == a.npresamples || error("Channel $(ljh.channum) has $(ljh.pretrig_nsamples) pretrigger samples, anlyzer has $(a.npresamples).")
@@ -177,7 +190,7 @@ function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary.postpeak_deriv, summary.peak_index, summary.peak_value,summary.min_value )
 end
 
-"asbstract DataSink
+"abstract DataSink
 subtype `T` must have methods:
 `write(ds::T, dp::S)` where `S` is a subtype of DataProduct
 `write_header(ds::T, f::LJHReaderFeb2017)`
@@ -255,5 +268,6 @@ function analyzer_from_preknowledge(pk::HDF5Group)
 end
 
 include("buffered_hdf5_dataset.jl")
+include("basis_apply.jl")
 
 end # module

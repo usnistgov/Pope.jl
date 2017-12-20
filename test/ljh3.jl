@@ -10,12 +10,12 @@ fw = LJH.create3(fname, 9.6e-6, header_extra)
 
 traces = [rand(UInt16,rand(1:1000)) for i=1:10000];
 first_rising_samples = [rand(1:length(trace)) for trace in traces];
-samplecounts = 1:length(traces);
-timestamp_usecs = samplecounts.*1000;
+frame1indexs = 1:length(traces);
+timestamp_usecs = frame1indexs.*1000;
 
 for i = 1:length(traces)
     write(fw, traces[i],first_rising_samples[i],
-     samplecounts[i], timestamp_usecs[i])
+     frame1indexs[i], timestamp_usecs[i])
 end
 @test fw[1].data == traces[1]
 @test fw[77].data == traces[77]
@@ -27,7 +27,7 @@ records = [record for record in f];
 @test fw.index == f.index
 @test traces == [record.data for record in records]
 @test first_rising_samples == [record.first_rising_sample for record in records]
-@test collect(samplecounts) == [record.samplecount for record in records]
+@test collect(frame1indexs) == [record.frame1index for record in records]
 @test timestamp_usecs == [record.timestamp_usec for record in records]
 @test records == collect(f)
 @test f[1].data == traces[1]

@@ -29,7 +29,7 @@ Base.write(b::BufferedHDF5Dataset2D{T},x::Vector{Vector{T}}) where T = append!(b
 struct BasisDataProduct <: DataProduct
     reduced::Vector{Float32} # reduced pulse, aka projection of pulse into subspace defined by basis
     residual_std::Float32
-    samplecount::Int
+    frame1index::Int
     timestamp_usec::Int
     first_rising_sample::Int32
     nsamples::Int32
@@ -50,7 +50,7 @@ function (a::BasisAnalyzer)(record::LJH.LJH3Record)
   reduced = a.basis*record.data
   data_subspace = a.basis'*reduced
   residual_std = std(data_subspace-record.data)
-  BasisDataProduct(reduced, residual_std, LJH.samplecount(record),
+  BasisDataProduct(reduced, residual_std, LJH.frame1index(record),
     LJH.timestamp_usec(record), LJH.first_rising_sample(record), length(record))
 end
 
@@ -60,7 +60,7 @@ mutable struct BasisBufferedWriter <: BufferedWriter
     task                 ::Task
     reduced              ::BufferedHDF5Dataset2D{Float32}
     residual_std         ::BufferedHDF5Dataset{Float32}
-    samplecount          ::BufferedHDF5Dataset{Int}
+    frame1index          ::BufferedHDF5Dataset{Int}
     timestamp_usec       ::BufferedHDF5Dataset{Int}
     first_rising_sample  ::BufferedHDF5Dataset{Int32}
     nsamples             ::BufferedHDF5Dataset{Int32}
@@ -72,7 +72,7 @@ function BasisBufferedWriter(g::HDF5Group, nbases, chunksize, timeout_s;start=tr
   b=BasisBufferedWriter(Channel{Bool}(1), timeout_s, Task(nothing),
   BufferedHDF5Dataset2D{Float32}(g,"reduced", nbases, chunksize),
   BufferedHDF5Dataset{Float32}(g,"residual_std", chunksize),
-  BufferedHDF5Dataset{Int}(g,"samplecount", chunksize),
+  BufferedHDF5Dataset{Int}(g,"frame1index", chunksize),
   BufferedHDF5Dataset{Int}(g,"timestamp_usec", chunksize),
   BufferedHDF5Dataset{Int32}(g,"first_rising_sample", chunksize),
   BufferedHDF5Dataset{Int32}(g,"nsamples", chunksize), )
@@ -83,13 +83,13 @@ end
 Return the filename of the hdf5 file associated with `b`."
 hdf5file(b::BasisBufferedWriter) = file(b.residual_std.ds)
 function write_to_hdf5(b::BasisBufferedWriter)
-  write_to_hdf5(b.reduced);write_to_hdf5(b.residual_std);write_to_hdf5(b.samplecount)
+  write_to_hdf5(b.reduced);write_to_hdf5(b.residual_std);write_to_hdf5(b.frame1index)
   write_to_hdf5(b.timestamp_usec);write_to_hdf5(b.first_rising_sample);write_to_hdf5(b.nsamples)
 end
 function Base.write(b::BasisBufferedWriter,x::BasisDataProduct)
   write(b.reduced, x.reduced)
   write(b.residual_std, x.residual_std)
-  write(b.samplecount, x.samplecount)
+  write(b.frame1index, x.frame1index)
   write(b.timestamp_usec, x.timestamp_usec)
   write(b.first_rising_sample, x.first_rising_sample)
   write(b.nsamples, x.nsamples)

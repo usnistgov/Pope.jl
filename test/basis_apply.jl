@@ -42,7 +42,7 @@ end
     wait(b)
     @test read(h5["1/reduced"]) == reshape(1:6,(6,1))
     @test read(h5["1/residual_std"]) == [dataproduct.residual_std]
-    @test read(h5["1/samplecount"]) == [dataproduct.samplecount]
+    @test read(h5["1/frame1index"]) == [dataproduct.frame1index]
     @test read(h5["1/timestamp_usec"]) == [dataproduct.timestamp_usec]
     @test read(h5["1/first_rising_sample"]) == [dataproduct.first_rising_sample]
     @test read(h5["1/nsamples"]) == [dataproduct.nsamples]
@@ -68,7 +68,7 @@ end
     h5r = h5open(h5.filename,"r")
     @test (nbases,length(ljh)) == size(h5r["$(LJH.channel(ljh))/reduced"])
     @test all(LJH.record_nsamples(ljh) .== read(h5r["$(LJH.channel(ljh))/nsamples"]))
-    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/samplecount"]) )
+    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/frame1index"]) )
     close(ljh)
     close(h5r)
     rm(h5.filename)
@@ -96,7 +96,7 @@ end
     close(h5)
     h5r = h5open(h5.filename,"r")
     @test read(h5r["1/nsamples"]) == length.(collect(ljh))
-    @test read(h5r["1/samplecount"]) == LJH.samplecount.(collect(ljh))
+    @test read(h5r["1/frame1index"]) == LJH.frame1index.(collect(ljh))
     @test length(read(h5r["1/residual_std"])) == length(ljh)
     close(h5r)
     rm(h5r.filename)

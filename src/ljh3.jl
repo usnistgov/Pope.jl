@@ -20,6 +20,7 @@ function LJH3File(io::IO; shouldseekstart=true)
     shouldseekstart && seekstart(io)
     header = JSON.parse(io, dicttype=OrderedDict)
     sampleperiod = header["sampleperiod"]
+    @assert read(io, Char) == '\n'
     @assert header["File Format"]=="LJH3"
     @assert header["File Format Version"] == "3.0.0"
     LJH3File(io,Int[position(io)],sampleperiod, header)
@@ -66,19 +67,21 @@ function Base.write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, sa
 end
 """    create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
 Return an `LJH3File` ready for writing with `write`. The header will contain "sampleperiod",
-"File Format", "File Format Version" and any items in `header_extra`. The three listed items
-will overwrite items in `header_extra`.
+"File Format", "File Format Version" and any items in `header_extra`. Items in `header_extra`
+will overwrite the header items passed as arguments, and you can make an invalid LJH3 file
+this way. You are advised to avoid creating invalid LJH3 files.
 """
 function create3(filename::AbstractString, sampleperiod, header_extra = Dict();version="3.0.0")
     io = open(filename,"w+")
     header = OrderedDict{String,Any}()
-    for (k,v) in header_extra
-        header[k]=v
-    end
     header["File Format"] = "LJH3"
     header["File Format Version"] = version
     header["sampleperiod"]=sampleperiod
+    for (k,v) in header_extra
+        header[k]=v
+    end
     JSON.print(io, header, 4) # last argument uses pretty printing
+    print(io,"\n")
     LJH3File(io)
 end
 function seekto(ljh::LJH3File, i::Int)

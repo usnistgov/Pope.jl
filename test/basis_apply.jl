@@ -20,7 +20,8 @@ using ReferenceMicrocalFiles
 end
 
 @testset "BasisAnalyzer" begin
-    r = LJH.LJHRecord(1:1000,1,2)
+    FrameTime, PretrigNSamples = 9.6e-6, 100
+    r = LJH.LJHRecord{FrameTime, PretrigNSamples}(1:1000,1,2)
     r3 = LJH.LJH3Record(1:1000,0,10,20)
     analyzer = Pope.BasisAnalyzer(rand(6,1000))
     dataproduct = analyzer(r)

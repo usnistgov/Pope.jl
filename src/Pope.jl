@@ -177,8 +177,8 @@ Where `a` is an analyzer, and `ljh` is a pulse record souce. Throw an error if i
 Return value is not used."
 function check_compatability(a::MassCompatibleAnalysisFeb2017, ljh::LJH.LJHFile)
   ljh.record_nsamples == a.nsamples || error("Channel $(ljh.channum) has $(ljh.record_nsamples) samples, anlyzer has $(a.nsamples).")
-  ljh.pretrig_nsamples == a.npresamples || error("Channel $(ljh.channum) has $(ljh.pretrig_nsamples) pretrigger samples, anlyzer has $(a.npresamples).")
-  ljh.frametime == a.frametime || error("Channel $(ljh.channum) has $(ljh.frametime) frametime, anlyzer has $(a.frametime).")
+  LJH.pretrig_nsamples(ljh) == a.npresamples || error("Channel $(ljh.channum) has $(LJH.pretrig_nsamples(ljh)) pretrigger samples, anlyzer has $(a.npresamples).")
+  LJH.frametime(ljh) == a.frametime || error("Channel $(ljh.channum) has $(LJH.pretrig_nsamples(frametime)) frametime, anlyzer has $(a.frametime).")
 end
 function (a::MassCompatibleAnalysisFeb2017)(record::LJH.LJHRecord)
   summary = summarize(record.data, a.npresamples,a.nsamples, a.peak_index, a.frametime)

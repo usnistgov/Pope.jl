@@ -85,8 +85,8 @@ LJHFile(f::LJHFile) = f
 
 "record_nbytes(f::LJHFile)
     Return number of bytes per record in LJH file, based on version number"
-record_nbytes(f::LJHFile{LJH_21,T}) where T = 6+2*f.record_nsamples
-record_nbytes(f::LJHFile{LJH_22,T}) where T = 16+2*f.record_nsamples
+record_nbytes(f::LJHFile{LJH_21}) = 6+2*f.record_nsamples
+record_nbytes(f::LJHFile{LJH_22}) = 16+2*f.record_nsamples
 
 "    ljh_number_of_records(f::LJHFile)
 Return the number of complete records currently available to read from `f`."
@@ -114,12 +114,12 @@ function Base.getindex(f::LJHFile,index::Int)
     seekto(f, index)
     pop!(f)
 end
-function Base.pop!{T}(f::LJHFile{LJH_21,T})
+function Base.pop!(f::LJHFile{LJH_21})
     rowcount, timestamp_usec =  record_row_count_v21(read(f.io, UInt8, 6), f.num_rows, f.row, f.frametime)
     data = read(f.io, UInt16, f.record_nsamples)
     LJHRecord(data, rowcount, timestamp_usec)
 end
-function Base.pop!{T}(f::LJHFile{LJH_22,T})
+function Base.pop!(f::LJHFile{LJH_22})
     rowcount = read(f.io, Int64)
     timestamp_usec = read(f.io, Int64)
     data = read(f.io, UInt16, f.record_nsamples)
@@ -139,6 +139,7 @@ channel(f::LJHFile) = f.channum
 row(f::LJHFile) = f.row
 column(f::LJHFile) = f.column
 frametime(f::LJHFile) = f.frametime
+frameperiod(f::LJHFile) = frametime(f)
 function Base.show(io::IO, g::LJHFile)
     print(io, "LJHFile $(filename(g))\n")
     print(io, "$(length(g)) records\n")
@@ -445,29 +446,29 @@ Discrimination level (%%): 1.000000
 flush(io)
 end
 
-"    write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})"
-function Base.write{T}(ljh::LJHFile{LJH_22,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
+"    write(ljh::LJHFile{LJH_22},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})"
+function Base.write(ljh::LJHFile{LJH_22},traces::Array{UInt16,2}, rowcounts::Vector{Int64}, times::Vector{Int64})
     for j = 1:length(times)
         write(ljh, traces[:,j], rowcounts[j], times[j])
     end
 end
-"    write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)"
-function Base.write{T}(ljh::LJHFile{LJH_22,T}, trace::Vector{UInt16}, rowcount::Int64, timestamp_usec::Int64)
+"    write(ljh::LJHFile{LJH_22}, trace::Vector{UInt16}, rowcount::Int64, time::Int64)"
+function Base.write(ljh::LJHFile{LJH_22}, trace::Vector{UInt16}, rowcount::Int64, timestamp_usec::Int64)
     write(ljh.io, rowcount, timestamp_usec, trace)
 end
-"    write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)"
-function Base.write{T}(ljh::LJHFile{LJH_22,T}, record::LJHRecord)
+"    write(ljh::LJHFile{LJH_22}, record::LJHRecord)"
+function Base.write(ljh::LJHFile{LJH_22}, record::LJHRecord)
   write(ljh, record.data, record.rowcount, record.timestamp_usec)
 end
 
-"    write{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64})"
-function Base.write{T}(ljh::LJHFile{LJH_21,T},traces::Array{UInt16,2}, rowcounts::Vector{Int64})
+"    write(ljh::LJHFile{LJH_21},traces::Array{UInt16,2}, rowcounts::Vector{Int64})"
+function Base.write(ljh::LJHFile{LJH_21},traces::Array{UInt16,2}, rowcounts::Vector{Int64})
     for j = 1:length(rowcounts)
         write(ljh, traces[:,j], rowcounts[j])
     end
 end
-"    write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64)"
-function Base.write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::Int64)
+"    write(ljh::LJHFile{LJH_21}, trace::Vector{UInt16}, rowcount::Int64)"
+function Base.write(ljh::LJHFile{LJH_21}, trace::Vector{UInt16}, rowcount::Int64)
   lsync_us = 1e6*ljh.frametime/ljh.num_rows
   timestamp_us = round(Int, rowcount*lsync_us)
   timestamp_ms = Int32(div(timestamp_us, 1000))
@@ -478,8 +479,8 @@ function Base.write{T}(ljh::LJHFile{LJH_21,T}, trace::Vector{UInt16}, rowcount::
   write(ljh.io, timestamp_ms)
   write(ljh.io, trace)
 end
-"    Base.write{T}(ljh::LJHFile{LJH_21,T}, record::LJHRecord)"
-function Base.write{T}(ljh::LJHFile{LJH_21,T}, record::LJHRecord)
+"    Base.write(ljh::LJHFile{LJH_21}, record::LJHRecord)"
+function Base.write(ljh::LJHFile{LJH_21}, record::LJHRecord)
   write(ljh, record.data, record.rowcount)
 end
 

@@ -28,8 +28,8 @@ let
 end
 
 @testset "single reader with DataWriter" begin
-  #name22 points to an LJH file after the ljh tests are run
-  ljh = LJH.LJHFile(name22)
+  #fname22 points to an LJH file after the ljh tests are run
+  ljh = LJH.LJHFile(fname22)
   filter=zeros(ljh.record_nsamples-1) # single lag filter
   filter_at=zeros(ljh.record_nsamples-1) # single lag filter arrival time component
   npresamples=ljh.pretrig_nsamples # number of sample trigger

@@ -45,6 +45,11 @@ end
 data(r::LJHRecord) = r.data
 rowcount(r::LJHRecord) = r.rowcount
 timestamp_usec(r::LJHRecord) = r.timestamp_usec
+frameperiod(r::LJHRecord{FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples} = FrameTime
+frame1index(r::LJHRecord{FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples} = rowcount(r)
+first_rising_sample(r::LJHRecord{FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples} = PretrigNSamples
+
+
 Base.length(r::LJHRecord) = length(r.data)
 import Base: ==
 ==(a::LJHRecord, b::LJHRecord) = a.data==b.data && a.rowcount == b.rowcount && a.timestamp_usec == b.timestamp_usec

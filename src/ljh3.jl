@@ -1,10 +1,9 @@
 using JSON
 import Base: ==
 
-struct LJH3File
+struct LJH3File{FramePeriod}
     io::IOStream
     index::Vector{Int} # points to the start of records, and potential next record
-    frameperiod::Float64
     header::OrderedDict{String,Any}
 end
 """    LJH3File(fname::AbstractString)
@@ -23,9 +22,9 @@ function LJH3File(io::IO; shouldseekstart=true)
     @assert read(io, Char) == '\n'
     @assert header["File Format"]=="LJH3"
     @assert header["File Format Version"] == "3.0.0"
-    LJH3File(io,Int[position(io)],frameperiod, header)
+    LJH3File{frameperiod}(io,Int[position(io)], header)
 end
-frameperiod(ljh::LJH3File) = ljh.frameperiod
+frameperiod(ljh::LJH3File{FramePeriod}) where FramePeriod = FramePeriod
 Base.close(ljh::LJH3File) = close(ljh.io)
 filename(ljh::LJH3File) = ljh.io.name[7:end-1]
 progresssize(ljh::LJH3File) = stat(ljh.io).size
@@ -46,7 +45,7 @@ end
 "`LJH3Record` are returned when accessing a record in an `LJH3File`. Use functions
 `data(r)`, `first_rising_sample(r)`, count(r)`, and `timestamp_usec(r)` to extract
 information from a record `r`."
-struct LJH3Record
+struct LJH3Record{FramePeriod}
     data::Vector{UInt16}
     first_rising_sample::Int32
     frame1index::Int64
@@ -56,6 +55,7 @@ data(r::LJH3Record) = r.data
 first_rising_sample(r::LJH3Record) = r.first_rising_sample
 frame1index(r::LJH3Record) = r.frame1index
 timestamp_usec(r::LJH3Record) = r.timestamp_usec
+frameperiod(r::LJH3Record{FramePeriod}) where FramePeriod = FramePeriod
 Base.length(r::LJH3Record) = length(r.data)
 ==(a::LJH3Record, b::LJH3Record) = a.data == b.data && a.first_rising_sample == b.first_rising_sample && a.frame1index == b.frame1index && a.timestamp_usec == b.timestamp_usec
 "    write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, frame1index::Int64, timestamp_usec::Int64)
@@ -91,7 +91,7 @@ function seekto(ljh::LJH3File, i::Int)
         error("LJH3 Bounds Error")
     end
 end
-function _readrecord(ljh::LJH3File,i)
+function _readrecord(ljh::LJH3File{FramePeriod},i) where FramePeriod
     num_samples = read(ljh.io, Int32)
     first_rising_sample = read(ljh.io, Int32)
     frame1index = read(ljh.io, Int64)
@@ -103,26 +103,26 @@ function _readrecord(ljh::LJH3File,i)
         # now, ljh.index[end] is the first unobserved byte offset into ljh.io
         # it may or may not be the start of a pulse
     end
-    LJH3Record(data, first_rising_sample, frame1index, timestamp_usec)
+    LJH3Record{FramePeriod}(data, first_rising_sample, frame1index, timestamp_usec)
 end
-function tryread(ljh::LJH3File)
+function tryread(ljh::LJH3File{FramePeriod}) where FramePeriod
     d1 = read(ljh.io,4)
     if length(d1)<4
         seek(ljh.io, position(ljh.io)-length(d1)) # go back to the start of the record
-        return Nullable{LJH3Record}()
+        return Nullable{LJH3Record{FramePeriod}}()
     end
     num_samples = reinterpret(Int32,d1)[1]
     rest_of_record_length = 20+2*num_samples
     d2 = read(ljh.io,rest_of_record_length)
     if length(d2) < rest_of_record_length
         seek(ljh.io, position(ljh.io)-length(d1)-length(d2)) # go back to the start of the record
-        return Nullable{LJH3ecord}()
+        return Nullable{LJH3ecord{FramePeriod}}()
     end
     first_rising_sample = reinterpret(Int32,d2[1:4])[1]
     frame1index = reinterpret(Int64,d2[5:12])[1]
     timestamp_usec = reinterpret(Int64,d2[13:20])[1]
     data = reinterpret(UInt16,d2[21:end])
-    Nullable(LJH3Record(data,first_rising_sample, frame1index, timestamp_usec))
+    Nullable(LJH3Record{FramePeriod}(data,first_rising_sample, frame1index, timestamp_usec))
 end
 # Array interface
 function Base.getindex(ljh::LJH3File,i::Int)

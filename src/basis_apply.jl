@@ -39,17 +39,10 @@ struct BasisAnalyzer
     basis::Array{Float32,2} # size (nbasis,nsamples)
 end
 check_compatability(a::BasisAnalyzer, ljh) = nothing
-function (a::BasisAnalyzer)(record::LJH.LJHRecord)
-  reduced = a.basis*record.data
+function (a::BasisAnalyzer)(record::Union{LJH.LJHRecord, LJH.LJH3Record})
+  reduced = a.basis*LJH.data(record)
   data_subspace = a.basis'*reduced
-  residual_std = std(data_subspace-record.data)
-  BasisDataProduct(reduced, residual_std, LJH.rowcount(record),
-    LJH.timestamp_usec(record), 0, length(record))
-end
-function (a::BasisAnalyzer)(record::LJH.LJH3Record)
-  reduced = a.basis*record.data
-  data_subspace = a.basis'*reduced
-  residual_std = std(data_subspace-record.data)
+  residual_std = std(data_subspace-LJH.data(record))
   BasisDataProduct(reduced, residual_std, LJH.frame1index(record),
     LJH.timestamp_usec(record), LJH.first_rising_sample(record), length(record))
 end

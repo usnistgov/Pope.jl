@@ -21,16 +21,16 @@ end
 
 @testset "BasisAnalyzer" begin
     FrameTime, PretrigNSamples = 9.6e-6, 100
-    r = LJH.LJHRecord{FrameTime, PretrigNSamples}(1:1000,1,2)
-    r3 = LJH.LJH3Record(1:1000,0,10,20)
+    r = LJH.LJHRecord{FrameTime, PretrigNSamples}(1:1000,10,20)
+    r3 = LJH.LJH3Record{FrameTime}(1:1000,PretrigNSamples,10,20)
     analyzer = Pope.BasisAnalyzer(rand(6,1000))
-    dataproduct = analyzer(r)
-    dataproduct3 = analyzer(r3)
-    @test dataproduct.reduced == dataproduct3.reduced
-    @test dataproduct.residual_std == dataproduct3.residual_std
-    @test dataproduct.timestamp_usec == LJH.timestamp_usec(r)
-    @test dataproduct.first_rising_sample == 0
-    @test dataproduct.nsamples == length(r)
+    dp = analyzer(r)
+    dp3 = analyzer(r3)
+    @test dp.reduced == dp3.reduced
+    @test dp.residual_std == dp3.residual_std
+    @test dp.timestamp_usec == dp3.timestamp_usec == LJH.timestamp_usec(r)
+    @test dp.first_rising_sample == dp.first_rising_sample == PretrigNSamples
+    @test dp.nsamples == dp3.nsamples == length(r)
 end
 
 @testset "BasisBufferedWriter" begin

@@ -57,7 +57,7 @@ end
     model = hdf5load(input, [channumber])
 
 Load and return a `NoiseResult` object from `input`. The argument `input` can be
-either the "noise" HDF5 group, or the name of an HDF5 file along 
+either the "noise" HDF5 group, or the name of an HDF5 file along
 (group "5/noise" would need to be at the root of the file).
 """
 
@@ -94,11 +94,11 @@ of 2. This ensures that we never do DFTs on an especially bad vector size.
 function round_up_dft_length(n::Integer)
     pow2 = 2^ceil(log2(n))
     if n > 0.75*pow2
-        return Int(round(pow2))
+        return round(Int, pow2)
     elseif n > 0.625*pow2
-        return Int(round(0.75*pow2))
+        return round(Int, 0.75*pow2)
     else
-        return Int(round(0.625*pow2))
+        return round(Int, 0.625*pow2)
     end
 end
 
@@ -210,7 +210,7 @@ function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e9
     window = window / sqrt(sum(window.^2)) # proper normalization
 
     # Break data up into half-overlapping segments of the right separation
-    nseg = Int(ceil(length(data)/nsamp))
+    nseg = ceil(Int, length(data)/nsamp)
     seg_step = 1
     if nseg>1
         seg_step = Int(floor((length(data)+1-nsamp)/(nseg-1)))

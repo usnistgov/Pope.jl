@@ -2,22 +2,17 @@ using Base.Test
 using ARMA
 using HDF5
 using Pope: NoiseAnalysis
+import Base: isapprox
 
-function compare(m1::ARMAModel, m2::ARMAModel)
-    @test m1.p == m2.p
-    @test m1.q == m2.q
-    @test m1.covarIV ≈ m2.covarIV atol=3e-4 * (2^m1.p)
-    @test model_covariance(m1, 50) ≈ model_covariance(m2, 50) atol=3e-4 * (2^m1.p)
-end
+isapprox(m1::ARMAModel, m2::ARMAModel) =
+    (m1.p == m2.p) && (m1.q == m2.q) &&
+    isapprox(m1.covarIV, m2.covarIV, atol=3e-4 * (2^m1.p)) &&
+    isapprox(model_covariance(m1, 50), model_covariance(m2, 50), atol=3e-4 * (2^m1.p))
 
-function compare(m1::NoiseResult, m2::NoiseResult)
-    @test m1.autocorr ≈ m2.autocorr
-    @test m1.psd ≈ m2.psd
-    @test m1.freqstep == m2.freqstep
-    @test m1.samplesused == m2.samplesused
-    @test m1.datasource == m2.datasource
-    compare(m1.model, m2.model)
-end
+isapprox(m1::NoiseResult, m2::NoiseResult) =
+    (m1.autocorr ≈ m2.autocorr) && (m1.psd ≈ m2.psd) &&
+    (m1.freqstep == m2.freqstep) && (m1.samplesused == m2.samplesused) &&
+    (m1.datasource == m2.datasource) && (m1.model ≈ m2.model)
 
 @testset "hdf5 save/load" begin
     # Here are some dummy values to fill in the NoiseResult.
@@ -37,12 +32,14 @@ end
         freqstep = 0.5/sampletime / (length(psd)-1)
         noiseresult = NoiseAnalysis.NoiseResult(acorr, psd, used, freqstep, source, model)
 
+        # Test loading from the "standard place" in a file, which depends on channel number
         fname1 = tempname()*".hdf5"
         channum = rand(1:99)
         NoiseAnalysis.hdf5save(fname1, channum, noiseresult)
         nr1 = NoiseAnalysis.hdf5load(fname1, channum)
-        compare(noiseresult, nr1)
+        @test noiseresult ≈ nr1
 
+        # Test loading from a user-specified group within a fil.
         fname2 = tempname()*".hdf5"
         h5open(fname2, "w") do f
             g1 = g_create(f, "top")
@@ -52,7 +49,7 @@ end
         end
         h5open(fname2, "r") do f
             nr2 = NoiseAnalysis.hdf5load(f["top/mid/low"])
-            compare(noiseresult, nr2)
+            @test noiseresult ≈ nr2
         end
     end
 end #testset

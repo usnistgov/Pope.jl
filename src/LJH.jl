@@ -327,6 +327,7 @@ function Base.done{T<:UnitRange}(g::LJHGroupSlice{T}, state)
     filenum, recordnum, donefilenum, donerecordnum = state
     filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
 end
+record_nsamples(s::LJHGroupSlice) = record_nsamples(s.g)
 
 const LJHLike = Union{LJHFile, LJHGroup, LJHGroupSlice}
 "    get_data_rowcount_timestamp(g::LJHGroup)

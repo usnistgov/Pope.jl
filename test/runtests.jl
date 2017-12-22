@@ -8,6 +8,7 @@ const WT = false # run @code_warntype
 isdir("artifacts") && rm("artifacts",recursive=true)
 mkdir("artifacts")
 
+include("noise_analysis.jl")
 include("ljh.jl")
 include("ljh3.jl")
 include("regression.jl")

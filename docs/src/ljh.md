@@ -185,7 +185,7 @@ LJH3 is a new version of LJH intended to allow the use of variable length record
 Immediatley following the header, records are written as flat binary data. Each record consists of a `Int32` record length, a `Int32` offset into the record pointing to the first rising sample as determined by the trigger algorithm, a `Int64` frame1index of the first sample in the record, and an `Int64` posix timestamp in units of microseconds since the epoch for the first sample in the record. The frame1index is provided by the readout system, and may have arbitrary offset, such that comparisons across different LJH3 files from the same readout system are not meaningful.
 
 ## LJH Records and LJH3 Records API
-Both `LJHRecord` from version 2 files, and `LJH3Record` from version 3 files have a shared API. The API consists of the functions `frameperiod`, `frame1index`, `first_rising_sample`, `data`, and `timestamp_usec`. 
+Both `LJHRecord` from version 2 files, and `LJH3Record` from version 3 files have a shared API. The API consists of the functions `frameperiod`, `frame1index`, `first_rising_sample`, `data`, and `timestamp_usec`. For TDM data different rows within the same frame have different timing, which is not reflected in `frame1index`, use `rowcount` instead when sub-frame timing information is required. `rowcount = frame1index*num_rows+row`.
 
 
 ```@docs

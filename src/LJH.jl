@@ -25,7 +25,7 @@ function ljh_get_header_dict(io::IO)
     headerdict
 end
 
-mutable struct LJHFile{VersionInt, FrameTime, PretrigNSamples, T<:IO}
+mutable struct LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow, T<:IO}
     filename             ::String   # filename
     io               ::IO         # IO to read from LJH file
     headerdict       ::Dict             # LJH file header data
@@ -35,9 +35,8 @@ mutable struct LJHFile{VersionInt, FrameTime, PretrigNSamples, T<:IO}
     column           ::Int16            # column number
     row              ::Int16            # row number
     num_columns      ::Int16            # number of rows
-    num_rows         ::Int16            # number of columns
 end
-struct LJHRecord{FrameTime, PretrigNSamples}
+struct LJHRecord{FrameTime, PretrigNSamples, NRow}
     data::Vector{UInt16}
     rowcount::Int64
     timestamp_usec::Int64
@@ -45,9 +44,10 @@ end
 data(r::LJHRecord) = r.data
 rowcount(r::LJHRecord) = r.rowcount
 timestamp_usec(r::LJHRecord) = r.timestamp_usec
-frameperiod(r::LJHRecord{FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples} = FrameTime
-frame1index(r::LJHRecord{FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples} = rowcount(r)
-first_rising_sample(r::LJHRecord{FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples} = PretrigNSamples
+num_rows(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = NRow
+frameperiod(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = FrameTime
+frame1index(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = div(rowcount(r), num_rows(r))
+first_rising_sample(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = PretrigNSamples
 
 
 Base.length(r::LJHRecord) = length(r.data)
@@ -68,11 +68,11 @@ function LJHFile(fname::String,io::IO)
     version in keys(VERSIONS) || error("$fname has version $version, which is not in VERSIONS $VERSIONS")
     versionint = VERSIONS[version]
     record_nsamples = parse(Int,headerdict["Total Samples"])
-    num_rows = parse(Int16, get(headerdict,"Number of rows","0"))
+    NRow = parse(Int16, get(headerdict,"Number of rows","1"))
     num_columns = parse(Int16, get(headerdict,"Number of columns","0"))
     FrameTime = parse(Float64,headerdict["Timebase"]) # frametime
     PretrigNSamples = parse(Int16,headerdict["Presamples"]) # pretrig_nsamples
-    LJHFile{versionint, FrameTime, PretrigNSamples, typeof(io)}(
+    LJHFile{versionint, FrameTime, PretrigNSamples, NRow, typeof(io)}(
         fname, # filename
         io, # IO
         headerdict, #headerdict
@@ -80,9 +80,8 @@ function LJHFile(fname::String,io::IO)
         parse(Int16,headerdict["Total Samples"]), # record_nsamples
         round(Int16,parse(Float64,headerdict["Channel"])), # channel number
         parse(Int16,get(headerdict,"Column number (from 0-$(num_columns-1) inclusive)","0")),   #column, defaults to zero if not in file
-        parse(Int16,get(headerdict,"Row number (from 0-$(num_rows-1) inclusive)","0")), #row, defaults to zero if not in file
-        num_columns, # num_columns
-        num_rows) # num_rows
+        parse(Int16,get(headerdict,"Row number (from 0-$(NRow-1) inclusive)","0")), #row, defaults to zero if not in file
+        num_columns) # num_columns
 end
 LJHFile(f::LJHFile) = f
 
@@ -117,16 +116,16 @@ function Base.getindex(f::LJHFile,index::Int)
     seekto(f, index)
     pop!(f)
 end
-function Base.pop!(f::LJHFile{LJH_21,FrameTime,PretrigNSamples}) where {FrameTime, PretrigNSamples}
-    rowcount, timestamp_usec =  record_row_count_v21(read(f.io, UInt8, 6), f.num_rows, f.row, frametime(f))
+function Base.pop!(f::LJHFile{LJH_21,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
+    rowcount, timestamp_usec =  record_row_count_v21(read(f.io, UInt8, 6), num_rows(f), f.row, frametime(f))
     data = read(f.io, UInt16, f.record_nsamples)
-    LJHRecord{FrameTime, PretrigNSamples}(data, rowcount, timestamp_usec)
+    LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec)
 end
-function Base.pop!(f::LJHFile{LJH_22,FrameTime,PretrigNSamples}) where {FrameTime, PretrigNSamples}
+function Base.pop!(f::LJHFile{LJH_22,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
     rowcount = read(f.io, Int64)
     timestamp_usec = read(f.io, Int64)
     data = read(f.io, UInt16, f.record_nsamples)
-    LJHRecord{FrameTime, PretrigNSamples}(data, rowcount, timestamp_usec)
+    LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec)
 end
 Base.size(f::LJHFile) = (ljh_number_of_records(f),)
 Base.length(f::LJHFile) = ljh_number_of_records(f)
@@ -137,16 +136,19 @@ Base.next(f::LJHFile,j) = pop!(f),j+1
 Base.done(f::LJHFile,j) = j==length(f)+1
 filename(f::LJHFile) = f.filename
 record_nsamples(f::LJHFile) = f.record_nsamples
-function pretrig_nsamples(f::LJHFile{VersionInt, FrameTime, PretrigNSamples}) where {VersionInt, FrameTime, PretrigNSamples}
+function pretrig_nsamples(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
     convert(Int,PretrigNSamples)
 end
 channel(f::LJHFile) = f.channum
 row(f::LJHFile) = f.row
 column(f::LJHFile) = f.column
-function frametime(f::LJHFile{VersionInt, FrameTime, PretrigNSamples}) where {VersionInt, FrameTime, PretrigNSamples}
-    FrameTime::Float64
+function frametime(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
+    convert(Float64, FrameTime)
 end
 frameperiod(f::LJHFile) = frametime(f)
+function num_rows(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
+    convert(Int, NRow)
+end
 function Base.show(io::IO, g::LJHFile)
     print(io, "LJHFile $(filename(g))\n")
     print(io, "$(length(g)) records\n")
@@ -164,16 +166,16 @@ Attempt to read an `LJHRecord` from `f`. Return a `Nullable{LJHRecord}` containi
 that record if succesful, or one that `isnull` if not. On success the file position
 moves forward, on failure the file position does not change.
 """
-function tryread(f::LJHFile{LJH_22,FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples}
+function tryread(f::LJHFile{LJH_22,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
   d = read(f.io,record_nbytes(f))
   if length(d) == record_nbytes(f)
     rowcount = reinterpret(Int,d[1:8])[1]
     timestamp_usec = reinterpret(Int,d[9:16])[1]
     data = reinterpret(UInt16,d[17:record_nbytes(f)])
-    return Nullable(LJHRecord{FrameTime, PretrigNSamples}(data, rowcount, timestamp_usec))
+    return Nullable(LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec))
   else
     seek(f.io, position(f.io)-length(d)) # go back to the start of the record
-    return Nullable{LJHRecord{FrameTime, PretrigNSamples}}()
+    return Nullable{LJHRecord{FrameTime, PretrigNSamples, NRow}}()
   end
 end
 # this version with nb_available seems like it should work, and possibly be
@@ -190,12 +192,12 @@ end
 #   end
 # end
 
-function tryread(f::LJHFile{LJH_21,FrameTime, PretrigNSamples}) where {FrameTime, PretrigNSamples}
+function tryread(f::LJHFile{LJH_21,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
   d1 = read(f.io, 6)
-  length(d1) == 0  && return Nullable{LJHRecord{FrameTime, PretrigNSamples}}()
-  rowcount, timestamp_usec =  record_row_count_v21(d1, f.num_rows, f.row, frametime(f))
+  length(d1) == 0  && return Nullable{LJHRecord{FrameTime, PretrigNSamples, NRow}}()
+  rowcount, timestamp_usec =  record_row_count_v21(d1, num_rows(f), f.row, frametime(f))
   data = read(f.io, UInt16, f.record_nsamples)
-  return Nullable(LJHRecord{FrameTime, PretrigNSamples}(data, rowcount, timestamp_usec))
+  return Nullable(LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec))
 end
 watch_file(f::LJHFile, timeout_s::Real) = watch_file(f.filename, timeout_s)
 
@@ -240,12 +242,12 @@ Base.open(g::LJHGroup) = map(open, g.ljhfiles)
 fieldvalue(g::LJHGroup, s::Symbol) = unique([getfield(f, s) for f in g.ljhfiles])
 channel(g::LJHGroup) = (assert(length(fieldvalue(g, :channum))==1);g.ljhfiles[1].channum)
 record_nsamples(g::LJHGroup) = (assert(length(fieldvalue(g, :record_nsamples))==1);g.ljhfiles[1].record_nsamples)
-pretrig_nsamples(g::LJHGroup) = (assert(length(unique(pretrig_nsamples.(g.ljhfiles))==1)==1);pretrig_nsamples(g.ljhfiles[1]))
+pretrig_nsamples(g::LJHGroup) = (assert(length(unique(pretrig_nsamples.(g.ljhfiles)))==1);pretrig_nsamples(g.ljhfiles[1]))
 frametime(g::LJHGroup) = (assert(length(unique(frametime.(g.ljhfiles)))==1);frametime(g.ljhfiles[1]))
 column(g::LJHGroup) = (assert(length(fieldvalue(g, :column))==1);g.ljhfiles[1].column)
 row(g::LJHGroup) = (assert(length(fieldvalue(g, :row))==1);g.ljhfiles[1].row)
 num_columns(g::LJHGroup) = (assert(length(fieldvalue(g, :num_columns))==1);g.ljhfiles[1].num_columns)
-num_rows(g::LJHGroup) = (assert(length(fieldvalue(g, :num_rows))==1);g.ljhfiles[1].num_rows)
+num_rows(g::LJHGroup) = (assert(length(unique(num_rows.(g.ljhfiles)))==1);num_rows(g.ljhfiles[1]))
 filenames(g::LJHGroup) = [f.filename for f in g.ljhfiles]
 lengths(g::LJHGroup) = g.lengths
 "    watch(g::LJHGroup, timeout_s)
@@ -364,27 +366,27 @@ end
 
 """
     create(filename::AbstractString, dt, npre, nsamp; version="2.2.0",
-    channel=1, number_of_rows=32, number_of_columns=8)
+    channel=1, num_rows=32, num_cols=8)
 
 Create a new file, write an LJH Header to it, and return an `LJHFile` ready for
 writing with `write`.  `dt` in seconds. `npre` is the number of presamples.
 `nsamp` is the number of samples per record. Versions "2.2.0" and "2.1.0" are supported.
 """
-function create(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, number_of_rows=32, number_of_columns=8)
+function create(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, num_rows=32, num_cols=8)
     f = open(filename,"w+")
-    writeljhheader(f, dt, npre, nsamp; version=version, channel=channel, number_of_rows=number_of_rows, number_of_columns=number_of_columns)
+    writeljhheader(f, dt, npre, nsamp; version=version, channel=channel, num_rows=num_rows, num_cols=num_cols)
     LJHFile(filename,seekstart(f))
 end
 
 """
-    writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0",channel=1, number_of_rows=32, number_of_columns=8)
-    writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1, number_of_rows=32, number_of_columns=8)
+    writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0",channel=1, num_rows=32, num_cols=8)
+    writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1, num_rows=32, num_cols=8)
 
 Write a header for an LJH file. `dt` in seconds. `npre` is the number of presamples.
 `nsamp` is the number of samples per record. Versions "2.2.0" and "2.1.0" are supported.
 `create_ljh` is easier to use.
 """
-function writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, number_of_rows=32, number_of_columns=8)
+function writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, num_rows=32, num_cols=8)
     open(filename, "w") do f
     writeljhheader(f, dt, npre, nsamp; version=version)
     end #do
@@ -393,7 +395,7 @@ end
 # the header here seems absurd, yes
 # but it is intended to allow compatilibity with older LJH readers,
 # like that in IGOR
-function writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0", channel=1, number_of_rows=32, number_of_columns=8)
+function writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0", channel=1, num_rows=32, num_cols=8)
     write(io,
 "#LJH Memorial File Format
 Save File Format Version: $version
@@ -426,8 +428,8 @@ Effective Bits: 0
 Anti-alias low-pass cutoff frequency (Hz): 0.000
 Timebase: $dt
 Number of samples per point: 1
-Number of rows: $number_of_rows
-Number of columns: $number_of_columns
+Number of rows: $num_rows
+Number of columns: $num_cols
 Presamples: $npre
 Total Samples: $nsamp
 Trigger (V): 250.000000
@@ -476,7 +478,7 @@ function Base.write(ljh::LJHFile{LJH_21},traces::Array{UInt16,2}, rowcounts::Vec
 end
 "    write(ljh::LJHFile{LJH_21}, trace::Vector{UInt16}, rowcount::Int64)"
 function Base.write(ljh::LJHFile{LJH_21}, trace::Vector{UInt16}, rowcount::Int64)
-  lsync_us = 1e6*frametime(ljh)/ljh.num_rows
+  lsync_us = 1e6*frametime(ljh)/num_rows(ljh)
   timestamp_us = round(Int, rowcount*lsync_us)
   timestamp_ms = Int32(div(timestamp_us, 1000))
   subms_part = round(UInt8, mod(div(timestamp_us,4), 250))

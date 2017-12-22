@@ -20,8 +20,9 @@ using ReferenceMicrocalFiles
 end
 
 @testset "BasisAnalyzer" begin
-    FrameTime, PretrigNSamples = 9.6e-6, 100
-    r = LJH.LJHRecord{FrameTime, PretrigNSamples}(1:1000,10,20)
+    FrameTime, PretrigNSamples, NRow, row = 9.6e-6, 100, 30, 1
+    # rowcount of LJH2 files = framecount*NRow+row, framecount=frame1index
+    r = LJH.LJHRecord{FrameTime, PretrigNSamples, NRow}(1:1000,10*NRow+row,20)
     r3 = LJH.LJH3Record{FrameTime}(1:1000,PretrigNSamples,10,20)
     analyzer = Pope.BasisAnalyzer(rand(6,1000))
     dp = analyzer(r)
@@ -69,7 +70,7 @@ end
     h5r = h5open(h5.filename,"r")
     @test (nbases,length(ljh)) == size(h5r["$(LJH.channel(ljh))/reduced"])
     @test all(LJH.record_nsamples(ljh) .== read(h5r["$(LJH.channel(ljh))/nsamples"]))
-    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/frame1index"]) )
+    @test all( [LJH.frame1index(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/frame1index"]) )
     close(ljh)
     close(h5r)
     rm(h5.filename)

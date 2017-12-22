@@ -47,8 +47,9 @@ rm(fname)
 end
 
 @testset "LJH3Record and LJHRecord joint API" begin
-    FrameTime, PretrigNSamples = 9.6e-6, 100
-    r = LJH.LJHRecord{FrameTime, PretrigNSamples}(1:1000,10,20)
+    FrameTime, PretrigNSamples, NRow, row = 9.6e-6, 100, 30, 1
+    # rowcount of LJH2 files = framecount*NRow+row, framecount=frame1index
+    r = LJH.LJHRecord{FrameTime, PretrigNSamples, NRow}(1:1000,10*NRow+row,20)
     r3 = LJH.LJH3Record{FrameTime}(1:1000,PretrigNSamples,10,20)
     @test LJH.data(r) == LJH.data(r3)
     @test LJH.frameperiod(r) == LJH.frameperiod(r3)

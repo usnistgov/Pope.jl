@@ -9,12 +9,12 @@ timestamps = [Int64(round(r*(dt/nrow)*1e6)) for r in rowcounts]
 data = rand(UInt16, nsamp,N)
 
 fname22 = "artifacts/ljh22_chan1.ljh"
-ljh22=LJH.create(fname22, dt, npre, nsamp, version="2.2.0", number_of_rows=nrow)
+ljh22=LJH.create(fname22, dt, npre, nsamp, version="2.2.0", num_rows=nrow)
 write(ljh22, data, rowcounts, timestamps)
 close(ljh22)
 
 fname21 = "artifacts/ljh21_chan1.ljh"
-ljh21=LJH.create(fname21, dt, npre, nsamp, version="2.1.0", number_of_rows=nrow)
+ljh21=LJH.create(fname21, dt, npre, nsamp, version="2.1.0", num_rows=nrow)
 write(ljh21, data, rowcounts)
 close(ljh21)
 

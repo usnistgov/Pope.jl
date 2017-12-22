@@ -56,6 +56,7 @@ end
     @test LJH.first_rising_sample(r) == LJH.first_rising_sample(r3)
     @test LJH.frame1index(r) == LJH.frame1index(r3)
     @test LJH.timestamp_usec(r) == LJH.timestamp_usec(r3)
+    @test length(r) == length(r3)
 end
 
 # using BenchmarkTools

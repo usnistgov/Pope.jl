@@ -20,16 +20,18 @@ using ReferenceMicrocalFiles
 end
 
 @testset "BasisAnalyzer" begin
-    r = LJH.LJHRecord(1:1000,1,2)
-    r3 = LJH.LJH3Record(1:1000,0,10,20)
+    FrameTime, PretrigNSamples, NRow, row = 9.6e-6, 100, 30, 1
+    # rowcount of LJH2 files = framecount*NRow+row, framecount=frame1index
+    r = LJH.LJHRecord{FrameTime, PretrigNSamples, NRow}(1:1000,10*NRow+row,20)
+    r3 = LJH.LJH3Record{FrameTime}(1:1000,PretrigNSamples,10,20)
     analyzer = Pope.BasisAnalyzer(rand(6,1000))
-    dataproduct = analyzer(r)
-    dataproduct3 = analyzer(r3)
-    @test dataproduct.reduced == dataproduct3.reduced
-    @test dataproduct.residual_std == dataproduct3.residual_std
-    @test dataproduct.timestamp_usec == LJH.timestamp_usec(r)
-    @test dataproduct.first_rising_sample == 0
-    @test dataproduct.nsamples == length(r)
+    dp = analyzer(r)
+    dp3 = analyzer(r3)
+    @test dp.reduced == dp3.reduced
+    @test dp.residual_std == dp3.residual_std
+    @test dp.timestamp_usec == dp3.timestamp_usec == LJH.timestamp_usec(r)
+    @test dp.first_rising_sample == dp.first_rising_sample == PretrigNSamples
+    @test dp.nsamples == dp3.nsamples == length(r)
 end
 
 @testset "BasisBufferedWriter" begin
@@ -68,7 +70,7 @@ end
     h5r = h5open(h5.filename,"r")
     @test (nbases,length(ljh)) == size(h5r["$(LJH.channel(ljh))/reduced"])
     @test all(LJH.record_nsamples(ljh) .== read(h5r["$(LJH.channel(ljh))/nsamples"]))
-    @test all( [LJH.rowcount(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/frame1index"]) )
+    @test all( [LJH.frame1index(record) for record in ljh] .== read(h5r["$(LJH.channel(ljh))/frame1index"]) )
     close(ljh)
     close(h5r)
     rm(h5.filename)

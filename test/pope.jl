@@ -28,20 +28,20 @@ let
 end
 
 @testset "single reader with DataWriter" begin
-  #name22 points to an LJH file after the ljh tests are run
-  ljh = LJH.LJHFile(name22)
-  filter=zeros(ljh.record_nsamples-1) # single lag filter
-  filter_at=zeros(ljh.record_nsamples-1) # single lag filter arrival time component
-  npresamples=ljh.pretrig_nsamples # number of sample trigger
-  nsamples=ljh.record_nsamples # length of pulse in sample
-  average_pulse_peak_index=ljh.pretrig_nsamples+30 # peak index of average pulse, look for postpeak_deriv after this
+  #fname22 points to an LJH file after the ljh tests are run
+  ljh = LJH.LJHFile(fname22)
+  filter=zeros(LJH.record_nsamples(ljh)-1) # single lag filter
+  filter_at=zeros(LJH.record_nsamples(ljh)-1) # single lag filter arrival time component
+  npresamples=LJH.pretrig_nsamples(ljh) # number of sample trigger
+  nsamples=LJH.record_nsamples(ljh) # length of pulse in sample
+  average_pulse_peak_index=LJH.pretrig_nsamples(ljh)+30 # peak index of average pulse, look for postpeak_deriv after this
   shift_threshold = 5
-  analyzer = Pope.MassCompatibleAnalysisFeb2017(filter, filter_at, npresamples, nsamples, average_pulse_peak_index, ljh.frametime, shift_threshold,[0.0,0.0],[0.0,0.0],"manually made in runtests.jl")
+  analyzer = Pope.MassCompatibleAnalysisFeb2017(filter, filter_at, npresamples, nsamples, average_pulse_peak_index, LJH.frametime(ljh), shift_threshold,[0.0,0.0],[0.0,0.0],"manually made in runtests.jl")
   output_fname = tempname()
   output_f = open(output_fname,"w")
   @show stat(output_f)
   product_writer = Pope.DataWriter(output_f)
-  reader = Pope.make_reader(ljh.filename, analyzer, product_writer)
+  reader = Pope.make_reader(LJH.filename(ljh), analyzer, product_writer)
   readers = push!(Pope.Readers(),reader)
   schedule(readers)
   Pope.stop(readers)

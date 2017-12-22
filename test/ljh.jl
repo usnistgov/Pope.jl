@@ -1,98 +1,89 @@
 using Base.Test
 using Pope: LJH
 
-# Write file 1 as an LJH 2.1 file and files 2 as LJH 2.2 with identical data.
-name21, f1 = mktemp()
-name22, f2 = mktemp()
 
-dt = 9.6e-6
-npre = 200
-nsamp = 1000
-nrow = 30
+dt = 9.6e-6; npre = 200; nsamp = 1000; nrow = 30
+rowcounts = collect(5001:1000:10001)
+N=length(rowcounts)
+timestamps = [Int64(round(r*(dt/nrow)*1e6)) for r in rowcounts]
+data = rand(UInt16, nsamp,N)
 
-LJH.writeljhheader(f1, dt, npre, nsamp; version="2.1.0", number_of_rows=nrow)
-LJH.writeljhheader(f2, dt, npre, nsamp; version="2.2.0", number_of_rows=nrow)
+fname22 = "artifacts/ljh22_chan1.ljh"
+ljh22=LJH.create(fname22, dt, npre, nsamp, version="2.2.0", num_rows=nrow)
+write(ljh22, data, rowcounts, timestamps)
+close(ljh22)
 
-rowcount = collect(5000:1000:10000)
-timestamps = [Int64(round(r*(dt/30)*1e6)) for r in rowcount]
-N = length(rowcount)
+fname21 = "artifacts/ljh21_chan1.ljh"
+ljh21=LJH.create(fname21, dt, npre, nsamp, version="2.1.0", num_rows=nrow)
+write(ljh21, data, rowcounts)
+close(ljh21)
 
-data = rand(UInt16, nsamp, N)
-data[1,:] = 0xffff
+@testset "LJHGroup for single file access" begin
+    for ljh in [LJHGroup(fname21), LJHGroup(fname22)]
+        @test LJH.record_nsamples(ljh) == nsamp
+        @test LJH.pretrig_nsamples(ljh) == npre
+        @test LJH.frametime(ljh) == dt
+        @test LJH.length(ljh) == N
 
-ljh_f1 = LJH.LJHFile(name21,seekstart(f1))
-ljh_f2 = LJH.LJHFile(name22,seekstart(f2))
-
-write(ljh_f1, data, rowcount)
-write(ljh_f2, data, rowcount, timestamps)
-
-close(f1)
-close(f2)
-# Now check that the data are readable
-ljh21 = LJHGroup(name21)
-ljh22 = LJHGroup(name22)
-
-@testset "ljh" begin
-
-# Test that the header info is correct
-for ljh in (ljh21, ljh22)
-    @test LJH.record_nsamples(ljh) == nsamp
-    @test LJH.pretrig_nsamples(ljh) == npre
-    @test LJH.frametime(ljh) == dt
-    @test LJH.length(ljh) == N
-
-    # Test indexed access
-    ranges = (1:N, N:-1:1, 1:3:N, N:-2:1)
-    for r in ranges
-        for i = r
+        for i = 1:length(ljh)
             record = ljh[i]
-            @test record.data==data[:,i]
-            @test record.timestamp_usec==timestamps[i]
+            @test LJH.data(record)==data[:,i]
+            @test LJH.timestamp_usec(record)==timestamps[i] # LJH22 files calculate a timestamp from the rowcount
+            if LJH.filenames(ljh)[1] == fname22
+                @test LJH.rowcount(record)==rowcounts[i]
+            else
+                # the rowcount in an LJH21 file is only expected to be accurate to 4 us
+                @test abs(LJH.rowcount(record)-rowcounts[i])<=20
+            end
+        end
+        LJH.row(ljh)
+        LJH.column(ljh)
+        LJH.num_rows(ljh)
+        LJH.num_columns(ljh)
+
+        # test slices
+        for (r1,r2) in zip(collect(ljh[2:4]), collect(ljh)[2:4])
+            @test r1.data==r2.data
         end
     end
-    LJH.row(ljh)
-    LJH.column(ljh)
-    LJH.num_rows(ljh)
-    LJH.num_columns(ljh)
+end
 
-    # test slices
-    for (r1,r2) in zip(collect(ljh[2:4]), collect(ljh)[2:4])
-        @test r1.data==r2.data
+@testset "LJHGroup of 3 files" begin
+    grp = LJHGroup([fname22, fname22, fname22])
+    for j=1:3N
+        record = grp[j]
+        d,r,t = LJH.data(record), LJH.rowcount(record), LJH.timestamp_usec(record)
+        i = mod(j-1, N)+1
+        @test d == data[:,i]
+        @test t == timestamps[i]
+        @test r == rowcounts[i]
+    end
+    for (r1,r2) in zip(collect(grp[3:10]), collect(grp)[3:10])
+        @test LJH.data(r1) == LJH.data(r2)
+        @test LJH.rowcount(r1) == LJH.rowcount(r2)
+        @test LJH.timestamp_usec(r1) == LJH.timestamp_usec(r2)
+    end
+    @test LJH.lengths(grp) == [N,N,N]
+
+    grp.ljhfiles[1].record_nsamples=0
+    @test_throws AssertionError LJH.record_nsamples(grp)
+end
+
+@testset "LJH single file API" begin
+    for ljh in [LJHFile(fname21), LJHFile(fname22)]
+        data_r, rowcount_r, timestamp_usec_r = LJH.get_data_rowcount_timestamp(ljh)
+        @test data_r == data
+        if LJH.filename(ljh) == fname22
+            @test rowcount_r == rowcounts
+        else
+            # the rowcount in an LJH21 file is only expected to be accurate to 4 us
+            @test maximum(abs.(rowcount_r-rowcounts)) <= 20
+        end
+        @test timestamp_usec_r == timestamps
+
+        LJH.seekto(ljh,N)
+        record = get(LJH.tryread(ljh))
+        @test isnull(LJH.tryread(ljh))
+        @test record == ljh[end]
     end
 end
-
-# Now a group corresponding to 3 files (actually, same one 3 times)
-grp = LJHGroup([name22, name21, name22])
-for j=1:3N
-    record = grp[j]
-    d,r,t = record.data, record.rowcount, record.timestamp_usec
-    i = mod(j-1, N)+1
-    @test d==data[:,i]
-    @test t==timestamps[i]
-end
-
-
-for (r1,r2) in zip(collect(grp[3:10]), collect(grp)[3:10])
-    @test r1.data == r2.data
-    @test r1.rowcount == r2.rowcount
-    @test r1.timestamp_usec == r2.timestamp_usec
-end
-@test LJH.lengths(grp) == [N,N,N]
-
-grp.ljhfiles[1].record_nsamples=0
-@test_throws AssertionError LJH.record_nsamples(grp)
-
-data_r, rowcount_r, timestamp_usec_r = LJH.get_data_rowcount_timestamp(ljh22)
-@test data==data_r
-@test rowcount_r==rowcount
-@test timestamp_usec_r == timestamps
-
-# test tryread
-ljh = LJH.LJHFile(name22)
-LJH.seekto(ljh,1)
-data = get(LJH.tryread(ljh))
-data2 = ljh[1]
-while !isnull(LJH.tryread(ljh)) end
-close(ljh)
-@test data==data2
-end #testset ljh

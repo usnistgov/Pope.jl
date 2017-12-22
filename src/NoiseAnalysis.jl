@@ -45,8 +45,8 @@ end
 
 
 function hdf5save(g::HDF5.DataFile, nr::NoiseResult)
-    attrs(g)["samplesused"] = nr.samplesused
-    attrs(g)["freqstep"] = nr.freqstep
+    g["samplesused"] = nr.samplesused
+    g["freqstep"] = nr.freqstep
     g["autocorr"] = nr.autocorr
     g["powerspectrum"] = nr.psd
     g["source"] = nr.datasource
@@ -77,8 +77,8 @@ end
 function hdf5load(g::HDF5.DataFile)
     acorr = g["autocorr"][:]
     psd = g["powerspectrum"][:]
-    sampused = read(attrs(g)["samplesused"])
-    freqstep = read(attrs(g)["freqstep"])
+    sampused = read(g["samplesused"])
+    freqstep = read(g["freqstep"])
     source = read(g["source"])
     model = ARMA.hdf5load(g["ARMAModel"])
     NoiseResult(acorr, psd, sampused, freqstep, source, model)

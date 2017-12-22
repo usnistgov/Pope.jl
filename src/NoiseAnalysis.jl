@@ -19,10 +19,11 @@ struct NoiseResult
     samplesused::Int
     freqstep::Float64
     datasource::String
+    model::ARMAModel
 end
 
 
-function marshal(nr::NoiseResult, hdf5filename::AbstractString, channum::Integer)
+function hdf5save(hdf5filename::AbstractString, channum::Integer, nr::NoiseResult)
     chanstring = string(channum)
     if !isfile(hdf5filename)
         h5open(hdf5filename, "w") do h5file
@@ -38,14 +39,51 @@ function marshal(nr::NoiseResult, hdf5filename::AbstractString, channum::Integer
         end
         g1 = g_create(h5file, chanstring)
         g = g_create(g1, "noise")
-
-        attrs(g)["samplesused"] = nr.samplesused
-        attrs(g)["freqstep"] = nr.freqstep
-        g["autocorr"] = nr.autocorr
-        g["powerspectrum"] = nr.psd
-        g["source"] = nr.datasource
+        hdf5save(g, nr)
     end
 end
+
+
+function hdf5save(g::HDF5.DataFile, nr::NoiseResult)
+    attrs(g)["samplesused"] = nr.samplesused
+    attrs(g)["freqstep"] = nr.freqstep
+    g["autocorr"] = nr.autocorr
+    g["powerspectrum"] = nr.psd
+    g["source"] = nr.datasource
+    ARMA.hdf5save(g, nr.model)
+end
+
+"""
+    model = hdf5load(input, [channumber])
+
+Load and return a `NoiseResult` object from `input`. The argument `input` can be
+either the "noise" HDF5 group, or the name of an HDF5 file along 
+(group "5/noise" would need to be at the root of the file).
+"""
+
+function hdf5load(hdf5filename::AbstractString, channum::Integer)
+    chanstring = string(channum)
+    h5open(hdf5filename, "r") do h5file
+        if !(chanstring in names(h5file))
+            message = @sprintf("cannot find a NoiseResult for chan %d in HDF5 file '%s'",
+                channum, hdf5filename)
+            error(message)
+        end
+        g = h5file[chanstring]["noise"]
+        return hdf5load(g)
+    end
+end
+
+function hdf5load(g::HDF5.DataFile)
+    acorr = g["autocorr"][:]
+    psd = g["powerspectrum"][:]
+    sampused = read(attrs(g)["samplesused"])
+    freqstep = read(attrs(g)["freqstep"])
+    source = read(g["source"])
+    model = ARMA.hdf5load(g["ARMAModel"])
+    NoiseResult(acorr, psd, sampused, freqstep, source, model)
+end
+
 
 """
     round_up_dft_length(n)

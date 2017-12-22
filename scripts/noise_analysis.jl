@@ -5,8 +5,8 @@ using ARMA
 using Pope: NoiseAnalysis, LJH
 
 function analyze_one_file(filename::AbstractString, channum::Integer,
-        outputname::AbstractString, nlags::Integer=0,
-        nfreq::Integer=0; max_samples=50000000)
+        outputname::AbstractString, nlags::Integer=0, nfreq::Integer=0;
+        max_samples::Integer=50000000)
     @printf("Analyzing file %s (chan %3d) => %s\n", filename, channum, outputname)
 
     # Open the LJH file for reading
@@ -32,12 +32,11 @@ function analyze_one_file(filename::AbstractString, channum::Integer,
     freq = NoiseAnalysis.psd_freq(nfreq, frametime)
     freqstep = freq[2]-freq[1]
 
-    model = fitARMA(autocorr, 4, 4)
+    max_ARMA_order = 5
+    model = fitARMA(autocorr, max_ARMA_order, pmin=1)
 
-    noise = NoiseResult(autocorr, psd, samplesUsed, freqstep, filename)
-
-    # Open the HDF5 file for writing
-    NoiseAnalysis.marshal(noise, outputname, channum)
+    noise = NoiseResult(autocorr, psd, samplesUsed, freqstep, filename, model)
+    NoiseAnalysis.hdf5save(outputname, channum, noise)
 end
 
 function parse_commandline()
@@ -120,7 +119,7 @@ function main()
                 push!(alreadyclobbered, output)
                 rm(output)
             elseif !appendoutput
-                message = @sprintf("marshal(...) was forbidden to add new channels to existing file '%s'", hdf5filename)
+                message = @sprintf("noise_analysis.jl was not allowed to add new channels to existing file '%s'", hdf5filename)
                 error(message)
             end
         end

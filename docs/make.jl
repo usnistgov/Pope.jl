@@ -8,7 +8,8 @@ makedocs(
              "Scripts" => "scripts.md",
              "LJH" => "ljh.md",
              "Pope Internals" => "pope.md",
-             "News" => "news.md"
+             "News" => "news.md",
+             "Noise Analysis" => "noise.md"
              ]
 )
 

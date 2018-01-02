@@ -45,10 +45,10 @@ data(r::LJHRecord) = r.data
 rowcount(r::LJHRecord) = r.rowcount
 timestamp_usec(r::LJHRecord) = r.timestamp_usec
 num_rows(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = NRow
-frameperiod(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = FrameTime
+frametime(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = FrameTime
 frame1index(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = div(rowcount(r), num_rows(r))
 first_rising_sample(r::LJHRecord{FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow} = PretrigNSamples
-
+frameperiod(r::LJHRecord) = frametime(r)
 
 Base.length(r::LJHRecord) = length(r.data)
 import Base: ==
@@ -93,10 +93,7 @@ record_nbytes(f::LJHFile{LJH_22}) = 16+2*f.record_nsamples
 "    ljh_number_of_records(f::LJHFile)
 Return the number of complete records currently available to read from `f`."
 function ljh_number_of_records(f::LJHFile)
-    # oldpos = position(f.io)
-    # endpos = position(seekend(f.io))
     nbytes = stat(f.io).size-f.datastartpos
-    # seek(f.io,oldpos)
     number_of_records = div(nbytes, record_nbytes(f))
 end
 
@@ -127,9 +124,14 @@ function Base.pop!(f::LJHFile{LJH_22,FrameTime, PretrigNSamples, NRow}) where {F
     data = read(f.io, UInt16, f.record_nsamples)
     LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec)
 end
+_readrecord(f::LJHFile,i) = pop!(f)
+
 Base.size(f::LJHFile) = (ljh_number_of_records(f),)
 Base.length(f::LJHFile) = ljh_number_of_records(f)
 Base.endof(f::LJHFile) = ljh_number_of_records(f)
+function Base.eltype(f::LJHFile{V, FrameTime, PretrigNSamples, NRow}) where {V, FrameTime, PretrigNSamples, NRow}
+     LJHRecord{FrameTime, PretrigNSamples, NRow}
+end
 # access as iterator
 Base.start(f::LJHFile) = (seekto(f,1);1)
 Base.next(f::LJHFile,j) = pop!(f),j+1
@@ -142,10 +144,9 @@ end
 channel(f::LJHFile) = f.channum
 row(f::LJHFile) = f.row
 column(f::LJHFile) = f.column
-function frametime(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
+function frameperiod(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
     convert(Float64, FrameTime)
 end
-frameperiod(f::LJHFile) = frametime(f)
 function num_rows(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
     convert(Int, NRow)
 end
@@ -364,6 +365,68 @@ function get_data_rowcount_timestamp!(g::LJHLike,data::Matrix{UInt16},rowcount::
     @assert i==length(g) "iterated $i times, should have been $(length(g))"
     data,rowcount,timestamp_usec
 end
+
+function finalize_longrecord!(longrecords, records, nsamples)
+    v = Vector{UInt16}(nsamples)
+    i=1
+    lasti=1
+    for record in records
+        ilast = min(i+length(record)-1, length(v))
+        v[i:ilast] = data(record)[1:(ilast-i+1)]
+        i=ilast+1
+    end
+    longrecord = LJH3Record{frameperiod(first(records))}(
+        v,
+        first_rising_sample(first(records)),
+        frame1index(first(records)),
+        timestamp_usec(first(records))
+    )
+    empty!(records)
+    push!(longrecords, longrecord)
+end
+
+
+"""
+     read_longrecords(ljh::LJHLike, nsamples;maxrecords=1, allowdiscontinuity=true, unevenfinalrecord=!allowdiscontinuity)
+
+Return a `Vector{LJH3Record}` of at most `maxrecords` length, containing longrecords each with
+`nsamples` samples. If `allowdiscontinuity` is `true`, each longrecord will have exactly `nsamples`
+samples, even if the records in `ljh` were not continuous. If `allowdiscontinuity` is `false`
+longrecords will have fewer samples when a gap between records in `ljh` exists. If `unevenfinalrecord` is `true`
+the last returned longrecord may have fewer samples than `nsamples`, because `ljh` did not have enough
+data for a full length longrecord.
+"""
+function read_longrecords(ljh::LJHLike, nsamples;maxrecords=1, allowdiscontinuity=true, unevenfinalrecord=!allowdiscontinuity)
+    records = eltype(ljh)[] # records to be collated into a longrecord
+    longrecords = LJH3Record{frameperiod(ljh)}[]
+    for (i,record) in enumerate(ljh)
+        push!(records,record)
+        if !isempty(records) && !allowdiscontinuity
+            lastrec = last(records)
+            if frame1index(record) != frame1index(lastrec)+length(lastrec)
+                finalize_longrecord!(longrecords, records,sum(length.(records)))
+                continue
+            end
+        end
+        if sum(length.(records)) >= nsamples
+            finalize_longrecord!(longrecords, records, nsamples)
+        end
+        if length(longrecords)>=maxrecords
+            break
+        end
+    end
+    if !isempty(records) && length(longrecords) < maxrecords
+        avail_nsamples = sum(length.(records))
+        if avail_nsamples > nsamples || unevenfinalrecord
+            finalize_longrecord!(longrecords, records,min(nsamples, avail_nsamples))
+        end
+    end
+    return longrecords
+end
+
+
+
+
 
 """
     create(filename::AbstractString, dt, npre, nsamp; version="2.2.0",

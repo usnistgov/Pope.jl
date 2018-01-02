@@ -155,3 +155,4 @@ Base.iteratorsize(ljh::LJH3File) = Base.SizeUnknown()
 Base.getindex(ljh::LJH3File,key::AbstractString) = ljh.header[key]
 Base.keys(ljh::LJH3File) = keys(ljh.header)
 Base.values(ljh::LJH3File) = values(ljh.header)
+Base.eltype(ljh::LJH3File) = LJH3Record{frametime(ljh)}

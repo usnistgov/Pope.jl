@@ -147,6 +147,7 @@ column(f::LJHFile) = f.column
 function frameperiod(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
     convert(Float64, FrameTime)
 end
+frametime(f::LJHFile) = frameperiod(f)
 function num_rows(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}
     convert(Int, NRow)
 end

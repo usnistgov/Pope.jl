@@ -26,8 +26,8 @@ function ljh_get_header_dict(io::IO)
 end
 
 mutable struct LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow, T<:IO}
-    filename             ::String   # filename
-    io               ::IO         # IO to read from LJH file
+    filename         ::String           # filename
+    io               ::IO               # IO to read from LJH file
     headerdict       ::Dict             # LJH file header data
     datastartpos     ::Int
     record_nsamples  ::Int64            # number of sample per record
@@ -54,8 +54,8 @@ Base.length(r::LJHRecord) = length(r.data)
 import Base: ==
 ==(a::LJHRecord, b::LJHRecord) = a.data==b.data && a.rowcount == b.rowcount && a.timestamp_usec == b.timestamp_usec
 
-@enum LJHVERSION LJH_21 LJH_22
-VERSIONS = Dict(v"2.1.0"=>LJH_21, v"2.2.0"=>LJH_22)
+@enum LJHVERSION LJH_20 LJH_21 LJH_22
+VERSIONS = Dict(v"2.0.0"=>LJH_20, v"2.1.0"=>LJH_21, v"2.2.0"=>LJH_22)
 
 LJHFile(fname::String) = LJHFile(fname,open(fname,"r"))
 function LJHFile(fname::String,io::IO)
@@ -85,10 +85,15 @@ function LJHFile(fname::String,io::IO)
 end
 LJHFile(f::LJHFile) = f
 
+"header_nbytes(f::LJHFile)
+    Return number of bytes in the header of each record in LJH file, based on version number"
+header_nbytes(f::LJHFile{LJH_20}) = 6
+header_nbytes(f::LJHFile{LJH_21}) = 6
+header_nbytes(f::LJHFile{LJH_22}) = 16
+
 "record_nbytes(f::LJHFile)
     Return number of bytes per record in LJH file, based on version number"
-record_nbytes(f::LJHFile{LJH_21}) = 6+2*f.record_nsamples
-record_nbytes(f::LJHFile{LJH_22}) = 16+2*f.record_nsamples
+record_nbytes(f::LJHFile) = header_nbytes(f)+2*f.record_nsamples
 
 "    ljh_number_of_records(f::LJHFile)
 Return the number of complete records currently available to read from `f`."
@@ -113,17 +118,7 @@ function Base.getindex(f::LJHFile,index::Int)
     seekto(f, index)
     pop!(f)
 end
-function Base.pop!(f::LJHFile{LJH_21,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
-    rowcount, timestamp_usec =  record_row_count_v21(read(f.io, UInt8, 6), num_rows(f), f.row, frametime(f))
-    data = read(f.io, UInt16, f.record_nsamples)
-    LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec)
-end
-function Base.pop!(f::LJHFile{LJH_22,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
-    rowcount = read(f.io, Int64)
-    timestamp_usec = read(f.io, Int64)
-    data = read(f.io, UInt16, f.record_nsamples)
-    LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec)
-end
+Base.pop!(f::LJHFile) = get(tryread(f)) # use get to raise error if Nullable is null.
 _readrecord(f::LJHFile,i) = pop!(f)
 
 Base.size(f::LJHFile) = (ljh_number_of_records(f),)
@@ -168,17 +163,17 @@ Attempt to read an `LJHRecord` from `f`. Return a `Nullable{LJHRecord}` containi
 that record if succesful, or one that `isnull` if not. On success the file position
 moves forward, on failure the file position does not change.
 """
-function tryread(f::LJHFile{LJH_22,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
-  d = read(f.io,record_nbytes(f))
-  if length(d) == record_nbytes(f)
-    rowcount = reinterpret(Int,d[1:8])[1]
-    timestamp_usec = reinterpret(Int,d[9:16])[1]
-    data = reinterpret(UInt16,d[17:record_nbytes(f)])
-    return Nullable(LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec))
-  else
-    seek(f.io, position(f.io)-length(d)) # go back to the start of the record
-    return Nullable{LJHRecord{FrameTime, PretrigNSamples, NRow}}()
-  end
+function tryread(f::LJHFile{LJHv, FrameTime, PretrigNSamples, NRow}) where {LJHv, FrameTime, PretrigNSamples, NRow}
+    const nbytes = record_nbytes(f)
+    record = read(f.io, nbytes)
+    if length(record) == nbytes
+        rowcount, timestamp_usec = parse_record_header(f, record)
+        data = reinterpret(UInt16, record[1+header_nbytes(f):nbytes])
+        return Nullable(LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec))
+    else
+        seek(f.io, position(f.io)-length(record)) # go back to the start of the record
+        return Nullable{LJHRecord{FrameTime, PretrigNSamples, NRow}}()
+    end
 end
 # this version with nb_available seems like it should work, and possibly be
 # more performant, but nb_available doesn't seem to work as I expect
@@ -194,37 +189,54 @@ end
 #   end
 # end
 
-function tryread(f::LJHFile{LJH_21,FrameTime, PretrigNSamples, NRow}) where {FrameTime, PretrigNSamples, NRow}
-  d1 = read(f.io, 6)
-  length(d1) == 0  && return Nullable{LJHRecord{FrameTime, PretrigNSamples, NRow}}()
-  rowcount, timestamp_usec =  record_row_count_v21(d1, num_rows(f), f.row, frametime(f))
-  data = read(f.io, UInt16, f.record_nsamples)
-  return Nullable(LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec))
+function parse_record_header(f::LJHFile{LJH_22}, record::Vector{UInt8})
+    rowcount = reinterpret(Int, record[1:8])[1]
+    timestamp_usec = reinterpret(Int, record[9:16])[1]
+    rowcount, timestamp_usec
 end
-watch_file(f::LJHFile, timeout_s::Real) = watch_file(f.filename, timeout_s)
 
-"""Used only for reading LJH version 2.1.0 files. This parses the ugly
-"encoded" version of the frame counter, which is converted into an
-approximate time, rounded to 4 microseconds, and divided into the integer
-and fractional parts of the millisecond. The latter are stored in bytes
-3-6, and the former is in byte 1. Ignore byte 2 (it has some need to be
-0 for backward compatibility). Ugly! That's why LJH 2.2.0 does something
-totally different.
-"""
-function record_row_count_v21(header::Vector{UInt8}, num_rows::Integer, row::Integer, frame_time::Float64)
-    frac = Int64(header[1])
-    ms = UInt64(header[3]) |
-         (UInt64(header[4])<<8) |
-         (UInt64(header[5])<<16) |
-         (UInt64(header[6])<<24)
-    count_4usec = Int64(ms*250+frac)
-    ns_per_frame = round(Int64,frame_time*1e9)
+# Used only for reading LJH version 2.1.0 files. This parses the ugly
+# "encoded" version of the frame counter, which is converted into an
+# approximate time, rounded to 4 microseconds, and divided into the integer
+# and fractional parts of the millisecond. The latter are stored in bytes
+# 3-6, and the former is in byte 1. Ignore byte 2 (it has some need to be
+# 0 for backward compatibility). Ugly! That's why LJH 2.2.0 does something
+# totally different.
+function parse_record_header(f::LJHFile{LJH_21}, record::Vector{UInt8})
+    frac = Int64(record[1])
+    ms = UInt64(record[3]) |
+         (UInt64(record[4])<<8) |
+         (UInt64(record[5])<<16) |
+         (UInt64(record[6])<<24)
+    count_4usec = Int64(250ms+frac)
+    ns_per_frame = round(Int64, frametime(f)*1e9)
     ns_per_4usec = Int64(4000)
     count_nsec = count_4usec*ns_per_4usec
-    count_frame = cld(count_nsec,ns_per_frame)
-    rowcount = count_frame*num_rows+row
+    count_frame = cld(count_nsec, ns_per_frame)
+    rowcount = count_frame*num_rows(f)+f.row
     return rowcount, 4*count_4usec
 end
+
+# Used only for reading LJH version 2.0.0 files. This parses the ugly
+# "encoded" version of the frame counter, which is converted into an
+# approximate time, rounded to the nearest millisecond and stored in bytes
+# 3-6. Ignore bytes 1-2 (they have some need to be
+# 0 for backward compatibility).
+function parse_record_header(f::LJHFile{LJH_20}, record::Vector{UInt8})
+    ms = UInt64(record[3]) |
+         (UInt64(record[4])<<8) |
+         (UInt64(record[5])<<16) |
+         (UInt64(record[6])<<24)
+    ns_per_frame = round(Int64, frametime(f)*1e9)
+    ns_per_msec = Int64(1000000)
+    count_nsec = ms*ns_per_msec
+    count_frame = cld(count_nsec, ns_per_frame)
+    rowcount = count_frame*num_rows(f)+f.row
+    return rowcount, 1000*ms
+end
+
+watch_file(f::LJHFile, timeout_s::Real) = watch_file(f.filename, timeout_s)
+
 
 """Represent one or more LJHFiles as a seamless sequence that can be addressed
 by record number from 1 to the sum of all records in the group."""
@@ -535,8 +547,8 @@ function Base.write(ljh::LJHFile{LJH_22}, record::LJHRecord)
   write(ljh, record.data, record.rowcount, record.timestamp_usec)
 end
 
-"    write(ljh::LJHFile{LJH_21},traces::Array{UInt16,2}, rowcounts::Vector{Int64})"
-function Base.write(ljh::LJHFile{LJH_21},traces::Array{UInt16,2}, rowcounts::Vector{Int64})
+"    write(ljh::LJHFile,traces::Array{UInt16,2}, rowcounts::Vector{Int64})"
+function Base.write(ljh::LJHFile,traces::Array{UInt16,2}, rowcounts::Vector{Int64})
     for j = 1:length(rowcounts)
         write(ljh, traces[:,j], rowcounts[j])
     end
@@ -547,14 +559,25 @@ function Base.write(ljh::LJHFile{LJH_21}, trace::Vector{UInt16}, rowcount::Int64
   timestamp_us = round(Int, rowcount*lsync_us)
   timestamp_ms = Int32(div(timestamp_us, 1000))
   subms_part = round(UInt8, mod(div(timestamp_us,4), 250))
-  channum = Int8(ljh.channum)
+  z = Int8(0)
   write(ljh.io, subms_part)
-  write(ljh.io, channum)
+  write(ljh.io, z) # Required to be zero.
   write(ljh.io, timestamp_ms)
   write(ljh.io, trace)
 end
-"    Base.write(ljh::LJHFile{LJH_21}, record::LJHRecord)"
-function Base.write(ljh::LJHFile{LJH_21}, record::LJHRecord)
+"    write(ljh::LJHFile{LJH_20}, trace::Vector{UInt16}, rowcount::Int64)"
+function Base.write(ljh::LJHFile{LJH_20}, trace::Vector{UInt16}, rowcount::Int64)
+  lsync_us = 1e6*frametime(ljh)/num_rows(ljh)
+  timestamp_us = round(Int, rowcount*lsync_us)
+  timestamp_ms = Int32(div(timestamp_us, 1000))
+  z = Int8(0)
+  write(ljh.io, z)
+  write(ljh.io, z) # Required to be zero.
+  write(ljh.io, timestamp_ms)
+  write(ljh.io, trace)
+end
+"    Base.write(ljh::LJHFile, record::LJHRecord)"
+function Base.write(ljh::LJHFile, record::LJHRecord)
   write(ljh, record.data, record.rowcount)
 end
 

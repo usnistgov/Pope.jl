@@ -18,8 +18,13 @@ ljh21=LJH.create(fname21, dt, npre, nsamp, version="2.1.0", num_rows=nrow)
 write(ljh21, data, rowcounts)
 close(ljh21)
 
+fname20 = "artifacts/ljh20_chan1.ljh"
+ljh20=LJH.create(fname20, dt, npre, nsamp, version="2.0.0", num_rows=nrow)
+write(ljh20, data, rowcounts)
+close(ljh20)
+
 @testset "LJHGroup for single file access" begin
-    for ljh in [LJHGroup(fname21), LJHGroup(fname22)]
+    for ljh in [LJHGroup(fname20), LJHGroup(fname21), LJHGroup(fname22)]
         @test LJH.record_nsamples(ljh) == nsamp
         @test LJH.pretrig_nsamples(ljh) == npre
         @test LJH.frametime(ljh) == dt
@@ -28,12 +33,15 @@ close(ljh21)
         for i = 1:length(ljh)
             record = ljh[i]
             @test LJH.data(record)==data[:,i]
-            @test LJH.timestamp_usec(record)==timestamps[i] # LJH22 files calculate a timestamp from the rowcount
             if LJH.filenames(ljh)[1] == fname22
+                @test LJH.timestamp_usec(record)==timestamps[i] # LJH22 files calculate a timestamp from the rowcount
                 @test LJH.rowcount(record)==rowcounts[i]
-            else
+            elseif LJH.filenames(ljh)[1] == fname21
                 # the rowcount in an LJH21 file is only expected to be accurate to 4 us
                 @test abs(LJH.rowcount(record)-rowcounts[i])<=20
+            elseif LJH.filenames(ljh)[1] == fname20
+                # the rowcount in an LJH20 file is only expected to be accurate to 1 ms
+                @test abs(LJH.rowcount(record)-rowcounts[i])<=5000
             end
         end
         LJH.row(ljh)
@@ -70,16 +78,19 @@ end
 end
 
 @testset "LJH single file API" begin
-    for ljh in [LJHFile(fname21), LJHFile(fname22)]
+    for ljh in [LJHFile(fname20), LJHFile(fname21), LJHFile(fname22)]
         data_r, rowcount_r, timestamp_usec_r = LJH.get_data_rowcount_timestamp(ljh)
         @test data_r == data
         if LJH.filename(ljh) == fname22
             @test rowcount_r == rowcounts
-        else
+            @test timestamp_usec_r == timestamps
+        elseif LJH.filename(ljh) == fname21
             # the rowcount in an LJH21 file is only expected to be accurate to 4 us
             @test maximum(abs.(rowcount_r-rowcounts)) <= 20
+        elseif LJH.filename(ljh) == fname20
+            # the rowcount in an LJH20 file is only expected to be accurate to 1 ms
+            @test maximum(abs.(rowcount_r-rowcounts)) <= 5000
         end
-        @test timestamp_usec_r == timestamps
 
         LJH.seekto(ljh,N)
         record = get(LJH.tryread(ljh))

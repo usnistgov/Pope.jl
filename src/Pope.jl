@@ -1,4 +1,3 @@
-__precompile__()
 module Pope
 using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
 include("LJH.jl")

@@ -438,16 +438,13 @@ function read_longrecords(ljh::LJHLike, nsamples;maxrecords=1, allowdiscontinuit
 end
 
 
-
-
-
 """
     create(filename::AbstractString, dt, npre, nsamp; version="2.2.0",
     channel=1, num_rows=32, num_cols=8)
 
 Create a new file, write an LJH Header to it, and return an `LJHFile` ready for
 writing with `write`.  `dt` in seconds. `npre` is the number of presamples.
-`nsamp` is the number of samples per record. Versions "2.2.0" and "2.1.0" are supported.
+`nsamp` is the number of samples per record. Versions "2.2.0", "2.1.0", and "2.0.0" are supported.
 """
 function create(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, num_rows=32, num_cols=8)
     f = open(filename,"w+")
@@ -460,7 +457,7 @@ end
     writeljhheader(io::IO, dt, npre, nsamp; version="2.2.0",channel=1, num_rows=32, num_cols=8)
 
 Write a header for an LJH file. `dt` in seconds. `npre` is the number of presamples.
-`nsamp` is the number of samples per record. Versions "2.2.0" and "2.1.0" are supported.
+`nsamp` is the number of samples per record. Versions "2.2.0", "2.1.0", and "2.0.0" are supported.
 `create_ljh` is easier to use.
 """
 function writeljhheader(filename::AbstractString, dt, npre, nsamp; version="2.2.0", channel=1, num_rows=32, num_cols=8)

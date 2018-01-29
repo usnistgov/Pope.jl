@@ -269,6 +269,6 @@ end
 
 include("buffered_hdf5_dataset.jl")
 include("basis_apply.jl")
-include("precompile_hints.jl")
+# include("precompile_hints.jl")
 
 end # module

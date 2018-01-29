@@ -180,6 +180,7 @@ function check_values(channel, h5)
     if name == "calculated_cuts"
       continue
     end
+    length(g[name])==length(ljh) || @show name, length(g[name]), length(ljh), fname
     @assert length(g[name])==length(ljh)
   end
   @assert(read(g["rowcount"])==collect(1:length(ljh)))

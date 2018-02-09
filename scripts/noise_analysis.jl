@@ -24,7 +24,7 @@ function analyze_one_file(filename::AbstractString, channum::Integer,
         nlags = nsamp
     end
     if nfreq <= 0
-        nfreq = round_up_dft_length(nsamp)
+        nfreq = NoiseAnalysis.round_up_dft_length(nsamp)
     end
 
     autocorr = compute_autocorr(rawdata, nlags, max_exc=1000)
@@ -119,7 +119,7 @@ function main()
                 push!(alreadyclobbered, output)
                 rm(output)
             elseif !appendoutput
-                message = @sprintf("noise_analysis.jl was not allowed to add new channels to existing file '%s'", hdf5filename)
+                message = @sprintf("noise_analysis.jl was not allowed to add new channels to existing file '%s'", output)
                 error(message)
             end
         end

@@ -24,7 +24,7 @@ ljhpath = expanduser(arguments["<ljhpath>"])
 output_filename = expanduser(arguments["<output>"])
 
 
-using Pope: LJH
+using Pope.LJH
 
 pkfile = h5open(preknowledge_filename,"r")
 if !isfile(output_filename) || arguments["--overwriteoutput"]

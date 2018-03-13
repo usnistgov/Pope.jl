@@ -5,7 +5,7 @@ s = ArgParseSettings()
         help = "name of the pulse containing ljh file to use to make basis"
         # required = true
         default = "/Users/oneilg/.julia/v0.6/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh"
-    "noise_file"
+    "noise_filename"
         help = "name of the noise_analysis hdf5 file to use to make basis"
         # required = true
         default = "/Users/oneilg/.julia/v0.6/ReferenceMicrocalFiles/ljh/20150707_C_noise.hdf5"
@@ -24,7 +24,7 @@ s = ArgParseSettings()
     "tsvd_method"
         default = "TSVD"
         help = "which truncated SVD method to use, supports `TSVD` and `manual`.
-        The results shoudl be nearly identical, and `TSVD` (the default) is faster.
+        The results should be nearly identical, and `TSVD` (the default) is faster.
         But you can try `manual` as a sanity check if the basis vectors look weird"
 end
 parsed_args = parse_args(ARGS, s)
@@ -33,7 +33,6 @@ display(parsed_args)
 using Pope.NoiseAnalysis
 using Pope.LJH
 using TSVD
-
 
 
 
@@ -82,7 +81,6 @@ function manual_tsvd(data_train, n_basis)
     U[:,1:n_basis]',S[1:n_basis]
 end
 tsvd_dict = Dict("TSVD"=>TSVD_tsvd,"manual"=>manual_tsvd)
-tsvd_func = tsvd_dict[parsed_args["tsvd_method"]]
 
 
 struct SVDBasis
@@ -101,11 +99,14 @@ struct SVDBasisWithCreationInfo
     noise_model_file::String
     pulse_file::String
     std_residuals::Vector{Float32}
+    tsvd_method::String
+    channel_number::Int
 end
 
 
-function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses_for_train, n_basis)
-
+function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses_for_train, n_basis,
+    tsvd_method_string)
+    tsvd_func = tsvd_dict[tsvd_method_string]
     std_noise = sqrt(noise_result.autocorr[1]) # the first element in the autocorrelation is the variance
     data = getall(ljh, ceil(Int,n_pulses_for_train/frac_keep))
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
@@ -121,15 +122,111 @@ function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses
     svdbasis_with_info = SVDBasisWithCreationInfo(
     svdbasis, singular_values, data[:,percentile_indicies],
     std_residuals_all[percentile_indicies], percentiles,
-    n_loop, noise_result.datasource, LJH.filename(ljh), std_residuals_all
+    n_loop, noise_result.datasource, LJH.filename(ljh),
+    std_residuals_all,tsvd_method_string, LJH.channel(ljh)
     )
     return svdbasis,svdbasis_with_info
 end
 
-ljh = ljhopen(parsed_args["pulse_file"])
-noise_result = NoiseAnalysis.hdf5load(parsed_args["noise_file"],LJH.channel(ljh))
-create_basis_one_channel(ljh, noise_result,
+
+
+
+
+using HDF5
+
+function hdf5save(g::HDF5.DataFile, svdbasis::SVDBasis)
+    g["basis"]=svdbasis.basis
+    g["projectors"]=svdbasis.projectors
+    Pope.NoiseAnalysis.hdf5save(g_create(g,"noise_result"),svdbasis.noise_result)
+end
+
+function hdf5save(g::HDF5.DataFile, x::SVDBasisWithCreationInfo)
+    hdf5save(g_create(g,"svdbasis"),x.svdbasis)
+    g["singular_values"]=x.singular_values
+    g["example_pulses"]=x.example_pulses
+    g["std_residuals_of_example_pulses"]=x.std_residuals_of_example_pulses
+    g["percentiles_of_sample_pulses"]=x.percentiles_of_sample_pulses
+    g["n_loop"]=x.n_loop
+    g["noise_model_file"]=x.noise_model_file
+    g["pulse_file"]=x.pulse_file
+    g["std_residuals"]=x.std_residuals
+    g["tsvd_method"]=x.tsvd_method
+    g["channel_number"]=x.channel_number
+end
+
+
+function hdf5load(T::Type{SVDBasis},g::HDF5.DataFile)
+    SVDBasis(
+    read(g["basis"]),
+    read(g["projectors"]),
+    NoiseAnalysis.hdf5load(g["noise_result"])
+    )
+end
+
+
+function hdf5load(T::Type{SVDBasisWithCreationInfo},g::HDF5.DataFile)
+    SVDBasisWithCreationInfo(
+    hdf5load(SVDBasis,g["svdbasis"]),
+    read(g["singular_values"]),
+    read(g["example_pulses"]),
+    read(g["std_residuals_of_example_pulses"]),
+    read(g["percentiles_of_sample_pulses"]),
+    read(g["n_loop"]),
+    read(g["noise_model_file"]),
+    read(g["pulse_file"]),
+    read(g["std_residuals"]),
+    read(g["tsvd_method"]),
+    read(g["channel_number"])
+    )
+end
+
+
+function make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
+    n_pulses_for_train, n_basis, tsvd_method)
+    ljh = ljhopen(ljhname)
+    noise_result = NoiseAnalysis.hdf5load(noise_filename,LJH.channel(ljh))
+    svdbasis, svdbasiswithcreationinfo = create_basis_one_channel(ljh, noise_result,
+        frac_keep,
+        n_loop,
+        n_pulses_for_train,
+        n_basis,
+        tsvd_method)
+    hdf5save(g_create(outputh5,"$(LJH.channel(ljh))"), svdbasiswithcreationinfo)
+end
+
+function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_loop,
+    n_pulses_for_train, n_basis, tsvd_method)
+    for (channel_number, ljhname) in ljhdict
+        make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
+            n_pulses_for_train, n_basis, tsvd_method)
+    end
+end
+
+ljhdict = LJH.allchannels(parsed_args["pulse_file"]) # ordered dict mapping channel number to filename
+outputh5 = h5open("temp.h5","w")
+make_basis_all_channel(outputh5, ljhdict, parsed_args["noise_filename"],
     parsed_args["frac_keep"],
     parsed_args["n_loop"],
     parsed_args["n_pulses_for_train"],
-    parsed_args["n_basis"])
+    parsed_args["n_basis"],
+    parsed_args["tsvd_method"])
+close(outputh5)
+
+# h5open("temp.h5","w") do h5
+#     g = g_create(h5,"$(svdbasiswithcreationinfo.channel_number)")
+#     hdf5save(g,svdbasiswithcreationinfo)
+# end
+
+# ljh = ljhopen(parsed_args["pulse_file"])
+# noise_result = NoiseAnalysis.hdf5load(parsed_args["noise_filename"],LJH.channel(ljh))
+# svdbasis, svdbasiswithcreationinfo = create_basis_one_channel(ljh, noise_result,
+#     parsed_args["frac_keep"],
+#     parsed_args["n_loop"],
+#     parsed_args["n_pulses_for_train"],
+#     parsed_args["n_basis"],
+#     parsed_args["tsvd_method"])
+
+h5 = h5open("temp.h5","r")
+names(h5["13"])
+svdbasiswithcreationinfo_read = hdf5load(SVDBasisWithCreationInfo,h5["13"])
+svdbasis_read = hdf5load(SVDBasis,h5["13/svdbasis"])

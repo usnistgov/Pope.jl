@@ -1,48 +1,11 @@
-using ArgParse
-s = ArgParseSettings()
-@add_arg_table s begin
-    "pulse_file"
-        help = "name of the pulse containing ljh file to use to make basis"
-        # required = true
-        default = "/Users/oneilg/.julia/v0.6/ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh"
-    "noise_filename"
-        help = "name of the noise_analysis hdf5 file to use to make basis"
-        # required = true
-        default = "/Users/oneilg/.julia/v0.6/ReferenceMicrocalFiles/ljh/20150707_C_noise.hdf5"
-    "n_pulses_for_train"
-        arg_type = Int
-        default = 3000
-    "n_basis"
-        arg_type = Int
-        default = 6
-    "n_loop"
-        arg_type = Int
-        default = 5
-    "frac_keep"
-        arg_type = Float64
-        default = 0.8
-        help ="The fraction of training pulses to keep. Each loop cuts a fraction of pulses
-        with the highest residuals, after all loops, this fraction of pulses remain uncut."
-    "tsvd_method"
-        default = "TSVD"
-        help = "which truncated SVD method to use, supports `TSVD` and `manual`.
-        The results should be nearly identical, and `TSVD` (the default) is faster.
-        But you can try `manual` as a sanity check if the basis vectors look weird"
-end
-parsed_args = parse_args(ARGS, s)
-display(parsed_args)
-
-using Pope.NoiseAnalysis
-using Pope.LJH
 using TSVD
 
 
-
-make_psr(data, basis) = basis'*data
-make_time_domain(psr, basis) = basis*psr
+make_mpr(data, basis) = basis'*data
+make_time_domain(mpr, basis) = basis*mpr
 function make_std_residuals(data, basis)
-    psr = make_psr(data,basis)
-    td = make_time_domain(psr,basis)
+    mpr = make_mpr(data,basis)
+    td = make_time_domain(mpr,basis)
     residuals = std(data-td,1)[1,:]
 end
 function getall(ljh, maxrecords=typemax(Int))
@@ -66,7 +29,6 @@ function train_loop(data,n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop
     last_train_inds = train_inds = evenly_distributed_inds(1:size(data,2),n_pulses_for_train)
     for i=1:n_loop
         basis, singular_values = make_basis(data[:,train_inds],n_basis)
-        @show size(basis)
         residuals = make_std_residuals(data,basis)
         last_train_inds = train_inds
         train_inds = choose_new_train_inds(residuals, train_inds, frac_keep_per_loop)
@@ -87,9 +49,9 @@ tsvd_dict = Dict("TSVD"=>TSVD_tsvd,"manual"=>manual_tsvd)
 
 
 struct SVDBasis
-    basis::Array{Float32,2} # unwhitened time domain representation, tall: basis*psr = reconsituted pulse
-    projectors::Array{Float32,2} # whitened time domain representation, wide: projectors*data = psr
-    noise_result::NoiseResult
+    basis::Array{Float32,2} # unwhitened time domain representation, tall: basis*mpr = reconsituted pulse
+    projectors::Array{Float32,2} # whitened time domain representation, wide: projectors*data = mpr
+    noise_result::NoiseAnalysis.NoiseResult
 end
 
 struct SVDBasisWithCreationInfo
@@ -112,7 +74,6 @@ function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses
     tsvd_func = tsvd_dict[tsvd_method_string]
     std_noise = sqrt(noise_result.autocorr[1]) # the first element in the autocorrelation is the variance
     data = getall(ljh, ceil(Int,n_pulses_for_train/frac_keep))
-    @show size(data)
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
     duration = @elapsed begin
         basis, residuals, last_train_inds, train_inds, singular_values = train_loop(data,
@@ -122,7 +83,7 @@ function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses
     svdbasis = SVDBasis(basis,basis',noise_result)
     sortinds = sortperm(residuals)
     percentiles = [10:10:90;91:99]
-    percentile_indicies = [round(Int,(p/100)*length(residuals)) for p in percentiles]
+    percentile_indicies = sortinds[[round(Int,(p/100)*length(residuals)) for p in percentiles]]
     svdbasis_with_info = SVDBasisWithCreationInfo(
     svdbasis, singular_values, data[:,percentile_indicies],
     std_residuals_all[percentile_indicies], percentiles,
@@ -131,12 +92,6 @@ function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses
     )
     return svdbasis,svdbasis_with_info
 end
-
-
-
-
-
-using HDF5
 
 function hdf5save(g::HDF5.DataFile, svdbasis::SVDBasis)
     g["basis"]=svdbasis.basis
@@ -187,7 +142,7 @@ end
 
 function make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
     n_pulses_for_train, n_basis, tsvd_method)
-    ljh = ljhopen(ljhname)
+    ljh = LJH.ljhopen(ljhname)
     noise_result = NoiseAnalysis.hdf5load(noise_filename,LJH.channel(ljh))
     svdbasis, svdbasiswithcreationinfo = create_basis_one_channel(ljh, noise_result,
         frac_keep,
@@ -212,72 +167,4 @@ function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_
     end
     println("channels in noise_file but not in ljh $(setdiff(noise_channels,ljh_channels))")
     println("channels in ljh but not in noise_file $(setdiff(ljh_channels,noise_channels))")
-end
-
-ljhdict = LJH.allchannels(parsed_args["pulse_file"]) # ordered dict mapping channel number to filename
-outputh5 = h5open("temp.h5","w")
-make_basis_all_channel(outputh5, ljhdict, parsed_args["noise_filename"],
-    parsed_args["frac_keep"],
-    parsed_args["n_loop"],
-    parsed_args["n_pulses_for_train"],
-    parsed_args["n_basis"],
-    parsed_args["tsvd_method"])
-close(outputh5)
-
-# h5open("temp.h5","w") do h5
-#     g = g_create(h5,"$(svdbasiswithcreationinfo.channel_number)")
-#     hdf5save(g,svdbasiswithcreationinfo)
-# end
-
-# ljh = ljhopen(parsed_args["pulse_file"])
-# noise_result = NoiseAnalysis.hdf5load(parsed_args["noise_filename"],LJH.channel(ljh))
-# svdbasis, svdbasiswithcreationinfo = create_basis_one_channel(ljh, noise_result,
-#     parsed_args["frac_keep"],
-#     parsed_args["n_loop"],
-#     parsed_args["n_pulses_for_train"],
-#     parsed_args["n_basis"],
-#     parsed_args["tsvd_method"])
-
-h5 = h5open("temp.h5","r")
-names(h5["13"])
-basisinfo = hdf5load(SVDBasisWithCreationInfo,h5["13"])
-svdbasis = hdf5load(SVDBasis,h5["13/svdbasis"])
-close(h5)
-
-
-# make plots
-using PyCall, PyPlot
-@pyimport matplotlib.backends.backend_pdf as pdf
-
-begin
-    figure()
-    plot(basisinfo.svdbasis.basis)
-    xlabel("sample number")
-    title("ch $(basisinfo.channel_number) real space basis")
-end
-begin
-    figure()
-    plot(basisinfo.svdbasis.projectors')
-    xlabel("sample number")
-    title("ch $(basisinfo.channel_number) projectors (currently equal to basis)")
-end
-residuals = 1
-for i = 1:length(basisinfo.percentiles_of_sample_pulses)÷9
-    r=(1:9)+i-1
-    figure(figsize=(10,10))
-    subplot(311)
-    artists=plot(basisinfo.example_pulses[:,r])
-    legend(artists,basisinfo.percentiles_of_sample_pulses[1:9],loc="best",title="residual std percentile")
-    xlabel("sample number")
-    ylabel("actual pulses")
-    subplot(312)
-    model_pulses = basisinfo.svdbasis.basis*basisinfo.svdbasis.projectors*basisinfo.example_pulses[:,r]
-    residuals = basisinfo.example_pulses[:,r]-model_pulses
-    artists=plot(residuals)
-    legend(artists,std(residuals,1)'[:],loc="best",title="standard deviation")
-    xlabel("sample number")
-    ylabel("actual-model")
-
-
-
 end

@@ -1,8 +1,9 @@
 module Pope
 using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
 include("LJH.jl")
-include("NoiseAnalysis.jl")
 include("ljhutil.jl")
+include("NoiseAnalysis.jl")
+include("basis_creation.jl")
 include("summarize.jl")
 include("apply_filter.jl")
 include("matter_simulator.jl")

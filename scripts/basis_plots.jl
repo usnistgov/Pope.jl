@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 using ArgParse
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -11,8 +12,8 @@ s = ArgParseSettings()
         default = "temp.pdf"
 end
 parsed_args = parse_args(ARGS, s)
-display(parsed_args)
-using PyCall, PyPlot
+display(parsed_args);println()
+using PyCall, PyPlot, HDF5, Pope
 @pyimport matplotlib.backends.backend_pdf as pdf
 
 function plot_model_and_residuals(basisinfo)
@@ -21,7 +22,9 @@ function plot_model_and_residuals(basisinfo)
     artists=plot(basisinfo.svdbasis.basis)
     xlabel("sample number")
     ylabel("model components")
-    title("ch $(basisinfo.channel_number) and vdv go here")
+    title("ch $(basisinfo.channel_number)
+    noise_file: $(basename(basisinfo.noise_model_file))
+    pulse_file: $(basename(basisinfo.pulse_file))")
     legend(artists, basisinfo.singular_values,loc="best",title="singular values")
     subplot(312)
     plot(basisinfo.svdbasis.projectors')
@@ -48,14 +51,19 @@ function plot_example_pulses(basisinfo)
         legend(artists,basisinfo.percentiles_of_sample_pulses[r],loc="best",title="residual std percentile")
         xlabel("sample number")
         ylabel("actual pulses")
+        title("ch $(basisinfo.channel_number)
+        noise_file: $(basename(basisinfo.noise_model_file))
+        pulse_file: $(basename(basisinfo.pulse_file))")
         subplot(312)
         model_pulses = basisinfo.svdbasis.basis*basisinfo.svdbasis.projectors*basisinfo.example_pulses[:,r]
         residuals = basisinfo.example_pulses[:,r]-model_pulses
         noise_std = √basisinfo.svdbasis.noise_result.autocorr[1]
         artists=plot(residuals)
-        legend(artists,std(residuals,1)'[:]/noise_std, loc="best",title="standard deviation/noise std")
+        std_residual_normalized = Float32.(std(residuals,1)'[:]/noise_std)
+        legend(artists,std_residual_normalized, loc="best",title="standard deviation/noise std")
         xlabel("sample number")
         ylabel("actual-model (aka residuals)")
+        ylim(-7*median(std_residual_normalized)*noise_std,7*median(std_residual_normalized)*noise_std)
         subplot(313)
         artists = plot(model_pulses)
         xlabel("sample number")
@@ -83,7 +91,7 @@ function main(parsed_args)
     end
     close(h5)
     pdffile[:close]()
-    close("all")
+    plt[:close]("all")
 end
 
 main(parsed_args)

@@ -10,7 +10,7 @@ function make_std_residuals(data, basis)
 end
 function getall(ljh, maxrecords=typemax(Int))
     records = collect(ljh[1:min(Int(maxrecords),length(ljh))])
-    pulses = Array{Float64,2}(ljh.record_nsamples,length(records))
+    pulses = Array{Float32,2}(ljh.record_nsamples,length(records))
     for (i,record) in enumerate(records)
         pulses[:,i]=record.data
     end
@@ -37,7 +37,7 @@ function train_loop(data,n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop
         end
     end
 end
-function TSVD_tsvd(data_train,n_basis)
+function TSVD_tsvd(data_train::Matrix{<:AbstractFloat},n_basis)
     U, S, V = TSVD.tsvd(data_train, n_basis)
     U,S
 end
@@ -51,6 +51,7 @@ tsvd_dict = Dict("TSVD"=>TSVD_tsvd,"manual"=>manual_tsvd)
 struct SVDBasis
     basis::Array{Float32,2} # unwhitened time domain representation, tall: basis*mpr = reconsituted pulse
     projectors::Array{Float32,2} # whitened time domain representation, wide: projectors*data = mpr
+    projector_covariance::Array{Float32,2}
     noise_result::NoiseAnalysis.NoiseResult
 end
 
@@ -68,34 +69,46 @@ struct SVDBasisWithCreationInfo
     channel_number::Int
 end
 
-
 function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses_for_train, n_basis,
     tsvd_method_string)
+    data = getall(ljh, ceil(Int,n_pulses_for_train/frac_keep))
+    create_basis_one_channel(data, noise_result, frac_keep, n_loop,
+        n_pulses_for_train, n_basis,tsvd_method_string,
+        LJH.filename(ljh), LJH.channel(ljh))
+end
+
+
+function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, frac_keep, n_loop, n_pulses_for_train, n_basis,
+    tsvd_method_string, datasource_filename, datasource_channel)
     tsvd_func = tsvd_dict[tsvd_method_string]
     std_noise = sqrt(noise_result.autocorr[1]) # the first element in the autocorrelation is the variance
-    data = getall(ljh, ceil(Int,n_pulses_for_train/frac_keep))
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
-    duration = @elapsed begin
-        basis, residuals, last_train_inds, train_inds, singular_values = train_loop(data,
-        n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop, tsvd_func)
-    end
+    basis, residuals, last_train_inds, train_inds, singular_values = train_loop(data,
+    n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop, tsvd_func)
     std_residuals_all = make_std_residuals(data,basis)
-    svdbasis = SVDBasis(basis,basis',noise_result)
+    projectors, pcovar = computeprojectors(basis,noise_result.model)
+    svdbasis = SVDBasis(
+        basis,
+        projectors,
+        pcovar,
+        noise_result)
     sortinds = sortperm(residuals)
     percentiles = [10:10:90;91:99]
     percentile_indicies = sortinds[[round(Int,(p/100)*length(residuals)) for p in percentiles]]
+    example_pulses = round.(UInt16,data[:,percentile_indicies])
     svdbasis_with_info = SVDBasisWithCreationInfo(
-    svdbasis, singular_values, data[:,percentile_indicies],
-    std_residuals_all[percentile_indicies], percentiles,
-    n_loop, noise_result.datasource, LJH.filename(ljh),
-    std_residuals_all,tsvd_method_string, LJH.channel(ljh)
-    )
+        svdbasis, singular_values, example_pulses,
+        std_residuals_all[percentile_indicies], percentiles,
+        n_loop, noise_result.datasource, datasource_filename,
+        std_residuals_all,tsvd_method_string, datasource_channel
+        )
     return svdbasis,svdbasis_with_info
 end
 
 function hdf5save(g::HDF5.DataFile, svdbasis::SVDBasis)
     g["basis"]=svdbasis.basis
     g["projectors"]=svdbasis.projectors
+    g["projector_covariance"]=svdbasis.projector_covariance
     Pope.NoiseAnalysis.hdf5save(g_create(g,"noise_result"),svdbasis.noise_result)
 end
 
@@ -118,6 +131,7 @@ function hdf5load(T::Type{SVDBasis},g::HDF5.DataFile)
     SVDBasis(
     read(g["basis"]),
     read(g["projectors"]),
+    read(g["projector_covariance"]),
     NoiseAnalysis.hdf5load(g["noise_result"])
     )
 end

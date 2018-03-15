@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 using ArgParse
 s = ArgParseSettings()
 @add_arg_table s begin
@@ -30,7 +31,7 @@ s = ArgParseSettings()
         But you can try `manual` as a sanity check if the basis vectors look weird"
 end
 parsed_args = parse_args(ARGS, s)
-display(parsed_args)
+display(parsed_args);println()
 
 using Pope.NoiseAnalysis
 using Pope.LJH
@@ -46,9 +47,3 @@ Pope.make_basis_all_channel(outputh5, ljhdict, parsed_args["noise_filename"],
     parsed_args["n_basis"],
     parsed_args["tsvd_method"])
 close(outputh5)
-
-h5 = h5open("temp.h5","r")
-names(h5["13"])
-basisinfo = hdf5load(SVDBasisWithCreationInfo,h5["13"])
-svdbasis = hdf5load(SVDBasis,h5["13/svdbasis"])
-close(h5)

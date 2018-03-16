@@ -263,10 +263,15 @@ function wait_for_file_to_exist(fname, endchannel::Channel{Bool})
 end
 
 function analyzer_from_preknowledge(pk::HDF5Group)
-  MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
-  read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
-  read(pk["cuts"]["pretrigger_rms"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
-  )
+  if "analysis_type" in names(pk) && pk["analysis_type"]=="mass compatible feb 2017"
+    return MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
+    read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
+    read(pk["cuts"]["pretrigger_rms"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)  )
+  elseif "svdbasis" in names(pk)
+    modelinfo = hdf5load(SVDBasisWithCreationInfo,pk)
+    return BasisAnalyzer(modelinfo.svdbasis.projectors)
+  end
+  error("failed to generate analyzer from preknowledge group $pk with names $(names(pk))")
 end
 
 include("buffered_hdf5_dataset.jl")

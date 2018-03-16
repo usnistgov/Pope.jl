@@ -46,3 +46,4 @@ model_path = "artifacts/model.h5"
 @test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`)
 @test nothing==run(`julia ../scripts/basis_plots.jl $model_path`)
 @test nothing==run(`julia ../scripts/noise_plots.jl $noise_result_path`)
+@test nothing==run(`julia ../scripts/popeonce.jl $ljhpath $model_path artifacts/model_output.h5`)

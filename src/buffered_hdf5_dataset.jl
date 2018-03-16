@@ -108,7 +108,7 @@ stop(b::BufferedWriter) = put!(b.endchannel,true)
 Base.wait(b::BufferedWriter) = wait(b.task)
 Base.close(b::BufferedWriter) = (stop(b);wait(b))
 Base.flush(b::BufferedWriter) = flush(hdf5file(b))
-function make_buffered_hdf5_writer(h5, channel_number, chunksize=1000, timeout_s=1.0)
+function make_buffered_hdf5_writer(h5, channel_number, analzyer::MassCompatibleAnalysisFeb2017, chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")
   d=MassCompatibleBufferedWriters(Channel{Bool}(1), timeout_s, Task(nothing),
    [BufferedHDF5Dataset{fieldtype(MassCompatibleDataProductFeb2017,name)}(g,

@@ -34,10 +34,19 @@ struct BasisDataProduct <: DataProduct
     first_rising_sample::Int32
     nsamples::Int32
 end
+function Base.write(io::IO, d::BasisDataProduct)
+  write(io, d.reduced)
+  write(io, d.residual_std)
+  write(io, d.frame1index)
+  write(io, d.timestamp_usec)
+  write(io, d.first_rising_sample)
+  write(io, d.nsamples)
+end
 
 struct BasisAnalyzer
-    basis::Array{Float32,2} # size (nbasis,nsamples)
+    basis::Array{Float32,2} # size (nbases,nsamples)
 end
+nbases(a::BasisAnalyzer) = size(a.basis,1)
 check_compatability(a::BasisAnalyzer, ljh) = nothing
 function (a::BasisAnalyzer)(record::Union{LJH.LJHRecord, LJH.LJH3Record})
   reduced = a.basis*LJH.data(record)
@@ -72,7 +81,7 @@ function BasisBufferedWriter(g::HDF5Group, nbases, chunksize, timeout_s;start=tr
   start && schedule(b)
   b
 end
-"    hdf5file(b::MassCompatibleBufferedWriters)
+"    hdf5file(b::BasisBufferedWriter)
 Return the filename of the hdf5 file associated with `b`."
 hdf5file(b::BasisBufferedWriter) = file(b.residual_std.ds)
 function write_to_hdf5(b::BasisBufferedWriter)
@@ -110,4 +119,9 @@ function write_header_allchannel(d::BasisBufferedWriter, r::LJHReaderFeb2017)
   catch
     println("SKIPPING START_SWMR_WRITE, HDF5 VERSION TOO LOW")
   end
+end
+
+function make_buffered_hdf5_writer(h5, channel_number, analyzer::BasisAnalyzer, chunksize=1000, timeout_s=1.0)
+  g = g_require(h5,"$channel_number")
+  BasisBufferedWriter(g,nbases(analyzer), chunksize, timeout_s,start=true)
 end

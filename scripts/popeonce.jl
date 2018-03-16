@@ -50,17 +50,12 @@ for name in names(pkfile)
     println("Channel $channel_number: exists in preknowledge file, but ljh does not exist")
     continue
   end
-  # analyzer = try
-    @show pkfile[name]
-    @show names(pkfile[name])
-    @show typeof(Pope.hdf5load(Pope.SVDBasisWithCreationInfo,pkfile[name]))
+  analyzer = try
     analyzer = Pope.analyzer_from_preknowledge(pkfile[name])
-    @show typeof(analyzer)
-
-  # catch
-  #   println("Channel $channel_number: failed to generate analyzer from preknowledge file")
-  #   continue
-  # end
+  catch
+    println("Channel $channel_number: failed to generate analyzer from preknowledge file")
+    continue
+  end
   product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file, channel_number, analyzer)
   reader = Pope.make_reader(ljh_filename, analyzer, product_writer,progress_meter=true)
   push!(readers, reader)

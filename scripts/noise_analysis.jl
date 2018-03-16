@@ -17,15 +17,11 @@ channels cannot be replaced)."""
         "--outputfile", "-o"
             help = "store the results in OUTPUTFILE (an HDF5 file) instead of the inferred file or files"
             arg_type = String
-        # Example Input not implemented yet. It turns whatever_chan1.ljh into whatever_chan*.ljh, effectively.
-        # "--exampleinput", "-e"
-        #     help = "analyze all noise files for all channel numbers that otherwise match this example file name"
-        #     arg_type = String
         "--replaceoutput", "-r"
-            help = "delete and replace any existing output files (default: false)"
+            help = "delete and replace any existing output files"
             action = :store_true
         "--updateoutput", "-u"
-            help = "add channels to an existing output file (default: false)"
+            help = "add channels to an existing output file"
             action = :store_true
         "--nlags", "-n"
             help = "compute autocorrelation for this many lags (default: LJH record length)"
@@ -36,7 +32,7 @@ channels cannot be replaced)."""
             arg_type = Int
             default = 0
         "ljhfile"
-            help = "1 or more LJH-format data files (optional if -p is used)"
+            help = "1 or more LJH-format data files"
             arg_type = String
             action = :store_arg
             nargs = '+'

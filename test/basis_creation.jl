@@ -40,6 +40,9 @@ end
 noisepath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
 ljhpath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
 noise_result_path = "artifacts/noise_result.h5"
+model_path = "artifacts/model.h5"
 
 @test nothing==run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`)
-@test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o artifact/model.h5`)
+@test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`)
+@test nothing==run(`julia ../scripts/basis_plots.jl $model_path`)
+@test nothing==run(`julia ../scripts/noise_plots.jl $noise_result_path`)

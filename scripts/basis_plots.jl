@@ -2,18 +2,19 @@
 using ArgParse
 s = ArgParseSettings()
 @add_arg_table s begin
-    "basis_filename"
+    "basisfile"
         help = "name of the HDF5 containing basis and creation info"
-        #required = true
-        default = "temp.h5"
-    "output_filename"
-        help = "the output pdf file"
-        #required = true
-        default = "temp.pdf"
+        required = true
+    "--outputfile","-o"
+        help = "the output pdf file path, otherwise it will make up a name"
+
 end
-parsed_args = parse_args(ARGS, s)
-display(parsed_args);println()
 using PyCall, PyPlot, HDF5, Pope
+parsed_args = parse_args(ARGS, s)
+if parsed_args["outputfile"]==nothing
+    parsed_args["outputfile"] = Pope.outputname(parsed_args["basisfile"],"modelplots","pdf")
+end
+display(parsed_args);println()
 @pyimport matplotlib.backends.backend_pdf as pdf
 
 function plot_model_and_residuals(basisinfo)
@@ -79,8 +80,8 @@ function write_all_plots_to_pdf(pdffile)
 end
 
 function main(parsed_args)
-    h5 = h5open(parsed_args["basis_filename"],"r")
-    pdffile = pdf.PdfPages(parsed_args["output_filename"])
+    h5 = h5open(parsed_args["basisfile"],"r")
+    pdffile = pdf.PdfPages(parsed_args["outputfile"])
     for name in names(h5)
         println("plotting channel $name")
         channel = parse(Int,name)

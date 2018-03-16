@@ -48,12 +48,14 @@ end
 tsvd_dict = Dict("TSVD"=>TSVD_tsvd,"manual"=>manual_tsvd)
 
 
-struct SVDBasis
+struct SVDBasis <: AbstractBasisAnalyzer
     basis::Array{Float32,2} # unwhitened time domain representation, tall: basis*mpr = reconsituted pulse
     projectors::Array{Float32,2} # whitened time domain representation, wide: projectors*data = mpr
     projector_covariance::Array{Float32,2}
     noise_result::NoiseAnalysis.NoiseResult
 end
+(a::SVDBasis)(record) = record2dataproduct(a,record)
+
 
 struct SVDBasisWithCreationInfo
     svdbasis::SVDBasis

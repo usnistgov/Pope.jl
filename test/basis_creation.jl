@@ -33,8 +33,13 @@ tsvd_basis, tsvd_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     n_pulses_for_train, n_basis,tsvd_method_string,
     pulse_file,-1)
 
+Pope.hdf5save(h5open("artifacts/dummy_model.h5","w"),tsvd_basisinfo)
+loaded_basisinfo = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5open("artifacts/dummy_model.h5","r"))
+loaded_basis = Pope.analyzer_from_preknowledge(h5open("artifacts/dummy_model.h5","r"))
+
 @testset "TSVD basis" begin
     @test tsvd_basisinfo.pulse_file == pulse_file
+    @test loaded_basisinfo.svdbasis.basis==loaded_basis.basis==tsvd_basisinfo.svdbasis.basis
 end
 
 noisepath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
@@ -42,8 +47,10 @@ ljhpath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
 noise_result_path = "artifacts/noise_result.h5"
 model_path = "artifacts/model.h5"
 
-@test nothing==run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`)
-@test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`)
-@test nothing==run(`julia ../scripts/basis_plots.jl $model_path`)
-@test nothing==run(`julia ../scripts/noise_plots.jl $noise_result_path`)
-@test nothing==run(`julia ../scripts/popeonce.jl $ljhpath $model_path artifacts/model_output.h5`)
+@testset "scripts with SVDBasis" begin
+    @test nothing==run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`)
+    @test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`)
+    @test nothing==run(`julia ../scripts/basis_plots.jl $model_path`)
+    @test nothing==run(`julia ../scripts/noise_plots.jl $noise_result_path`)
+    @test nothing==run(`julia ../scripts/popeonce.jl $ljhpath $model_path artifacts/model_output.h5`)
+end

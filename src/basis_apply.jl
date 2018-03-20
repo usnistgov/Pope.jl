@@ -44,6 +44,9 @@ function Base.write(io::IO, d::BasisDataProduct)
 end
 
 """
+    BasisAnalyzer(projectors,basis)
+    `projectors` has size `(nbases,nsamples)`, basis has size '(nsamples, nabses)'
+    comonly called as `BasisAnalyzer(projectors, projectors')` for testing or white noise case
 An implementaion of AbstractBasisAnalyzer must have a field `projectors` that is an array with size ``(nbases, nsamples)` such that
 the reduced pulse is calculated as `projectors*data` where `data` is a `Vector` of with length `nsamples`. It must also overload calling itself
 to call `record2dataproduct`. See Julia issue #14919 for why this is neccesary.
@@ -52,9 +55,13 @@ abstract type AbstractBasisAnalyzer end
 struct BasisAnalyzer <: AbstractBasisAnalyzer
     projectors::Array{Float32,2} # size (nbases,nsamples)
     basis::Array{Float32,2} # size (nsamples,nbases)
-    BasisAnalyzer(a) = new(a,a')
+    function BasisAnalyzer(projectors,basis)
+      size(projectors) == reverse(size(basis)) || error("size(projectors) must == size(basis')")
+      new(projectors,basis)
+    end
 end
-nbases(a::AbstractBasisAnalyzer) = size(a.projectors,2)
+nbases(a::AbstractBasisAnalyzer) = size(a.projectors,1)
+nsamples(a::AbstractBasisAnalyzer) = size(a.projectors,2)
 check_compatability(a::AbstractBasisAnalyzer, ljh) = nothing
 (a::BasisAnalyzer)(record) = record2dataproduct(a,record)
 modelreduce(a::AbstractBasisAnalyzer,data::AbstractVector)=a.projectors*data

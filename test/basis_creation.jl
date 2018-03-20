@@ -33,9 +33,9 @@ tsvd_basis, tsvd_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     n_pulses_for_train, n_basis,tsvd_method_string,
     pulse_file,-1)
 
-Pope.hdf5save(h5open("artifacts/dummy_model.h5","w"),tsvd_basisinfo)
-loaded_basisinfo = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5open("artifacts/dummy_model.h5","r"))
-loaded_basis = Pope.analyzer_from_preknowledge(h5open("artifacts/dummy_model.h5","r"))
+h5open("artifacts/dummy_model.h5","w") do h5 Pope.hdf5save(h5,tsvd_basisinfo) end
+loaded_basisinfo = h5open("artifacts/dummy_model.h5","r") do h5 Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5) end
+loaded_basis = h5open("artifacts/dummy_model.h5","r") do h5 Pope.analyzer_from_preknowledge(h5) end
 
 @testset "TSVD basis" begin
     @test tsvd_basisinfo.pulse_file == pulse_file

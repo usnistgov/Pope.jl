@@ -34,15 +34,43 @@ struct BasisDataProduct <: DataProduct
     first_rising_sample::Int32
     nsamples::Int32
 end
-
-struct BasisAnalyzer
-    basis::Array{Float32,2} # size (nbasis,nsamples)
+function Base.write(io::IO, d::BasisDataProduct)
+  write(io, d.reduced)
+  write(io, d.residual_std)
+  write(io, d.frame1index)
+  write(io, d.timestamp_usec)
+  write(io, d.first_rising_sample)
+  write(io, d.nsamples)
 end
-check_compatability(a::BasisAnalyzer, ljh) = nothing
-function (a::BasisAnalyzer)(record::Union{LJH.LJHRecord, LJH.LJH3Record})
-  reduced = a.basis*LJH.data(record)
-  data_subspace = a.basis'*reduced
-  residual_std = std(data_subspace-LJH.data(record))
+
+"""
+    BasisAnalyzer(projectors,basis)
+    `projectors` has size `(nbases,nsamples)`, basis has size '(nsamples, nabses)'
+    comonly called as `BasisAnalyzer(projectors, projectors')` for testing or white noise case
+An implementaion of AbstractBasisAnalyzer must have a field `projectors` that is an array with size ``(nbases, nsamples)` such that
+the reduced pulse is calculated as `projectors*data` where `data` is a `Vector` of with length `nsamples`. It must also overload calling itself
+to call `record2dataproduct`. See Julia issue #14919 for why this is neccesary.
+"""
+abstract type AbstractBasisAnalyzer end
+struct BasisAnalyzer <: AbstractBasisAnalyzer
+    projectors::Array{Float32,2} # size (nbases,nsamples)
+    basis::Array{Float32,2} # size (nsamples,nbases)
+    function BasisAnalyzer(projectors,basis)
+      size(projectors) == reverse(size(basis)) || error("size(projectors) must == size(basis')")
+      new(projectors,basis)
+    end
+end
+nbases(a::AbstractBasisAnalyzer) = size(a.projectors,1)
+nsamples(a::AbstractBasisAnalyzer) = size(a.projectors,2)
+check_compatability(a::AbstractBasisAnalyzer, ljh) = nothing
+(a::BasisAnalyzer)(record) = record2dataproduct(a,record)
+modelreduce(a::AbstractBasisAnalyzer,data::AbstractVector)=a.projectors*data
+modelpulse(a::AbstractBasisAnalyzer,reduced)=a.basis*reduced
+
+function record2dataproduct(a::AbstractBasisAnalyzer,record::Union{LJH.LJHRecord, LJH.LJH3Record})
+  reduced = modelreduce(a,LJH.data(record))
+  modeled = modelpulse(a,reduced)
+  residual_std = std(modeled-LJH.data(record))
   BasisDataProduct(reduced, residual_std, LJH.frame1index(record),
     LJH.timestamp_usec(record), LJH.first_rising_sample(record), length(record))
 end
@@ -72,7 +100,7 @@ function BasisBufferedWriter(g::HDF5Group, nbases, chunksize, timeout_s;start=tr
   start && schedule(b)
   b
 end
-"    hdf5file(b::MassCompatibleBufferedWriters)
+"    hdf5file(b::BasisBufferedWriter)
 Return the filename of the hdf5 file associated with `b`."
 hdf5file(b::BasisBufferedWriter) = file(b.residual_std.ds)
 function write_to_hdf5(b::BasisBufferedWriter)
@@ -93,7 +121,7 @@ function write_header(d::BasisBufferedWriter,r)
   channelgroup = parent(d.residual_std.ds)
   channelgroup["header"]="header"
 end
-function write_header_end(d::BasisBufferedWriter,ljh,analyzer::BasisAnalyzer)
+function write_header_end(d::BasisBufferedWriter,ljh,analyzer::AbstractBasisAnalyzer)
   # dont add datasets, groups or attributes after SWMR writing is started
   # channelgroup = parent(d.filt_value.ds)
   # channelattrs = attrs(channelgroup)
@@ -110,4 +138,9 @@ function write_header_allchannel(d::BasisBufferedWriter, r::LJHReaderFeb2017)
   catch
     println("SKIPPING START_SWMR_WRITE, HDF5 VERSION TOO LOW")
   end
+end
+
+function make_buffered_hdf5_writer(h5, channel_number, analyzer::AbstractBasisAnalyzer, chunksize=1000, timeout_s=1.0)
+  g = g_require(h5,"$channel_number")
+  BasisBufferedWriter(g,nbases(analyzer), chunksize, timeout_s,start=true)
 end

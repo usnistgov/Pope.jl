@@ -16,7 +16,7 @@ Help exposition:
 
   Looks at $(LJH.sentinel_file_path) to determine ljh path to analyze. Starts analyzing the next file to be written by matter.
   <preknowledge> points to a valid HDF5 file in the pope preknowledge format.
-  Output filename will be determined by a call to `LJH.hdf5_name_from_ljh(ljhfilename)`
+  Output filename will be determined by a call to `Pope.outputname`
   If this file doesn't exist yet you can use `LJH.write_sentinel_file("fake.ljh",true)` to create it.
 """
 
@@ -48,7 +48,7 @@ function get_preknowledge_file(preknowledge_filename)
 end
 
 function get_output_file(ljhpath)
-  output_file = LJH.hdf5_name_from_ljh(ljhpath)
+  output_file = Pope.outputname(ljhpath,"pope")
   println("output filename: $output_file")
   if !isfile(output_file) || arguments["--overwriteoutput"]
     if !isdir(dirname(output_file))
@@ -84,21 +84,16 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
   println("")
   readers = Pope.Readers()
   for name in names(pkfile)
-    channel_number = parse(Int,name[5:end])
+    channel_number = startswith(name,"chan") ? parse(Int,name[5:end]) : parse(Int,name) # handle chan1 or 1
     ljh_filename = LJH.fnames(ljhpath,channel_number)
-    # if !isfile(ljh_filename)
-    #   println("Channel $channel_number: exists in preknowledge file, but ljh does not exist")
-    #   continue
-    # end
     analyzer = try
       analyzer = Pope.analyzer_from_preknowledge(pkfile[name])
     catch
       println("Channel $channel_number: failed to generate analyzer from preknowledge file")
       continue
     end
-    # println("Channel $channel_number: starting analysis")
-    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file,channel_number)
-    reader = Pope.launch_reader(ljh_filename, analyzer, product_writer;continuous=true)
+    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file,channel_number,analyzer)
+    reader = Pope.make_reader(ljh_filename, analyzer, product_writer, progress_meter=false)
     push!(readers, reader)
   end
   close(pkfile)

@@ -102,8 +102,8 @@ end
 "make_buffered_hdf5_and_zmq_multi_sink(output_file, channel_number)
 makes a BufferedHDF5Writer and a ZMQDataSink, for the same channel,
 puts them both into a MultipleDataSink."
-function make_buffered_hdf5_and_zmq_multisink(output_file, channel_number)
-  product_writer_a = Pope.make_buffered_hdf5_writer(output_file, channel_number)
+function make_buffered_hdf5_and_zmq_multisink(output_file, channel_number, analyzer)
+  product_writer_a = Pope.make_buffered_hdf5_writer(output_file, channel_number, analyzer)
   product_writer_b = Pope.make_zmqdatasink(channel_number)
   Pope.MultipleDataSink(product_writer_a,product_writer_b)
 end

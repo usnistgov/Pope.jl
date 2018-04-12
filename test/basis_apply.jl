@@ -24,9 +24,12 @@ end
     # rowcount of LJH2 files = framecount*NRow+row, framecount=frame1index
     r = LJH.LJHRecord{FrameTime, PretrigNSamples, NRow}(1:1000,10*NRow+row,20)
     r3 = LJH.LJH3Record{FrameTime}(1:1000,PretrigNSamples,10,20)
-    analyzer = Pope.BasisAnalyzer(rand(6,1000))
+    projectors = rand(6,1000)
+    analyzer = Pope.BasisAnalyzer(projectors, projectors')
     dp = analyzer(r)
     dp3 = analyzer(r3)
+    @test Pope.nbases(analyzer) == 6
+    @test Pope.nsamples(analyzer) == 1000
     @test dp.reduced == dp3.reduced
     @test dp.residual_std == dp3.residual_std
     @test dp.timestamp_usec == dp3.timestamp_usec == LJH.timestamp_usec(r)
@@ -55,7 +58,8 @@ end
 @testset "LJHFile with BasisAnalyzer" begin
     nbases = 6
     ljh = LJHFile(ReferenceMicrocalFiles.dict["good_mnka_mystery"].filename)
-    analyzer = Pope.BasisAnalyzer(rand(nbases,3072));
+    projectors = rand(nbases,3072)
+    analyzer = Pope.BasisAnalyzer(projectors, projectors');
     h5 = Pope.h5create(tempname());
     g = HDF5.g_create(h5,"$(LJH.channel(ljh))");
     product_writer = Pope.BasisBufferedWriter(g, nbases, 1000, 0.001, start=true);
@@ -83,7 +87,8 @@ end
     for i=1:10 write(ljhw,rand(UInt16,1000),i,i*1000, i*1_000_000) end
     close(ljhw)
     ljh = LJH3File(LJH.filename(ljhw))
-    analyzer = Pope.BasisAnalyzer(rand(nbases,nsamples));
+    projectors = rand(nbases,nsamples)
+    analyzer = Pope.BasisAnalyzer(projectors, projectors');
     h5 = Pope.h5create(tempname());
     g = HDF5.g_create(h5,"1");
     product_writer = Pope.BasisBufferedWriter(g, nbases, 1000, 0.001, start=true);
@@ -97,6 +102,8 @@ end
     wait(readers)
     close(h5)
     h5r = h5open(h5.filename,"r")
+    @test Pope.nbases(analyzer) == nbases
+    @test Pope.nsamples(analyzer) == nsamples
     @test read(h5r["1/nsamples"]) == length.(collect(ljh))
     @test read(h5r["1/frame1index"]) == LJH.frame1index.(collect(ljh))
     @test length(read(h5r["1/residual_std"])) == length(ljh)

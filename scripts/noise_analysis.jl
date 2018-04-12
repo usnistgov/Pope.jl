@@ -17,15 +17,11 @@ channels cannot be replaced)."""
         "--outputfile", "-o"
             help = "store the results in OUTPUTFILE (an HDF5 file) instead of the inferred file or files"
             arg_type = String
-        # Example Input not implemented yet. It turns whatever_chan1.ljh into whatever_chan*.ljh, effectively.
-        # "--exampleinput", "-e"
-        #     help = "analyze all noise files for all channel numbers that otherwise match this example file name"
-        #     arg_type = String
         "--replaceoutput", "-r"
-            help = "delete and replace any existing output files (default: false)"
+            help = "delete and replace any existing output files"
             action = :store_true
         "--updateoutput", "-u"
-            help = "add channels to an existing output file (default: false)"
+            help = "add channels to an existing output file"
             action = :store_true
         "--nlags", "-n"
             help = "compute autocorrelation for this many lags (default: LJH record length)"
@@ -36,14 +32,57 @@ channels cannot be replaced)."""
             arg_type = Int
             default = 0
         "ljhfile"
-            help = "1 or more LJH-format data files (optional if -p is used)"
+            help = "1 or more LJH-format data files"
             arg_type = String
             action = :store_arg
             nargs = '+'
     end
-
     return parse_args(s)
 end
+parsed_args = parse_commandline()
+
+
+using HDF5
+using ARMA
+using Pope.NoiseAnalysis
+using Pope.LJH
+
+function analyze_one_file(filename::AbstractString, channum::Integer,
+        outputname::AbstractString, nlags::Integer=0, nfreq::Integer=0;
+        max_samples::Integer=50000000)
+    @printf("Analyzing file %s (chan %3d) => %s\n", filename, channum, outputname)
+
+    # Open the LJH file for reading
+    f = LJHFile(filename)
+    const frametime = LJH.frametime(f)
+    const nsamp = LJH.record_nsamples(f)
+    nrec = LJH.ljh_number_of_records(f)
+    if nsamp*nrec > max_samples
+        nrec = max_samples // nsamp
+    end
+    rawdata = vcat([rec.data for rec in f[1:nrec]]...)
+    const samplesUsed = length(rawdata)
+
+    if nlags <= 0
+        nlags = nsamp
+    end
+    if nfreq <= 0
+        nfreq = NoiseAnalysis.round_up_dft_length(nsamp)
+    end
+
+    autocorr = compute_autocorr(rawdata, nlags, max_exc=1000)
+    psd = compute_psd(rawdata, nfreq, frametime, max_exc=1000)
+    freq = NoiseAnalysis.psd_freq(nfreq, frametime)
+    freqstep = freq[2]-freq[1]
+
+    max_ARMA_order = 5
+    model = fitARMA(autocorr, max_ARMA_order, pmin=1)
+
+    noise = NoiseResult(autocorr, psd, samplesUsed, freqstep, filename, model)
+    NoiseAnalysis.hdf5save(outputname, channum, noise)
+end
+
+
 
 parsed_args = parse_commandline()
 
@@ -99,8 +138,7 @@ function parse_filename(filename::AbstractString)
     full_prefix, channum
 end
 
-
-function main()
+function main(parsed_args)
     appendoutput = parsed_args["updateoutput"]
     clobberoutput = parsed_args["replaceoutput"]
     if clobberoutput && appendoutput
@@ -135,4 +173,4 @@ function main()
     end
 end
 
-main()
+main(parsed_args)

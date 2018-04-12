@@ -1,14 +1,15 @@
 module Pope
 using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
 include("LJH.jl")
-include("NoiseAnalysis.jl")
 include("ljhutil.jl")
+include("NoiseAnalysis.jl")
 include("summarize.jl")
 include("apply_filter.jl")
 include("projections.jl")
 include("matter_simulator.jl")
 include("zmq_datasink.jl")
 include("ports.jl")
+
 
 "Readers is like a `Vector{LJHReaderFeb2017}` with some additional smarts for
 contruct it with `rs=Readers()`
@@ -261,15 +262,20 @@ function wait_for_file_to_exist(fname, endchannel::Channel{Bool})
   end
 end
 
-function analyzer_from_preknowledge(pk::HDF5Group)
-  MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
-  read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
-  read(pk["cuts"]["pretrigger_rms"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)
-  )
+function analyzer_from_preknowledge(pk::HDF5.DataFile)
+  if "analysis_type" in names(pk) && read(pk["analysis_type"])=="mass compatible feb 2017"
+    return MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
+    read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),
+    read(pk["cuts"]["pretrigger_rms"]), read(pk["cuts"]["postpeak_deriv"]), filename(pk)  )
+  elseif "svdbasis" in names(pk)
+    modelinfo = hdf5load(SVDBasisWithCreationInfo,pk)
+    return modelinfo.svdbasis
+  end
+  error("failed to generate analyzer from preknowledge group $pk with names $(names(pk))")
 end
 
 include("buffered_hdf5_dataset.jl")
 include("basis_apply.jl")
-# include("precompile_hints.jl")
+include("basis_creation.jl")
 
 end # module

@@ -18,7 +18,6 @@ noise_analysis.jl)."""
         "--outputfile", "-o"
             help = "store the results in OUTPUTFILE (a PDF file) instead of the inferred file or files"
             arg_type = String
-            default = ""
         "--replaceoutput", "-r"
             help = "delete and replace any existing output files (default: false)"
             action = :store_true
@@ -36,12 +35,14 @@ function main()
     parsed_args = parse_commandline()
 
     inputs = parsed_args["hdf5files"]
-    if length(parsed_args["outputfile"]) == 0
-        outputs = [replace(input, ".hdf5", ".pdf") for input in inputs]
+    if parsed_args["outputfile"] == nothing
+        outputs = [splitext(input)[1]*".pdf" for input in inputs]
     else
-        outputs = [replace(parsed_args["outputfile"], ".hdf5", "_$(i).hdf5") for i in 1:length(inputs)]
+        base,ext = splitext(parsed_args["outputfile"])
+        outputs = [base*"_$(i)"*ext for i in 1:length(inputs)]
     end
     for (input,output) in zip(inputs, outputs)
+        @show input, output
         pdffile = pdf.PdfPages(output)
         try
             noiseplots(input, pdffile)

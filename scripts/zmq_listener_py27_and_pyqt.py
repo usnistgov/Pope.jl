@@ -147,7 +147,7 @@ class MyCanvas(MplCanvas):
             grp = calfile[k]
             if "why_bad" in grp.attrs.keys():
                 continue
-            pt=grp["calculated_cuts"]["pretrig_rms"].value
+            pt=grp["calculated_cuts"]["pretrigger_rms"].value
             md=grp["calculated_cuts"]["postpeak_deriv"].value
             cal=mass.EnergyCalibration.load_from_hdf5(grp["calibration"],"p_filt_value")
             info[chnum] = (pt,md,cal)

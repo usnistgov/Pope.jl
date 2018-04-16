@@ -1,10 +1,12 @@
 using Pope.NoiseAnalysis
 using ARMA
+using HDF5
+using Base.Test
 
 # generate some fake data to make a basis from
 x=1:400
 npulses = 3000
-data = zeros(Float32,length(x),npulses)
+data = zeros(Float64,length(x),npulses)
 # components
 a=x[:]
 b=20*(sinpi.(x/10)+1)
@@ -46,6 +48,23 @@ noisepath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi
 ljhpath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
 noise_result_path = "artifacts/noise_result.h5"
 model_path = "artifacts/model.h5"
+
+# take a constant, arrival time, and average pulse from data
+# train on residuals
+
+tsvd_method_string="TSVD mass3"
+pulse_file = "dummy filename"
+n_basis=3 # test the case where the only 3 elements return are the mass3 (dc value, average pulse, pulse derivative)
+mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
+    frac_keep, n_loop,
+    n_pulses_for_train, n_basis,tsvd_method_string,
+    pulse_file,-1)
+
+n_basis=7
+mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
+    frac_keep, n_loop,
+    n_pulses_for_train, n_basis,tsvd_method_string,
+    pulse_file,-1)
 
 @testset "scripts with SVDBasis" begin
     @test nothing==run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`)

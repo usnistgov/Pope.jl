@@ -4,9 +4,9 @@ using TSVD
 make_mpr(data, basis) = basis'*data
 make_time_domain(mpr, basis) = basis*mpr
 function make_std_residuals(data, basis)
-    mpr = make_mpr(data,basis)
+    mpr = make_mpr(data,basis) # model pulse reduced
     td = make_time_domain(mpr,basis)
-    residuals = std(data-td,1)[1,:]
+    std_residuals = std(data-td,1)[1,:]
 end
 function getall(ljh, maxrecords=typemax(Int))
     records = collect(ljh[1:min(Int(maxrecords),length(ljh))])
@@ -41,11 +41,37 @@ function TSVD_tsvd(data_train::Matrix{<:AbstractFloat},n_basis)
     U, S, V = TSVD.tsvd(data_train, n_basis)
     U,S
 end
+
+function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat},n_basis)
+    @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
+    # remove the mean
+    data1 = data_train.-mean(data_train,1)
+    # calculate the average pulse
+    average_pulse = normalize(mean(data1,2)[:])
+    # calculate the derivative like component, assume clean baseline, so low derivative at start
+    derivative_like = normalize([0.0;diff(average_pulse)][:])
+    constant_component = normalize(ones(size(data_train,1)))
+    mass3_basis = hcat(constant_component,derivative_like,average_pulse)
+    mpr = Pope.make_mpr(data_train,mass3_basis) # model pulse reduced
+    td = Pope.make_time_domain(mpr,mass3_basis)
+    data_residual = data_train-td
+    if n_basis > 3
+        U, S, V = TSVD.tsvd(data_train, n_basis-3)
+        U_combined = hcat(mass3_basis,U)
+        S_combined = vcat([NaN,NaN,NaN],S)
+        return U_combined, S_combined
+    else
+        return mass3_basis, [NaN,NaN,NaN]
+    end
+end
+
 function manual_tsvd(data_train, n_basis)
     U,S,V = svd(data_train)
     U[:,1:n_basis],S[1:n_basis]
 end
-tsvd_dict = Dict("TSVD"=>TSVD_tsvd,"manual"=>manual_tsvd)
+tsvd_dict = Dict("TSVD"=>TSVD_tsvd,
+"manual"=>manual_tsvd,
+"TSVD mass3"=>TSVD_tsvd_mass3)
 
 
 struct SVDBasis <: AbstractBasisAnalyzer
@@ -85,24 +111,23 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
     tsvd_func = tsvd_dict[tsvd_method_string]
     std_noise = sqrt(noise_result.autocorr[1]) # the first element in the autocorrelation is the variance
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
-    basis, residuals, last_train_inds, train_inds, singular_values = train_loop(data,
+    basis, residual_stds, last_train_inds, train_inds, singular_values = train_loop(data,
     n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop, tsvd_func)
-    std_residuals_all = make_std_residuals(data,basis)
     projectors, pcovar = computeprojectors(basis,noise_result.model)
     svdbasis = SVDBasis(
         basis,
         projectors,
         pcovar,
         noise_result)
-    sortinds = sortperm(residuals)
+    sortinds = sortperm(residual_stds)
     percentiles = [10:10:90;91:99]
-    percentile_indicies = sortinds[[round(Int,(p/100)*length(residuals)) for p in percentiles]]
+    percentile_indicies = sortinds[[round(Int,(p/100)*length(residual_stds)) for p in percentiles]]
     example_pulses = round.(UInt16,data[:,percentile_indicies])
     svdbasis_with_info = SVDBasisWithCreationInfo(
         svdbasis, singular_values, example_pulses,
-        std_residuals_all[percentile_indicies], percentiles,
+        residual_stds[percentile_indicies], percentiles,
         n_loop, noise_result.datasource, datasource_filename,
-        std_residuals_all,tsvd_method_string, datasource_channel
+        residual_stds,tsvd_method_string, datasource_channel
         )
     return svdbasis,svdbasis_with_info
 end

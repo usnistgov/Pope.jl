@@ -1,3 +1,7 @@
+## Go to right directory
+* Both Terminals
+cd ~/.julia/v0.6/Pope/scripts
+
 ## Make Preknowledge
 * Terminal 1
 * Adjust Filenames
@@ -12,7 +16,7 @@ python make_calibration.py
 
 ## Launch Pope
 * Terminal 1
-./popewatchesmatter.jl pk_1x10_512samples.preknowledge
+./popewatchesmatter.jl --overwriteoutput pk_1x4_1024samples.preknowledge
 
 ## Launch Viewer
 * Terminal 1

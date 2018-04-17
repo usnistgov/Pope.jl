@@ -114,12 +114,12 @@ def iscut(payload, ch, info):
     info_ch = info[ch]
     pt_lo,pt_hi = info_ch[0]
     md_lo,md_hi = info_ch[1]
-    v=payload["filt_value"]
-    return pt_lo<v<pt_hi and md_lo<v<md_hi
+    return (not pt_lo<payload["pretrig_rms"]<pt_hi) or (not md_lo<payload["postpeak_deriv"]<md_hi)
+    # return False
 
 def get_counts(info):
     energies = []
-    i=0
+    i=-1
     while True:
         i+=1
         # read all available message, return when none are availble
@@ -130,6 +130,10 @@ def get_counts(info):
             payload = np.fromstring(m[1],dtype_MassCompatibleDataProductFeb2017,1)[0]
             if ch in info.keys() and not iscut(payload,ch,info):
                 energies.append(apply_calibration(payload,ch,info))
+            else:
+                pass
+                # print ch
+                # print apply_calibration(payload,ch,info)
         except zmq.ZMQError:
             break
     print("%d/%d payloads used"%(len(energies),i))
@@ -145,15 +149,14 @@ class MyCanvas(MplCanvas):
         for (k,v) in calfile.iteritems():
             chnum = int(k[4:])
             grp = calfile[k]
-            if "why_bad" in grp.attrs.keys():
-                continue
+            if chnum%2==0: continue
             pt=grp["calculated_cuts"]["pretrigger_rms"].value
             md=grp["calculated_cuts"]["postpeak_deriv"].value
             cal=mass.EnergyCalibration.load_from_hdf5(grp["calibration"],"p_filt_value")
             info[chnum] = (pt,md,cal)
         print("mid init")
         self.info = info
-        self.bin_edges = np.arange(4000,10000,1.0)
+        self.bin_edges = np.arange(2500,13000,2.0)
         self.bin_centers = 0.5*(self.bin_edges[1:]+self.bin_edges[:-1])
         self.counts = np.zeros_like(self.bin_centers,dtype="int")
         print("making timer")
@@ -166,6 +169,7 @@ class MyCanvas(MplCanvas):
     def tick(self):
         print("tick!!")
         energies = get_counts(self.info)
+        energies = [energy for energy in energies if not np.isnan(energy)]
         newcounts,_ = np.histogram(energies, self.bin_edges)
         self.counts+=newcounts
         if self.checkbox.isChecked():

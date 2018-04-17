@@ -60,7 +60,7 @@ mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     n_pulses_for_train, n_basis,tsvd_method_string,
     pulse_file,-1)
 
-n_basis=6
+n_basis=5
 mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     frac_keep, n_loop,
     n_pulses_for_train, n_basis,tsvd_method_string,

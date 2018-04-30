@@ -1,15 +1,3 @@
-# fixes for ZMQ, should be removed after improvements to ZMQ.jl
-# see the following:
-# https://github.com/JuliaInterop/ZMQ.jl/issues/143
-# https://github.com/JuliaInterop/ZMQ.jl/issues/142
-# https://github.com/JuliaInterop/ZMQ.jl/issues/141
-# https://discourse.julialang.org/t/zmq-message-super-slow/3193/4
-function  Base.setindex!(a::Message, v, i::Integer)
-    if i < 1 || i > length(a)
-        throw(BoundsError())
-    end
-    unsafe_store!(pointer(a), v, i)
-end
 # use this to make small messages fast
 function message(x)
   m = Message(sizeof(x))
@@ -17,24 +5,7 @@ function message(x)
   write(mb,x)
   m
 end
-function sendfast(socket::Socket, zmsg::Message, SNDMORE::Bool=false)
-  while true
-    rc = ccall((:zmq_msg_send, ZMQ.zmq), Cint, (Ptr{Message}, Ptr{Void}, Cint),
-            &zmsg, socket.data, (ZMQ.ZMQ_SNDMORE*SNDMORE) | ZMQ.ZMQ_DONTWAIT)
-    if rc == -1
-      ZMQ.zmq_errno() == EAGAIN || throw(ZMQ.StateError(ZMQ.jl_zmq_error_str()))
-      while (get_events(socket) & POLLOUT) == 0
-        wait(socket)
-      end
-    else
-      notify_is_expensive = !isempty(socket.pollfd.notify.waitq)
-      if notify_is_expensive
-        get_events(socket) != 0 && notify(socket)
-      end
-      break
-    end
-  end
-end
+
 
 
 struct ZMQDataSink
@@ -46,9 +17,9 @@ function Base.write(zds::ZMQDataSink, dp)
 end
 function send_multipart(socket::Socket, parts::Vector{Message})
   for msg in parts[1:end-1]
-   sendfast(socket, msg, SNDMORE)
+   send(socket, msg, SNDMORE)
   end
-  return sendfast(socket, parts[end])
+  return send(socket, parts[end])
 end
 function write_header(zds::ZMQDataSink, r)
   send_multipart(zds.s,message.(["header$(zds.channel_number)","write_header called"]))

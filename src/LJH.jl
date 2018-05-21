@@ -418,6 +418,9 @@ function read_longrecords(ljh::LJHLike, nsamples;maxrecords=1, allowdiscontinuit
             lastrec = last(records)
             if frame1index(record) != frame1index(lastrec)+length(lastrec)
                 finalize_longrecord!(longrecords, records,sum(length.(records)))
+                if length(longrecords)>=maxrecords
+                    break
+                end
                 continue
             end
         end

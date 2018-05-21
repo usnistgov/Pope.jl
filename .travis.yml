@@ -9,7 +9,7 @@ julia:
 notifications:
   email: true
 env:
-  - POPE_NOMASS=true DOCUMENTER_DEBUG=true
+  - POPE_NOMASS=true DOCUMENTER_DEBUG=true POPE_NOMATPLOTLIB=true
 # uncomment the following lines to override the default test script
 #script:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi

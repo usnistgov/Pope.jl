@@ -6,3 +6,6 @@ DataStructures
 ZMQ
 Distributions
 JSON
+ArgParse
+PyCall
+PyPlot

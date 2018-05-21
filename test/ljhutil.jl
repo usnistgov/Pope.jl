@@ -41,6 +41,9 @@ ljhdict_noi = LJH.allchannels(first(fnames_noi))
 @test collect(values(ljhdict_noi))==fnames_noi
 @test ljhdict_noi != ljhdict
 
-outputname(x) = LJH.pope_output_hdf5_name_from_ljh(x)
+outputname(x) = Pope.outputname(x,"annotation")
 @test outputname("abc_chan1.ljh") == outputname("abc_chan1.noi") == outputname("abc")
+@test Pope.outputname("abc_chan1.ljh","model") == "abc_model.h5"
+@test Pope.outputname("abc_chan1.ljh","model","pdf") == "abc_model.pdf"
+@test Pope.outputname("abc_chan1.ljh","model",".pdf") == "abc_model.pdf"
 end

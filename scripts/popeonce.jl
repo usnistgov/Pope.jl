@@ -24,7 +24,7 @@ ljhpath = expanduser(arguments["<ljhpath>"])
 output_filename = expanduser(arguments["<output>"])
 
 
-using Pope: LJH
+using Pope.LJH
 
 pkfile = h5open(preknowledge_filename,"r")
 if !isfile(output_filename) || arguments["--overwriteoutput"]
@@ -44,7 +44,7 @@ Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 readers = Pope.Readers()
 channels = Int[]
 for name in names(pkfile)
-  channel_number = parse(Int,name[5:end])
+  channel_number = startswith(name,"chan") ? parse(Int,name[5:end]) : parse(Int,name) # handle chan1 or 1
   ljh_filename = LJH.fnames(ljhpath,channel_number)
   if !isfile(ljh_filename)
     println("Channel $channel_number: exists in preknowledge file, but ljh does not exist")
@@ -56,7 +56,7 @@ for name in names(pkfile)
     println("Channel $channel_number: failed to generate analyzer from preknowledge file")
     continue
   end
-  product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file, channel_number)
+  product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(output_file, channel_number, analyzer)
   reader = Pope.make_reader(ljh_filename, analyzer, product_writer,progress_meter=true)
   push!(readers, reader)
   push!(channels, channel_number)

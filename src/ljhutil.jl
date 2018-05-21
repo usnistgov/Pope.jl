@@ -54,10 +54,16 @@ function allchannels(ljhname::AbstractString,maxchannels=typemax(Int))
     OrderedDict{Int,String}(ch=>fname for (ch,fname) in zip(channels, fnames(ljhname, channels)))
 end
 
-"    pope_output_hdf5_name_from_ljh(ljhname::AbstractString)
-Returns the filename that pope will use by default for it's output file for a
-for a given `ljhname` input."
-pope_output_hdf5_name_from_ljh(ljhname::AbstractString) = dir_base_ext(ljhname)[2]*"_pope.hdf5"
+"""    outputname(ljhname::AbstractString, annotation::AbstractString, ext=".h5")
+Returns the filename based on `ljhname` with an _annotation, and with the desired extention `ext`.
+`ext` may be specified with or without a leading period with identical results.
+For example `outputname("abc","model")` returns `"abc_model.hdf5"` and
+`outputname("abc","model","pdf")` returns `"abc_model.pdf"`."""
+function outputname(ljhname::AbstractString, annotation::AbstractString, ext=".h5")
+    ext = lstrip(ext,'.') #allows .pdf or pdf for 3rd argument
+    d,b,e=dir_base_ext(ljhname)
+    joinpath(d,b*"_"*annotation*"."*ext)
+end
 
 const sentinel_file_path = joinpath(expanduser("~"),".daq","latest_ljh_pulse.cur")
 "    matter_writing_status()

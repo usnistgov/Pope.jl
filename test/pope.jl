@@ -54,6 +54,13 @@ end
   @test d2==d3
 end #testset single reader with DataWriter
 
+@testset "analyzer from preknowledge" begin
+  pkpath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles","artifacts","pk_1x32_3072samples.preknowledge")
+  analyzer = h5open(pkpath,"r") do h5
+    Pope.analyzer_from_preknowledge(h5["chan13"])
+  end
+end
+
 
 # create the following files
 const mass_filename = joinpath(@__DIR__,"artifacts","make_preknowledge_temp.hdf5")

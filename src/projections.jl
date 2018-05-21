@@ -16,7 +16,7 @@ end
     computeprojectors(basis::AbstractMatrix, noisecovariance::AbstractVector) -> projectors, pcovar
 
 Compute the `projectors` and the projection covariance `pcovar` for the given basis (size=`[N,n]`) and
-`noisecovariance`, a vector expressing the noise covariance.
+`noisecovariance`, a vector expressing the noise covariance. Returns a tuple `(projectors,pcovar)`.
 
 The projectors are defined so that if `data` is a vector of length `N`, then
 

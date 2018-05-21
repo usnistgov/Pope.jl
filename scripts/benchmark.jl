@@ -142,9 +142,9 @@ for channel in channels
   fname = LJH.fnames(dname, channel)
   analyzer = Pope.MassCompatibleAnalysisFeb2017(filter_values, filter_at, npresamples, nsamples, average_pulse_peak_index, frametime, shift_threshold, pretrigger_rms_cuts, postpeak_deriv_cuts, analyzer_pk_string)
   if nozmq
-    product_writer = Pope.make_buffered_hdf5_writer(h5, channel)
+    product_writer = Pope.make_buffered_hdf5_writer(h5, channel, analyzer)
   else
-    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(h5, channel)
+    product_writer = Pope.make_buffered_hdf5_and_zmq_multisink(h5, channel, analyzer)
   end
   reader = Pope.make_reader(fname, analyzer, product_writer)
   push!(readers, reader)

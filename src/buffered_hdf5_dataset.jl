@@ -6,7 +6,7 @@ using HDF5
 Create and return an hdf5 file at path `fname`. Files created by this function
 will be compatible with `HDF5.start_swmr_write` and other Pope requirements."
 """
-h5create(fname) = h5open(fname,"w", "libver_bounds", (H5F_LIBVER_LATEST, H5F_LIBVER_LATEST))
+h5create(fname) = h5open(fname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
 """
     d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
 

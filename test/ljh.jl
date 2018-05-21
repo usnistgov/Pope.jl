@@ -98,3 +98,12 @@ end
         @test record == ljh[end]
     end
 end
+
+@testset "longrecord" begin
+    for ljh in [LJHFile(fname20), LJHFile(fname21), LJHFile(fname22)]
+       lr = LJH.read_longrecords(ljh,5000)
+       @test length(lr[1])==5000
+       @test length(lr)==1
+       @test lr[1].data[1:length(ljh[1].data)]==ljh[1].data
+    end
+end

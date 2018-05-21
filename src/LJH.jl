@@ -413,7 +413,6 @@ function read_longrecords(ljh::LJHLike, nsamples;maxrecords=1, allowdiscontinuit
     records = eltype(ljh)[] # records to be collated into a longrecord
     longrecords = LJH3Record{frameperiod(ljh)}[]
     for (i,record) in enumerate(ljh)
-        push!(records,record)
         if !isempty(records) && !allowdiscontinuity
             lastrec = last(records)
             if frame1index(record) != frame1index(lastrec)+length(lastrec)
@@ -424,6 +423,7 @@ function read_longrecords(ljh::LJHLike, nsamples;maxrecords=1, allowdiscontinuit
                 continue
             end
         end
+        push!(records,record)
         if sum(length.(records)) >= nsamples
             finalize_longrecord!(longrecords, records, nsamples)
         end

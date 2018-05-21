@@ -8,3 +8,4 @@ Distributions
 JSON
 ArgParse
 PyCall
+PyPlot

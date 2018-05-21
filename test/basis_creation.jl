@@ -66,7 +66,7 @@ mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     n_pulses_for_train, n_basis,tsvd_method_string,
     pulse_file,-1)
 
-if !haskey(ENV,"POPE_MATPLOTLIB")
+if !haskey(ENV,"POPE_NOMATPLOTLIB")
     @testset "scripts with SVDBasis" begin
         @test nothing==run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`)
         @test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`)

@@ -8,8 +8,5 @@ end
 if !isdir(Pkg.dir("ARMA"))
 	Pkg.clone("https://github.com/joefowler/ARMA.jl")
 end
-if !isdir(Pkg.dir("TSVD"))
-	Pkg.clone("https://github.com/andreasnoack/TSVD.jl")
-end
 
 isdir(expanduser("~/.daq")) || mkdir(expanduser("~/.daq"))

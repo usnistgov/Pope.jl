@@ -6,7 +6,7 @@
 
 # Pope
 To install:
-`Pkg.clone("https://github.com/usnisgov/Pope.jl")`
+`Pkg.clone("https://github.com/usnistgov/Pope.jl")`
 
 For testing you will need to:
 `Pkg.clone("https://github.com/ggggggggg/ReferenceMicrocalFiles.jl")`

@@ -55,7 +55,8 @@ import Base: ==
 ==(a::LJHRecord, b::LJHRecord) = a.data==b.data && a.rowcount == b.rowcount && a.timestamp_usec == b.timestamp_usec
 
 @enum LJHVERSION LJH_20 LJH_21 LJH_22
-VERSIONS = Dict(v"2.0.0"=>LJH_20, v"2.1.0"=>LJH_21, v"2.2.0"=>LJH_22)
+VERSIONS = Dict(v"2.0.0"=>LJH_20, v"2.1.0"=>LJH_21, v"2.2.0"=>LJH_22,
+v"2.2.1"=>LJH_22)
 
 LJHFile(fname::String) = LJHFile(fname,open(fname,"r"))
 function LJHFile(fname::String,io::IO)

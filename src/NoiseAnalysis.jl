@@ -23,28 +23,36 @@ struct NoiseResult
 end
 
 
-function hdf5save(hdf5filename::AbstractString, channum::Integer, nr::NoiseResult)
+# function hdf5save(hdf5filename::AbstractString, channum::Integer, nr::NoiseResult)
+#     chanstring = string(channum)
+#     if !isfile(hdf5filename)
+#         h5open(hdf5filename, "w") do h5file
+#             io = IOBuffer()
+#             versioninfo(io)
+#             attrs(h5file)["juliaversion"] = String(io)
+#         end
+#     end
+#     h5open(hdf5filename, "r+") do h5file
+#         if chanstring in names(h5file)
+#             message = @sprintf("cannot add a new NoiseResult to HDF5 file '%s'", hdf5filename)
+#             error(message)
+#         end
+#         g1 = g_create(h5file, chanstring)
+#         g = g_create(g1, "noise")
+#         hdf5save(g, nr)
+#     end
+# end
+
+function hdf5save(h5file::HDF5.HDF5File, channum::Integer, nr::NoiseResult)
     chanstring = string(channum)
-    if !isfile(hdf5filename)
-        h5open(hdf5filename, "w") do h5file
-            io = IOBuffer()
-            versioninfo(io)
-            attrs(h5file)["juliaversion"] = String(io)
-        end
-    end
-    h5open(hdf5filename, "r+") do h5file
-        if chanstring in names(h5file)
-            message = @sprintf("cannot add a new NoiseResult to HDF5 file '%s'", hdf5filename)
-            error(message)
-        end
-        g1 = g_create(h5file, chanstring)
-        g = g_create(g1, "noise")
-        hdf5save(g, nr)
-    end
+    g1 = g_create(h5file, chanstring)
+    g = g_create(g1, "noise")
+    hdf5save(g, nr)
 end
 
 
-function hdf5save(g::HDF5.DataFile, nr::NoiseResult)
+
+function hdf5save(g::HDF5.HDF5Group, nr::NoiseResult)
     g["samplesused"] = nr.samplesused
     g["freqstep"] = nr.freqstep
     g["autocorr"] = nr.autocorr

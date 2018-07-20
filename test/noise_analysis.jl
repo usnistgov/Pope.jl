@@ -35,7 +35,7 @@ isapprox(m1::NoiseResult, m2::NoiseResult) =
         # Test loading from the "standard place" in a file, which depends on channel number
         fname1 = tempname()*".hdf5"
         channum = rand(1:99)
-        NoiseAnalysis.hdf5save(fname1, channum, noiseresult)
+        NoiseAnalysis.hdf5save(h5open(fname1,"w"), channum, noiseresult)
         nr1 = NoiseAnalysis.hdf5load(fname1, channum)
         @test noiseresult ≈ nr1
 

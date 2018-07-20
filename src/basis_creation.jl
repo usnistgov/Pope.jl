@@ -209,8 +209,13 @@ function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_
     for channel_number in bothchannels
         println("making basis for channel $channel_number")
         ljhname = ljhdict[channel_number]
+        try
         make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
             n_pulses_for_train, n_basis, tsvd_method)
+        catch ex
+            print("channel $channel_number failed")
+            print(ex)
+        end
     end
     println("channels in noise_file but not in ljh $(setdiff(noise_channels,ljh_channels))")
     println("channels in ljh but not in noise_file $(setdiff(ljh_channels,noise_channels))")

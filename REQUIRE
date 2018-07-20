@@ -9,4 +9,4 @@ JSON
 ArgParse
 PyCall
 PyPlot
-LinearAlgebra
+TSVD 0.1.0

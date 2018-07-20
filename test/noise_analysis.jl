@@ -14,7 +14,7 @@ isapprox(m1::NoiseResult, m2::NoiseResult) =
     (m1.freqstep == m2.freqstep) && (m1.samplesused == m2.samplesused) &&
     (m1.datasource == m2.datasource) && (m1.model ≈ m2.model)
 
-@testset "hdf5 save/load" begin
+@testset "noise result hdf5 save/load" begin
     # Here are some dummy values to fill in the NoiseResult.
     used = 100000 # info about how many data samples were studied
     sampletime = 2e-5
@@ -35,7 +35,9 @@ isapprox(m1::NoiseResult, m2::NoiseResult) =
         # Test loading from the "standard place" in a file, which depends on channel number
         fname1 = tempname()*".hdf5"
         channum = rand(1:99)
-        NoiseAnalysis.hdf5save(h5open(fname1,"w"), channum, noiseresult)
+        h5open(fname1,"w") do h5
+            NoiseAnalysis.hdf5save(h5, channum, noiseresult)
+        end
         nr1 = NoiseAnalysis.hdf5load(fname1, channum)
         @test noiseresult ≈ nr1
 

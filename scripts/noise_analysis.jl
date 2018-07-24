@@ -35,6 +35,9 @@ channels cannot be replaced)."""
         "--dontcrash"
             help = "pass this to move on past any channel that fails"
             action = :store_true
+        "--maxchannels"
+            default = 10^4
+            arg_type = Int
     end
     return parse_args(s)
 end
@@ -53,7 +56,7 @@ using HDF5
 using ARMA
 using Pope.NoiseAnalysis
 outputh5 = h5open(parsed_args["outputfile"],"w")
-ljhdict = LJH.allchannels(parsed_args["pulse_file"]) # ordered dict mapping channel number to filename
+ljhdict = LJH.allchannels(parsed_args["pulse_file"],parsed_args["maxchannels"]) # ordered dict mapping channel number to filename
 
 function analyze_one_file(filename::AbstractString, channum::Integer,
         outputh5::HDF5.HDF5File, nlags::Integer=0, nfreq::Integer=0;

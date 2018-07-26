@@ -18,7 +18,7 @@ function getall(ljh, maxrecords=typemax(Int))
 end
 function evenly_distributed_inds(inds,n_wanted)
     frac_keep = n_wanted/length(inds)
-    keep_each_n = floor(Int,1/frac_keep)
+    keep_each_n = max(1,floor(Int,1/frac_keep))
     inds[1:keep_each_n:length(inds)]
 end
 function choose_new_train_inds(residuals, train_inds, frac_keep)
@@ -184,6 +184,9 @@ end
 function make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
     n_pulses_for_train, n_basis, tsvd_method)
     ljh = LJH.ljhopen(ljhname)
+    @show LJH.channel(ljh)
+    @show ljhname
+    @show ljh
     noise_result = NoiseAnalysis.hdf5load(noise_filename,LJH.channel(ljh))
     svdbasis, svdbasiswithcreationinfo = create_basis_one_channel(ljh, noise_result,
         frac_keep,
@@ -197,14 +200,22 @@ end
 function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_loop,
     n_pulses_for_train, n_basis, tsvd_method)
     noise_h5 = h5open(noise_filename,"r")
-    noise_channels = parse.(Int,names(noise_h5))
+    noise_channels = sort!(parse.(Int,names(noise_h5)))
     ljh_channels = keys(ljhdict)
-    bothchannels = union(noise_channels,ljh_channels)
+    bothchannels = sort!(union(noise_channels,ljh_channels))
+    @show noise_channels
+    @show ljh_channels
+    @show bothchannels
     for channel_number in bothchannels
         println("making basis for channel $channel_number")
         ljhname = ljhdict[channel_number]
+        try
         make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
             n_pulses_for_train, n_basis, tsvd_method)
+        catch ex
+            print("channel $channel_number failed")
+            print(ex)
+        end
     end
     println("channels in noise_file but not in ljh $(setdiff(noise_channels,ljh_channels))")
     println("channels in ljh but not in noise_file $(setdiff(ljh_channels,noise_channels))")

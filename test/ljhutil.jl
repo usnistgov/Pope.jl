@@ -18,6 +18,12 @@ using Pope.LJH
 
     @test LJH.fnames(ljhpath,[1,2,3,4])==["ReferenceMicrocalFiles/ljh/20150707_D_chan1.ljh", "ReferenceMicrocalFiles/ljh/20150707_D_chan2.ljh", "ReferenceMicrocalFiles/ljh/20150707_D_chan3.ljh", "ReferenceMicrocalFiles/ljh/20150707_D_chan4.ljh"]
 
+    localdirljhpath = "20150707_D_chan13.ljh"
+    a,b,c = LJH.dir_base_ext(localdirljhpath)
+    @test a=="."
+    @test b=="20150707_D"
+    @test c==".ljh"
+
 dir = "artifacts/ljh_test1"
 isdir(dir) || mkdir(dir)
 fnames = LJH.fnames(joinpath(dir,"ljh_test1"),1:2:480)
@@ -43,7 +49,7 @@ ljhdict_noi = LJH.allchannels(first(fnames_noi))
 
 outputname(x) = Pope.outputname(x,"annotation")
 @test outputname("abc_chan1.ljh") == outputname("abc_chan1.noi") == outputname("abc")
-@test Pope.outputname("abc_chan1.ljh","model") == "abc_model.h5"
-@test Pope.outputname("abc_chan1.ljh","model","pdf") == "abc_model.pdf"
-@test Pope.outputname("abc_chan1.ljh","model",".pdf") == "abc_model.pdf"
+@test Pope.outputname("abc_chan1.ljh","model") == "./abc_model.hdf5"
+@test Pope.outputname("abc_chan1.ljh","model","pdf") == "./abc_model.pdf"
+@test Pope.outputname("abc_chan1.ljh","model",".pdf") == "./abc_model.pdf"
 end

@@ -5,9 +5,11 @@ s = ArgParseSettings()
     "pulse_file"
         help = "name of the pulse containing ljh file to use to make basis"
         required = true
+        arg_type = String
     "noise_file"
         help = "name of the noise_analysis hdf5 file to use to make basis"
         required = true
+        arg_type = String
     "--outputfile", "-o"
         arg_type = String
         help="specify the path of the outputfile, otherwise it will make one up based on pulse_file"

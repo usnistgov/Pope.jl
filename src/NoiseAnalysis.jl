@@ -22,29 +22,17 @@ struct NoiseResult
     model::ARMAModel
 end
 
-
-function hdf5save(hdf5filename::AbstractString, channum::Integer, nr::NoiseResult)
+"""    hdf5save(h5file::HDF5.HDF5File, channum::Integer, nr::NoiseResult)"""
+function hdf5save(h5file::HDF5.HDF5File, channum::Integer, nr::NoiseResult)
     chanstring = string(channum)
-    if !isfile(hdf5filename)
-        h5open(hdf5filename, "w") do h5file
-            io = IOBuffer()
-            versioninfo(io)
-            attrs(h5file)["juliaversion"] = String(io)
-        end
-    end
-    h5open(hdf5filename, "r+") do h5file
-        if chanstring in names(h5file)
-            message = @sprintf("cannot add a new NoiseResult to HDF5 file '%s'", hdf5filename)
-            error(message)
-        end
-        g1 = g_create(h5file, chanstring)
-        g = g_create(g1, "noise")
-        hdf5save(g, nr)
-    end
+    g1 = g_create(h5file, chanstring)
+    g = g_create(g1, "noise")
+    hdf5save(g, nr)
 end
 
 
-function hdf5save(g::HDF5.DataFile, nr::NoiseResult)
+"""    hdf5save(g::HDF5.HDF5Group, nr::NoiseResult)"""
+function hdf5save(g::HDF5.HDF5Group, nr::NoiseResult)
     g["samplesused"] = nr.samplesused
     g["freqstep"] = nr.freqstep
     g["autocorr"] = nr.autocorr
@@ -60,7 +48,6 @@ Load and return a `NoiseResult` object from `input`. The argument `input` can be
 either the "noise" HDF5 group, or the name of an HDF5 file along
 (group "5/noise" would need to be at the root of the file).
 """
-
 function hdf5load(hdf5filename::AbstractString, channum::Integer)
     chanstring = string(channum)
     h5open(hdf5filename, "r") do h5file
@@ -126,7 +113,6 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
         chunk_multiple=7, max_exc=1e99)
     m = nlags*chunk_multiple
     nseg = div(length(data), m)
-
     # Pad the raw data with at least nlags zeros, but also additional ones to ensure
     # that the DFT isn't taken on an unfortunately long and inefficient size.
     m_padded = round_up_dft_length(m+nlags)
@@ -134,6 +120,9 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
     ac = zeros(Float64, nlags)
 
     # This loop uses all data except the last length(data) % m values.
+    if nseg<1
+        error("nseg=$nseg, should be >=1")
+    end
     seg_skipped = 0
     for i=1:nseg
         seg = float(data[(i-1)*m+1:i*m])
@@ -145,7 +134,11 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
         r = rfft(padded_data)
         ac += irfft(abs2.(r), m_padded)[1:nlags]
     end
-    ac /= (nseg-seg_skipped)
+    seg_used = nseg-seg_skipped
+    if seg_used == 0
+        error("all segments excluded by max excursion")
+    end
+    ac /= seg_used
     ac ./ (m:-1:m-nlags+1)
 end
 

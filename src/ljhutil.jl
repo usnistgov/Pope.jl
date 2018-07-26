@@ -11,7 +11,9 @@ function dir_base_ext(ljhname::AbstractString)::Tuple{String,String,String}
     bname,ext = splitext(basename(ljhname))
     ext = isempty(ext) ? ".ljh" : ext
     m = match(r"_chan\d+", bname)
-    dirname(ljhname), String(m == nothing ? bname : bname[1:m.offset-1]), ext
+    dname = dirname(ljhname)
+    outdirname = dname == "" ? "." : dname # return . for instead of empty string for local dir
+    outdirname, String(m == nothing ? bname : bname[1:m.offset-1]), ext
 end
 "    channel(ljhname::AbstractString)
 Return the Channel number determined from the filename of an ljh file, looks for
@@ -59,7 +61,7 @@ Returns the filename based on `ljhname` with an _annotation, and with the desire
 `ext` may be specified with or without a leading period with identical results.
 For example `outputname("abc","model")` returns `"abc_model.hdf5"` and
 `outputname("abc","model","pdf")` returns `"abc_model.pdf"`."""
-function outputname(ljhname::AbstractString, annotation::AbstractString, ext=".h5")
+function outputname(ljhname::AbstractString, annotation::AbstractString, ext=".hdf5")
     ext = lstrip(ext,'.') #allows .pdf or pdf for 3rd argument
     d,b,e=dir_base_ext(ljhname)
     joinpath(d,b*"_"*annotation*"."*ext)

@@ -64,14 +64,20 @@ function analyze_one_file(filename::AbstractString, channum::Integer,
 
     # Open the LJH file for reading
     f = LJHFile(filename)
-    const frametime = LJH.frametime(f)
-    const nsamp = LJH.record_nsamples(f)
+    frametime = LJH.frametime(f)
+    nsamp = LJH.record_nsamples(f)
     nrec = LJH.ljh_number_of_records(f)
     if nsamp*nrec > max_samples
         nrec = max_samples // nsamp
     end
     rawdata = vcat([rec.data for rec in f[1:nrec]]...)
-    const samplesUsed = length(rawdata)
+    samplesUsed = length(rawdata)
+
+    if length(rawdata) == 0
+        error("rawdata has length=0 for $filename")
+    elseif all(rawdata.==rawdata[1])
+        error("rawdata is all the same value $(rawdata[1]) for $filename")
+    end
 
     if nlags <= 0
         nlags = nsamp
@@ -86,6 +92,7 @@ function analyze_one_file(filename::AbstractString, channum::Integer,
     freqstep = freq[2]-freq[1]
 
     max_ARMA_order = 5
+    # outputh5["noise_analysis_autocorr_input/chan$channum"]=autocorr # save some data for debugging
     model = fitARMA(autocorr, max_ARMA_order, pmin=1)
 
     noise = NoiseResult(autocorr, psd, samplesUsed, freqstep, filename, model)

@@ -113,7 +113,6 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
         chunk_multiple=7, max_exc=1e99)
     m = nlags*chunk_multiple
     nseg = div(length(data), m)
-
     # Pad the raw data with at least nlags zeros, but also additional ones to ensure
     # that the DFT isn't taken on an unfortunately long and inefficient size.
     m_padded = round_up_dft_length(m+nlags)
@@ -121,6 +120,9 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
     ac = zeros(Float64, nlags)
 
     # This loop uses all data except the last length(data) % m values.
+    if nseg<1
+        error("nseg=$nseg, should be >=1")
+    end
     seg_skipped = 0
     for i=1:nseg
         seg = float(data[(i-1)*m+1:i*m])
@@ -132,7 +134,11 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
         r = rfft(padded_data)
         ac += irfft(abs2.(r), m_padded)[1:nlags]
     end
-    ac /= (nseg-seg_skipped)
+    seg_used = nseg-seg_skipped
+    if seg_used == 0
+        error("all segments excluded by max excursion")
+    end
+    ac /= seg_used
     ac ./ (m:-1:m-nlags+1)
 end
 

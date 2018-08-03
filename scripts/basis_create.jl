@@ -34,7 +34,7 @@ s = ArgParseSettings()
         help ="The fraction of training pulses to keep. Each loop cuts a fraction of pulses
         with the highest residuals, after all loops, this fraction of pulses remain uncut."
     "--tsvd_method"
-        default = "TSVD"
+        default = "TSVDmass3"
         help = "which truncated SVD method to use, supports `TSVD` and `manual`.
         The results should be nearly identical, and `TSVD` (the default) is faster.
         But you can try `manual` as a sanity check if the basis vectors look weird"

@@ -56,7 +56,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat},n_basis)
     td = Pope.make_time_domain(mpr,mass3_basis)
     data_residual = data_train-td
     if n_basis > 3
-        U, S, V = TSVD.tsvd(data_train, n_basis-3)
+        U, S, V = TSVD.tsvd(data_residual, n_basis-3)
         U_combined = hcat(mass3_basis,U)
         S_combined = vcat([NaN,NaN,NaN],S)
         return U_combined, S_combined
@@ -71,7 +71,7 @@ function manual_tsvd(data_train, n_basis)
 end
 tsvd_dict = Dict("TSVD"=>TSVD_tsvd,
 "manual"=>manual_tsvd,
-"TSVD mass3"=>TSVD_tsvd_mass3)
+"TSVDmass3"=>TSVD_tsvd_mass3)
 
 
 struct SVDBasis <: AbstractBasisAnalyzer

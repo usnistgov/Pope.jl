@@ -38,6 +38,10 @@ s = ArgParseSettings()
         help = "which truncated SVD method to use, supports `TSVD` and `manual`.
         The results should be nearly identical, and `TSVD` (the default) is faster.
         But you can try `manual` as a sanity check if the basis vectors look weird"
+    "--maxchannels"
+        default = 1000000
+        help = "process at most this many channels, in order from lowest channel number"
+        arg_type = Int
 end
 parsed_args = parse_args(ARGS, s)
 using Pope.NoiseAnalysis
@@ -53,7 +57,7 @@ if !parsed_args["replaceoutput"] && isfile(parsed_args["outputfile"])
     exit(1) # anything other than 0 indicated process unsuccesful
 end
 
-ljhdict = LJH.allchannels(parsed_args["pulse_file"]) # ordered dict mapping channel number to filename
+ljhdict = LJH.allchannels(parsed_args["pulse_file"],parsed_args["maxchannels"]) # ordered dict mapping channel number to filename
 outputh5 = h5open(parsed_args["outputfile"],"w")
 Pope.make_basis_all_channel(outputh5, ljhdict, parsed_args["noise_file"],
     parsed_args["frac_keep"],

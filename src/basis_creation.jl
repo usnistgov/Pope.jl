@@ -202,7 +202,7 @@ function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_
     noise_h5 = h5open(noise_filename,"r")
     noise_channels = sort!(parse.(Int,names(noise_h5)))
     ljh_channels = keys(ljhdict)
-    bothchannels = sort!(union(noise_channels,ljh_channels))
+    bothchannels = sort!(intersect(noise_channels,ljh_channels))
     @show noise_channels
     @show ljh_channels
     @show bothchannels

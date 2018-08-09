@@ -52,7 +52,7 @@ model_path = "artifacts/model.h5"
 # take a constant, arrival time, and average pulse from data
 # train on residuals
 
-tsvd_method_string="TSVD mass3"
+tsvd_method_string="TSVDmass3"
 pulse_file = "dummy filename"
 n_basis=3 # test the case where the only 3 elements return are the mass3 (dc value, average pulse, pulse derivative)
 mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,

@@ -34,7 +34,6 @@ produces `approximation ≈ data`. Specifically:
 `pcovar` is the expected covariance of `coeff` under the same noise assumptions of correlated,
 additive, Gaussian noise, independent of the signal levels.
 """
-
 function computeprojectors(basis::AbstractMatrix, noisecovariance::AbstractVector)
     N = _checkbasis(basis)
     length(noisecovariance) < N && throw(ArgumentError("noisecovariance must be at least as long as the basis columns"))
@@ -54,7 +53,6 @@ end
 In this method, the noise is characterized by `noisemodel`, an `ARMAModel` model of the noise covariance.
 For large `N` (long basis vectors), this version is likely to consume less time and memory.
 """
-
 function computeprojectors(basis::AbstractMatrix, noisemodel::ARMA.ARMAModel)
     N = _checkbasis(basis)
     solver = ARMASolver(noisemodel, N)

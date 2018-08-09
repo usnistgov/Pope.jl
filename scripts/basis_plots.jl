@@ -12,7 +12,7 @@ end
 using PyCall, PyPlot, HDF5, Pope
 parsed_args = parse_args(ARGS, s)
 if parsed_args["outputfile"]==nothing
-    parsed_args["outputfile"] = Pope.outputname(parsed_args["basisfile"],"modelplots","pdf")
+    parsed_args["outputfile"] = Pope.outputname(parsed_args["basisfile"],"plots","pdf")
 end
 display(parsed_args);println()
 @pyimport matplotlib.backends.backend_pdf as pdf
@@ -32,11 +32,11 @@ function plot_model_and_residuals(basisinfo)
     xlabel("sample number")
     ylabel("projectors (currently equal to basis)")
     subplot(313)
-    noise_std = √basisinfo.svdbasis.noise_result.autocorr[1]
+    noise_std = √(basisinfo.svdbasis.noise_result.autocorr[1])
     normalized_sorted_residuals = sort(basisinfo.std_residuals)/noise_std
     a=normalized_sorted_residuals[1]
-    b=max(2-a,1.5)
-    plot(normalized_sorted_residuals,linspace(0,1,length(basisinfo.std_residuals)))
+    b=max(1.5*a,median(normalized_sorted_residuals))
+    plot(normalized_sorted_residuals,linspace(0,1,length(normalized_sorted_residuals)))
     xlim(a,b)
     ylim(0,1)
     xlabel("(residual std)/(noise std)")
@@ -58,9 +58,10 @@ function plot_example_pulses(basisinfo)
         subplot(312)
         model_pulses = basisinfo.svdbasis.basis*basisinfo.svdbasis.projectors*basisinfo.example_pulses[:,r]
         residuals = basisinfo.example_pulses[:,r]-model_pulses
-        noise_std = √basisinfo.svdbasis.noise_result.autocorr[1]
+        noise_std = √(basisinfo.svdbasis.noise_result.autocorr[1])
         artists=plot(residuals)
         std_residual_normalized = Float32.(std(residuals,1)'[:]/noise_std)
+        std_residual_normalized_from_training = basisinfo.std_residuals_of_example_pulses/noise_std
         legend(artists,std_residual_normalized, loc="best",title="standard deviation/noise std")
         xlabel("sample number")
         ylabel("actual-model (aka residuals)")
@@ -82,7 +83,8 @@ end
 function main(parsed_args)
     h5 = h5open(parsed_args["basisfile"],"r")
     pdffile = pdf.PdfPages(parsed_args["outputfile"])
-    for name in names(h5)
+    channelnames = string.(sort(parse.(Int,names(h5))))
+    for name in channelnames
         println("plotting channel $name")
         channel = parse(Int,name)
         basisinfo = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5["$name"])

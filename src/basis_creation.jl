@@ -50,8 +50,14 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat},n_basis)
     average_pulse = normalize(mean(data1,2)[:])
     # calculate the derivative like component, assume clean baseline, so low derivative at start
     derivative_like = normalize([0.0;diff(average_pulse)][:])
+    # make derivative_like orthgonal to average_pulse
+    # doing it twice get dot(derivative_like2,average_pulse) to about 1e-17 in my single test, vs 1e-9 for doing it once
+    derivative_like1 = normalize(derivative_like-average_pulse*dot(derivative_like,average_pulse))
+    derivative_like2 = normalize(derivative_like1-average_pulse*dot(derivative_like1,average_pulse))
+    # remove mean from derivative_like
+    derivative_like3 = normalize(derivative_like2-mean(derivative_like2))
     constant_component = normalize(ones(size(data_train,1)))
-    mass3_basis = hcat(constant_component,derivative_like,average_pulse)
+    mass3_basis = hcat(constant_component,derivative_like3,average_pulse)
     mpr = Pope.make_mpr(data_train,mass3_basis) # model pulse reduced
     td = Pope.make_time_domain(mpr,mass3_basis)
     data_residual = data_train-td

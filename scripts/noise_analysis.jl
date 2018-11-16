@@ -83,7 +83,7 @@ function analyze_one_file(filename::AbstractString, channum::Integer,
         nlags = nsamp
     end
     if nfreq <= 0
-        nfreq = NoiseAnalysis.round_up_dft_length(nsamp)
+        nfreq = NoiseAnalysis.round_up_dft_length(div(nsamp, 2)) + 1
     end
 
     autocorr = compute_autocorr(rawdata, nlags, max_exc=1000)

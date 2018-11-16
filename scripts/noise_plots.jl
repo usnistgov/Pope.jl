@@ -82,7 +82,7 @@ function noiseplots(input::AbstractString, pdffile)
             ax = subplot(NVERT,NHOR,1+vert*NHOR)
             freq = noise.freqstep*collect(0:Nf-1)
             dfreq = noise.freqstep
-            psd_model = ARMA.model_psd(noise.model, Nf) / dfreq^2
+            psd_model = ARMA.model_psd(noise.model, Nf) / freq[end]
             loglog(freq[3:end], noise.psd[3:end], "r", freq[2:end], psd_model[2:end], "b")
             title("Chan $(chan) noise PSD")
             isbottom && xlabel("Frequency (Hz)")

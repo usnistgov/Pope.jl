@@ -1,6 +1,7 @@
 module LJH
 export LJHGroup, LJHFile, LJH3File, ljhopen
 include("ljhutil.jl")
+
 "    ljh_get_header_dict(io::IO)
 Return a Dict{String,String} mapping entries in the header. "
 function ljh_get_header_dict(io::IO)
@@ -35,6 +36,7 @@ mutable struct LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow, T<:IO}
     column           ::Int16            # column number
     row              ::Int16            # row number
     num_columns      ::Int16            # number of rows
+    inverted_data    ::Bool             # data values inverted (downward-going pulses)?
 end
 struct LJHRecord{FrameTime, PretrigNSamples, NRow}
     data::Vector{UInt16}
@@ -58,8 +60,8 @@ import Base: ==
 VERSIONS = Dict(v"2.0.0"=>LJH_20, v"2.1.0"=>LJH_21, v"2.2.0"=>LJH_22,
 v"2.2.1"=>LJH_22)
 
-LJHFile(fname::String) = LJHFile(fname,open(fname,"r"))
-function LJHFile(fname::String,io::IO)
+LJHFile(fname::String; inverted=false) = LJHFile(fname, open(fname,"r"); inverted=inverted)
+function LJHFile(fname::String, io::IO; inverted=false)
     headerdict = ljh_get_header_dict(seekstart(io))
     datastartpos = position(io)
     # ioend = position(seekend(io))
@@ -82,7 +84,8 @@ function LJHFile(fname::String,io::IO)
         round(Int16,parse(Float64,headerdict["Channel"])), # channel number
         parse(Int16,get(headerdict,"Column number (from 0-$(num_columns-1) inclusive)","0")),   #column, defaults to zero if not in file
         parse(Int16,get(headerdict,"Row number (from 0-$(NRow-1) inclusive)","0")), #row, defaults to zero if not in file
-        num_columns) # num_columns
+        num_columns,
+        inverted)
 end
 LJHFile(f::LJHFile) = f
 
@@ -149,8 +152,12 @@ function num_rows(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) wher
 end
 function Base.show(io::IO, g::LJHFile)
     print(io, "LJHFile $(filename(g))\n")
-    print(io, "$(length(g)) records\n")
-    print(io, "record_nsamlpes $(record_nsamples(g)), pretrig_nsamples $(pretrig_nsamples(g)).\n")
+    inverted = ""
+    if g.inverted_data
+        inverted = "inverted "
+    end
+    print(io, "$(length(g)) $(inverted)records\n")
+    print(io, "record_nsamples $(record_nsamples(g)), pretrig_nsamples $(pretrig_nsamples(g)).\n")
     print(io, "Channel $(channel(g)), row $(row(g)), column $(column(g)), frametime $(frametime(g)) s.\n")
 end
 
@@ -170,6 +177,9 @@ function tryread(f::LJHFile{LJHv, FrameTime, PretrigNSamples, NRow}) where {LJHv
     if length(record) == nbytes
         rowcount, timestamp_usec = parse_record_header(f, record)
         data = reinterpret(UInt16, record[1+header_nbytes(f):nbytes])
+        if f.inverted_data
+            data = .~data
+        end
         return Nullable(LJHRecord{FrameTime, PretrigNSamples, NRow}(data, rowcount, timestamp_usec))
     else
         seek(f.io, position(f.io)-length(record)) # go back to the start of the record

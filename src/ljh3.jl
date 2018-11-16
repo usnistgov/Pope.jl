@@ -29,14 +29,14 @@ Base.close(ljh::LJH3File) = close(ljh.io)
 filename(ljh::LJH3File) = ljh.io.name[7:end-1]
 progresssize(ljh::LJH3File) = stat(ljh.io).size
 progressposition(ljh::LJH3File) = position(ljh.io)
-"    ljhopen(fname::AbstractString)
+"    ljhopen(fname::AbstractString; kwargs...)
 Open file `fname` as an `LJH3File` or `LJHFile` depending on contents."
-function ljhopen(fname::AbstractString)
+function ljhopen(fname::AbstractString; kwargs...)
     try
-        return LJH3File(fname)
+        return LJH3File(fname; kwargs...)
     catch
         try
-            return LJHFile(fname)
+            return LJHFile(fname; kwargs...)
         catch
             error("$fname failed to open as LJH or LJH3")
         end

@@ -210,10 +210,11 @@ function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e9
     end
 
     r = zeros(Float64, nfreq)
-    datamean = mean(data)
     for i=1:nseg
         idx0 = (i-1)*seg_step+1
-        seg = window .* (data[idx0:idx0+nsamp-1] - datamean)
+        dseg = data[idx0:idx0+nsamp-1]
+        # Subtract this segment's mean (DC value) to eliminate DC leakage into 3rd bin.
+        seg = window .* (dseg - mean(dseg))
         r += abs2.(rfft(seg))
     end
     r * 2dt / nseg

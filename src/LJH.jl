@@ -1,6 +1,7 @@
 module LJH
 export LJHGroup, LJHFile, LJH3File, ljhopen
 include("ljhutil.jl")
+using Nullables
 
 "    ljh_get_header_dict(io::IO)
 Return a Dict{String,String} mapping entries in the header. "
@@ -172,7 +173,7 @@ that record if succesful, or one that `isnull` if not. On success the file posit
 moves forward, on failure the file position does not change.
 """
 function tryread(f::LJHFile{LJHv, FrameTime, PretrigNSamples, NRow}) where {LJHv, FrameTime, PretrigNSamples, NRow}
-    const nbytes = record_nbytes(f)
+    nbytes = record_nbytes(f)
     record = read(f.io, nbytes)
     if length(record) == nbytes
         rowcount, timestamp_usec = parse_record_header(f, record)
@@ -342,8 +343,8 @@ struct LJHGroupSlice{T<:AbstractArray}
 end
 Base.length(g::LJHGroupSlice) = length(g.slice)
 Base.endof(g::LJHGroupSlice) = length(g.slice)
-LJHGroupSlice{T<:AbstractArray}(ljhfile::LJHGroup, slice::T) = LJHGroupSlice{T}(ljhfile, slice)
-function Base.start{T<:UnitRange}(g::LJHGroupSlice{T})
+LJHGroupSlice(ljhfile::LJHGroup, slice::T) where T <: AbstractArray = LJHGroupSlice{T}(ljhfile, slice)
+function Base.start(g::LJHGroupSlice{T}) where T <: UnitRange
     for f in g.g.ljhfiles seekto(f,1) end
     isempty(g.slice) && return (2,2,1,1) # ensure done condition is immediatley met on empty range
     filenum, recordnum = filenum_recordnum(g.g, first(g.slice))
@@ -351,14 +352,14 @@ function Base.start{T<:UnitRange}(g::LJHGroupSlice{T})
     seekto(g.g.ljhfiles[filenum], recordnum)
     (filenum, recordnum, donefilenum, donerecordnum)
 end
-function Base.next{T<:UnitRange}(g::LJHGroupSlice{T}, state)
+function Base.next(g::LJHGroupSlice{T}, state) where T <: UnitRange
     filenum, recordnum, donefilenum, donerecordnum = state
     ljhrecord = pop!(g.g.ljhfiles[filenum])
     recordnum+=1
     recordnum > g.g.lengths[filenum] && (recordnum-=g.g.lengths[filenum];filenum+=1)
     ljhrecord, (filenum, recordnum, donefilenum, donerecordnum)
 end
-function Base.done{T<:UnitRange}(g::LJHGroupSlice{T}, state)
+function Base.done(g::LJHGroupSlice{T}, state) where T <: UnitRange
     filenum, recordnum, donefilenum, donerecordnum = state
     filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
 end

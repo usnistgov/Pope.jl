@@ -1,7 +1,7 @@
 using ARMA
 
 function _checkbasis(basis::AbstractMatrix)
-    const (N,n) = size(basis)
+    (N,n) = size(basis)
     n > N && throw(ArgumentError("basis must not have more columns than rows"))
 
     # Are the columns independent?

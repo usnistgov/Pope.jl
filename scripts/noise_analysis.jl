@@ -1,4 +1,4 @@
-#!/usr/bin/env julia
+#!/usr/bin/env julia07
 
 # Parse command-line first, so a failure can be detected before the compilation
 # or execution of any code unrelated to argument parsing.
@@ -43,6 +43,7 @@ channels cannot be replaced)."""
 end
 parsed_args = parse_commandline()
 
+using Pope
 using Pope.LJH
 if parsed_args["outputfile"]==nothing
     parsed_args["outputfile"] = Pope.outputname(parsed_args["pulse_file"],"noise")

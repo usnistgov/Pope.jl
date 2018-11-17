@@ -41,7 +41,7 @@ mutable struct BufferedHDF5Dataset{T}
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
 end
-function BufferedHDF5Dataset{T}(g::Union{HDF5File,HDF5Group}, name, chunksize) where T
+function BufferedHDF5Dataset{T}(g::Union{HDF5File,HDF5Group}, name, chunksize) where {T}
   ds = d_create(g, name, T, ((1,),(-1,)), "chunk", chunksize)
   BufferedHDF5Dataset{T}(ds, Vector{T}(), 0)
 end
@@ -54,8 +54,8 @@ function write_to_hdf5(b::BufferedHDF5Dataset)
   end
   return
 end
-Base.write{T}(b::BufferedHDF5Dataset{T},x::T) = push!(b.v,x)
-Base.write{T}(b::BufferedHDF5Dataset{T},x::Vector{T}) = append!(b.v,x)
+Base.write(b::BufferedHDF5Dataset{T},x::T) where {T} = push!(b.v,x)
+Base.write(b::BufferedHDF5Dataset{T},x::Vector{T}) where {T} = append!(b.v,x)
 
 
 
@@ -96,7 +96,7 @@ function write_to_hdf5(b::MassCompatibleBufferedWriters)
   b.pulse_rms, b.rise_time, b.postpeak_deriv, b.peak_index, b.peak_value, b.min_value])
 end
 function Base.schedule(b::BufferedWriter)
-  b.task=@schedule begin
+  b.task=@async begin
     while !isready(b.endchannel)
       write_to_hdf5(b)
       sleep(b.timeout_s)

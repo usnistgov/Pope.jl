@@ -150,7 +150,7 @@ function Base.done(ljh::LJH3File,state)
     j,sz=state
     ljh.index[j]==sz
 end
-Base.iteratorsize(ljh::LJH3File) = Base.SizeUnknown()
+Base.IteratorSize(ljh::LJH3File) = Base.SizeUnknown()
 # getindex with strings
 Base.getindex(ljh::LJH3File,key::AbstractString) = ljh.header[key]
 Base.keys(ljh::LJH3File) = keys(ljh.header)

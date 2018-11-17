@@ -1,5 +1,6 @@
 module Pope
 using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
+using Nullables
 include("LJH.jl")
 include("ljhutil.jl")
 include("NoiseAnalysis.jl")
@@ -27,32 +28,32 @@ DataStructures.@delegate Readers.v [Base.length, Base.size, Base.eltype, Base.st
 Base.push!(rs::Readers,x) = (push!(rs.v,x);rs)
 Readers() = Readers(LJHReaderFeb2017[],Channel{Bool}(1), Task(nothing), 1.0)
 function write_headers(rs::Readers)
-  for r in rs
-    write_header(r)
-  end
-  r=first(rs)
-  write_header_allchannel(r)
-  rs.task = @schedule begin
-    while !isready(rs.endchannel)
-      sleep(rs.timeout_s)
-      flush(r.product_writer) # this task flushes the HDF5 file backing the product writer once per timeout_s
+    for reader in rs
+        write_header(reader)
     end
-    flush(r.product_writer)
+    r=first(rs)
+    write_header_allchannel(r)
+    rs.task = @async begin
+        while !isready(rs.endchannel)
+            sleep(rs.timeout_s)
+            flush(r.product_writer) # this task flushes the HDF5 file backing the product writer once per timeout_s
+        end
+        flush(r.product_writer)
     end
 end
 function Base.schedule(rs::Readers)
-  write_headers(rs)
-  schedule.(rs)
+    write_headers(rs)
+    schedule.(rs)
 end
 "stop(rs::Readers) Tell all tasks in `rs` and in contents to stop. `wait(rs)` blocks until all tasks are complete."
 function stop(rs::Readers)
-  put!(rs.endchannel,true)
-  stop.(rs.v)
+    put!(rs.endchannel,true)
+    stop.(rs.v)
 end
 "wait(rs::Readers) Call after `stop`. Waits until all tasks associated with `rs` are done."
 function Base.wait(rs::Readers)
-  wait(rs.task)
-  wait.(rs.v)
+    wait(rs.task)
+    wait.(rs.v)
 end
 
 "LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
@@ -79,9 +80,10 @@ mutable struct LJHReaderFeb2017{T1,T2}
     this
   end
 end
-LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) = LJHReaderFeb2017{T1,T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
+LJHReaderFeb2017(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter) where {T1, T2} =
+    LJHReaderFeb2017{T1, T2}(fname, analyzer::T1, product_writer::T2, timeout_s, progress_meter)
 Base.schedule(r::LJHReaderFeb2017) = schedule(r.task)
-stop(r::LJHReaderFeb2017) =   !isready(r.endchannel) && put!(r.endchannel,true)
+stop(r::LJHReaderFeb2017) = !isready(r.endchannel) && put!(r.endchannel,true)
 Base.wait(r::LJHReaderFeb2017) = wait(r.task)
 write_header(r::LJHReaderFeb2017) = write_header(r.product_writer, r)
 function write_header_allchannel(r::LJHReaderFeb2017)

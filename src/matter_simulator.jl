@@ -87,7 +87,7 @@ function mattersim(srcdir, destdir, timeout_s=0.01, fastforward=1.0, maxchannels
   tasks = [@task timed_ljh_rewriter(src, dest, timeout_s, fastforward, pulses_written, pulses_total, i) for (i,(src,dest)) in enumerate(zip(values(ljhdict), destnames))]
   LJH.write_sentinel_file(destnames[1],true)
   println("Matter simulator wrote sentinel file: $(destnames[1]), true")
-  progresstask = @schedule mattersimprogress(values(ljhdict), destnames, tasks, keys(ljhdict), timeout_s, pulses_written, pulses_total)
+  progresstask = @async mattersimprogress(values(ljhdict), destnames, tasks, keys(ljhdict), timeout_s, pulses_written, pulses_total)
   schedule.(tasks)
   wait.(tasks)
   wait(progresstask)

@@ -1,9 +1,10 @@
-#!/usr/bin/env julia
+#!/usr/bin/env julia07
 
 using ArgParse
 using ARMA
 using HDF5
-using Pope: NoiseAnalysis
+using Printf
+using Pope.NoiseAnalysis
 
 delete!(ENV, "PYTHONPATH")
 using PyCall, PyPlot
@@ -100,7 +101,7 @@ function noiseplots(input::AbstractString, pdffile)
             for j=1:p
                 a = abs(noise.model.expampls[j])
                 b = noise.model.expbases[j]
-                phi = atan2(imag(b), real(b))
+                phi = atan(imag(b), real(b))
                 timeconst = -1.0/log(abs(b))
                 msg = @sprintf("%.3f*exp(-t/%.3f)", a, timeconst)
                 if abs(phi*N) > .01 && imag(b)<0

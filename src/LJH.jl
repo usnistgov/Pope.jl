@@ -133,9 +133,14 @@ function Base.eltype(f::LJHFile{V, FrameTime, PretrigNSamples, NRow}) where {V, 
      LJHRecord{FrameTime, PretrigNSamples, NRow}
 end
 # access as iterator
-Base.start(f::LJHFile) = (seekto(f,1);1)
-Base.next(f::LJHFile,j) = pop!(f),j+1
-Base.done(f::LJHFile,j) = j==length(f)+1
+function Base.iterate(f::LJHFile)
+    seekto(f, 1)
+    return Base.iterate(f, 0)
+end
+function Base.iterate(f::LJHFile, s)
+    j==length(f) && return
+    return pop!(f), j+1
+end
 filename(f::LJHFile) = f.filename
 record_nsamples(f::LJHFile) = f.record_nsamples
 function pretrig_nsamples(f::LJHFile{VersionInt, FrameTime, PretrigNSamples, NRow}) where {VersionInt, FrameTime, PretrigNSamples, NRow}

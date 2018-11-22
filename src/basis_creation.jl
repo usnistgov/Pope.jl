@@ -1,7 +1,7 @@
 using TSVD
+using ARMA
 
-
-make_mpr(data, basis) = basis'*data
+make_mpr(data, basis) = pinv(basis)*data
 make_time_domain(mpr, basis) = basis*mpr
 function make_std_residuals(data, basis)
     mpr = make_mpr(data,basis) # model pulse reduced
@@ -25,7 +25,7 @@ function choose_new_train_inds(residuals, train_inds, frac_keep)
     n_keep = round(Int, frac_keep*length(train_inds))
     sort(train_inds, by = i -> residuals[i])[1:n_keep]
 end
-function train_loop(data,n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop, make_basis)
+function train_loop(data,n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, make_basis)
     last_train_inds = train_inds = evenly_distributed_inds(1:size(data,2),n_pulses_for_train)
     for i=1:n_loop
         basis, singular_values = make_basis(data[:,train_inds],n_basis)
@@ -37,47 +37,51 @@ function train_loop(data,n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop
         end
     end
 end
+
 function TSVD_tsvd(data_train::Matrix{<:AbstractFloat},n_basis)
     U, S, V = TSVD.tsvd(data_train, n_basis)
     U,S
 end
 
-function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat},n_basis)
+function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples,
+        noise_model::ARMA.ARMAModel, noise_solver::ARMA.ARMASolver)
     @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
-    # remove the mean
-    data1 = data_train.-mean(data_train,1)
-    # calculate the average pulse
-    average_pulse = normalize(mean(data1,2)[:])
-    # calculate the derivative like component, assume clean baseline, so low derivative at start
-    derivative_like = normalize([0.0;diff(average_pulse)][:])
-    # make derivative_like orthgonal to average_pulse
-    # doing it twice get dot(derivative_like2,average_pulse) to about 1e-17 in my single test, vs 1e-9 for doing it once
-    derivative_like1 = normalize(derivative_like-average_pulse*dot(derivative_like,average_pulse))
-    derivative_like2 = normalize(derivative_like1-average_pulse*dot(derivative_like1,average_pulse))
-    # remove mean from derivative_like
-    derivative_like3 = normalize(derivative_like2-mean(derivative_like2))
-    constant_component = normalize(ones(size(data_train,1)))
-    mass3_basis = hcat(constant_component,derivative_like3,average_pulse)
-    mpr = Pope.make_mpr(data_train,mass3_basis) # model pulse reduced
-    td = Pope.make_time_domain(mpr,mass3_basis)
-    data_residual = data_train-td
-    if n_basis > 3
-        U, S, V = TSVD.tsvd(data_residual, n_basis-3)
-        U_combined = hcat(mass3_basis,U)
-        S_combined = vcat([NaN,NaN,NaN],S)
-        return U_combined, S_combined
-    else
+
+    # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
+    average_pulse = mean(data_train, 2)[:]
+    average_pulse -= mean(average_pulse[1:n_presamples])
+    average_pulse[1:n_presamples] = 0.0
+    average_pulse /= maximum(average_pulse)
+
+    # Calculate the derivative like component; assume clean baseline, so low derivative at start
+    derivative_like = [0.0;diff(average_pulse)]
+    constant_component = ones(size(data_train,1))
+    mass3_basis = hcat(constant_component,derivative_like,average_pulse)
+    if n_basis <= 3
         return mass3_basis, [NaN,NaN,NaN]
     end
+    projectors3, _ = computeprojectors(mass3_basis,noise_model)
+    mpr = projectors3 * data_train # model pulse reduced
+    td = Pope.make_time_domain(mpr,mass3_basis)
+    data_residual = data_train .- td
+    # Whiten residual before TSVD
+    white_residual = ARMA.whiten(noise_solver, data_residual)
+    Uwhite, S, V = TSVD.tsvd(white_residual, n_basis-3)
+    # Unwhiten U before combining
+    U = ARMA.unwhiten(noise_solver, Uwhite)
+    U_combined = hcat(mass3_basis,U)
+    S_combined = vcat([NaN,NaN,NaN],S)
+    U_combined, S_combined
 end
 
-function manual_tsvd(data_train, n_basis)
+function full_svd(data_train, n_basis)
     U,S,V = svd(data_train)
     U[:,1:n_basis],S[1:n_basis]
 end
-tsvd_dict = Dict("TSVD"=>TSVD_tsvd,
-"manual"=>manual_tsvd,
-"TSVDmass3"=>TSVD_tsvd_mass3)
+tsvd_dict = Dict(
+    "TSVD" => TSVD_tsvd,
+    "full" => full_svd,
+    "TSVDmass3" => TSVD_tsvd_mass3)
 
 
 struct SVDBasis <: AbstractBasisAnalyzer
@@ -107,18 +111,27 @@ function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses
     tsvd_method_string)
     data = getall(ljh, ceil(Int,n_pulses_for_train/frac_keep))
     create_basis_one_channel(data, noise_result, frac_keep, n_loop,
-        n_pulses_for_train, n_basis,tsvd_method_string,
+        n_pulses_for_train, n_basis, tsvd_method_string,
+        LJH.first_rising_sample(ljh[1]),
         LJH.filename(ljh), LJH.channel(ljh))
 end
 
 
 function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, frac_keep, n_loop, n_pulses_for_train, n_basis,
-    tsvd_method_string, datasource_filename, datasource_channel)
+    tsvd_method_string, n_presamples, datasource_filename, datasource_channel)
     tsvd_func = tsvd_dict[tsvd_method_string]
+    if tsvd_method_string == "TSVDmass3"
+        noise_solver = ARMA.ARMASolver(noise_result.model, size(data, 1))
+        function tsvd_closure(data,n_basis)
+            TSVD_tsvd_mass3(data,n_basis,n_presamples,noise_result.model,noise_solver)
+        end
+        tsvd_func = tsvd_closure
+    end
+
     std_noise = sqrt(noise_result.autocorr[1]) # the first element in the autocorrelation is the variance
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
     basis, residual_stds, last_train_inds, train_inds, singular_values = train_loop(data,
-    n_pulses_for_train, n_basis, n_loop, frac_keep_per_loop, tsvd_func)
+        n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, tsvd_func)
     projectors, pcovar = computeprojectors(basis,noise_result.model)
     svdbasis = SVDBasis(
         basis,
@@ -216,13 +229,13 @@ function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_
         println("making basis for channel $channel_number")
         ljhname = ljhdict[channel_number]
         try
-        make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
-            n_pulses_for_train, n_basis, tsvd_method)
+            make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
+                n_pulses_for_train, n_basis, tsvd_method)
         catch ex
             print("channel $channel_number failed")
             print(ex)
         end
     end
-    println("channels in noise_file but not in ljh $(setdiff(noise_channels,ljh_channels))")
-    println("channels in ljh but not in noise_file $(setdiff(ljh_channels,noise_channels))")
+    println("Channels in noise_file but not in ljh: $(setdiff(noise_channels,ljh_channels))")
+    println("Channels in ljh but not in noise_file: $(setdiff(ljh_channels,noise_channels))")
 end

@@ -8,6 +8,7 @@ function make_std_residuals(data, basis)
     td = make_time_domain(mpr,basis)
     std_residuals = std(data-td,1)[1,:]
 end
+
 function getall(ljh, maxrecords=typemax(Int))
     records = collect(ljh[1:min(Int(maxrecords),length(ljh))])
     pulses = Array{Float32,2}(ljh.record_nsamples,length(records))
@@ -16,16 +17,19 @@ function getall(ljh, maxrecords=typemax(Int))
     end
     pulses
 end
+
 function evenly_distributed_inds(inds,n_wanted)
     frac_keep = n_wanted/length(inds)
     keep_each_n = max(1,floor(Int,1/frac_keep))
     inds[1:keep_each_n:length(inds)]
 end
+
 function choose_new_train_inds(residuals, train_inds, frac_keep)
     n_keep = round(Int, frac_keep*length(train_inds))
     sort(train_inds, by = i -> residuals[i])[1:n_keep]
 end
-function train_loop(data,n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, make_basis)
+
+function train_loop(data, n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, make_basis)
     last_train_inds = train_inds = evenly_distributed_inds(1:size(data,2),n_pulses_for_train)
     for i=1:n_loop
         basis, singular_values = make_basis(data[:,train_inds],n_basis)
@@ -62,9 +66,9 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     end
     projectors3, _ = computeprojectors(mass3_basis,noise_model)
     mpr = projectors3 * data_train # model pulse reduced
-    td = Pope.make_time_domain(mpr,mass3_basis)
+    td = mass3_basis * mpr
     data_residual = data_train .- td
-    # Whiten residual before TSVD
+    # Whiten residual before taking the TSVD
     white_residual = ARMA.whiten(noise_solver, data_residual)
     Uwhite, S, V = TSVD.tsvd(white_residual, n_basis-3)
     # Unwhiten U before combining
@@ -122,8 +126,8 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
     tsvd_func = tsvd_dict[tsvd_method_string]
     if tsvd_method_string == "TSVDmass3"
         noise_solver = ARMA.ARMASolver(noise_result.model, size(data, 1))
-        function tsvd_closure(data,n_basis)
-            TSVD_tsvd_mass3(data,n_basis,n_presamples,noise_result.model,noise_solver)
+        function tsvd_closure(data, n_basis)
+            TSVD_tsvd_mass3(data, n_basis, n_presamples, noise_result.model, noise_solver)
         end
         tsvd_func = tsvd_closure
     end
@@ -139,14 +143,14 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
         pcovar,
         noise_result)
     sortinds = sortperm(residual_stds)
-    percentiles = [10:10:90;91:99]
+    percentiles = [10:10:90; 91:99]
     percentile_indicies = sortinds[[round(Int,(p/100)*length(residual_stds)) for p in percentiles]]
     example_pulses = round.(UInt16,data[:,percentile_indicies])
     svdbasis_with_info = SVDBasisWithCreationInfo(
         svdbasis, singular_values, example_pulses,
         residual_stds[percentile_indicies], percentiles,
         n_loop, noise_result.datasource, datasource_filename,
-        residual_stds,tsvd_method_string, datasource_channel
+        residual_stds, tsvd_method_string, datasource_channel
         )
     return svdbasis,svdbasis_with_info
 end

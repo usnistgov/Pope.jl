@@ -31,14 +31,18 @@ end
 
 function train_loop(data, n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, make_basis)
     last_train_inds = train_inds = evenly_distributed_inds(1:size(data,2),n_pulses_for_train)
+    # Use only a 3-Dimensional basis the first time through. This helps reject pileup before it
+    # can sneak into the SVD.
+    nb = min(n_basis, 3)
     for i=1:n_loop
-        basis, singular_values = make_basis(data[:,train_inds],n_basis)
+        basis, singular_values = make_basis(data[:,train_inds],nb)
         residuals = make_std_residuals(data,basis)
         last_train_inds = train_inds
         train_inds = choose_new_train_inds(residuals, train_inds, frac_keep_per_loop)
         if i==n_loop # variables created in loop are not availble outside the loop
             return basis, residuals, last_train_inds, train_inds, singular_values
         end
+        nb = n_basis
     end
 end
 

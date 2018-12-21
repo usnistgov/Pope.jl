@@ -51,6 +51,20 @@ function TSVD_tsvd(data_train::Matrix{<:AbstractFloat},n_basis)
     U,S
 end
 
+"""    TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples, noise_model::ARMA.ARMAModel, noise_solver::ARMA.ARMASolver)
+
+This function is called as the first step towards creating a basis with `n_basis` elements (minimum 3).
+Elements will be 1) constant, 2) derivative-like, 3) pulse-like with first `n_presamples` equal to zero.
+Elements 4 and higher are based on SVD of the noise whitened residuals after projecting into a basis of
+just the first 3 elements. This ensures that adding additional components will not change the projector
+for the first 3 components, and therefore the energy resolution obtained with only the first 3 projectors
+will be independing of number of components.
+
+The basis is paired with projectors, which allow you to project into the basis while minimizing
+the noise whitened residuals (aka the mahalonobis distance).
+
+This function returns `U,S` much like a truncated singular value decomposition, but such that the
+basis caluclated from `U,S` will meet the description above."""
 function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples,
         noise_model::ARMA.ARMAModel, noise_solver::ARMA.ARMASolver)
     @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
@@ -65,7 +79,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     derivative_like = [0.0;diff(average_pulse)]
     constant_component = ones(size(data_train,1))
     mass3_basis = hcat(constant_component,derivative_like,average_pulse)
-    if n_basis <= 3
+    if n_basis == 3
         return mass3_basis, [NaN,NaN,NaN]
     end
     projectors3, _ = computeprojectors(mass3_basis,noise_model)
@@ -78,7 +92,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     # Unwhiten U before combining
     U = ARMA.unwhiten(noise_solver, Uwhite)
     U_combined = hcat(mass3_basis,U)
-    S_combined = vcat([NaN,NaN,NaN],S)
+    S_combined = vcat([NaN,NaN,NaN],S) # first 3 elemnts are not from svd, have no meaningful singular value
     U_combined, S_combined
 end
 

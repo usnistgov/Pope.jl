@@ -24,6 +24,17 @@ using Pope.LJH
     @test b=="20150707_D"
     @test c==".ljh"
 
+    dir = "artifacts"
+    isdir(dir) || mkdir(dir)
+    a,b,c = LJH.dir_base_ext("artifacts")
+    @test a == "artifacts"
+    @test b == "artifacts"
+
+    a,b,c = LJH.dir_base_ext("artifacts/")
+    @test a == "artifacts"
+    @test b == "artifacts"
+
+
 dir = "artifacts/ljh_test1"
 isdir(dir) || mkdir(dir)
 fnames = LJH.fnames(joinpath(dir,"ljh_test1"),1:2:480)

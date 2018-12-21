@@ -68,13 +68,13 @@ basis caluclated from `U,S` will meet the description above."""
 function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples,
         noise_model::ARMA.ARMAModel, noise_solver::ARMA.ARMASolver)
     @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
-
     # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
     average_pulse = mean(data_train, 2)[:]
-    average_pulse -= mean(average_pulse[1:n_presamples])
+    if n_presamples > 0
+        average_pulse -= mean(average_pulse[1:n_presamples])
+    end
     average_pulse[1:n_presamples] = 0.0
     average_pulse /= maximum(average_pulse)
-
     # Calculate the derivative like component; assume clean baseline, so low derivative at start
     derivative_like = [0.0;diff(average_pulse)]
     constant_component = ones(size(data_train,1))

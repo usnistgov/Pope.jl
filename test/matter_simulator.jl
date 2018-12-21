@@ -23,5 +23,5 @@ filename1, writingbool1 = LJH.matter_writing_status()
 # @test writingbool0
 # @test !writingbool1
 @test filename0==filename1
-@test isfile(f0)
+@test isfile(filename0)
 end

@@ -28,11 +28,12 @@ frac_keep = 0.8
 n_loop = 5
 n_pulses_for_train=npulses
 n_basis = 3
+n_presamples = 0
 tsvd_method_string="TSVD"
 pulse_file = "dummy filename"
 tsvd_basis, tsvd_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     frac_keep, n_loop,
-    n_pulses_for_train, n_basis,tsvd_method_string,
+    n_pulses_for_train, n_basis,tsvd_method_string, n_presamples,
     pulse_file,-1)
 
 h5open("artifacts/dummy_model.h5","w") do h5 Pope.hdf5save(h5,tsvd_basisinfo) end
@@ -57,13 +58,13 @@ pulse_file = "dummy filename"
 n_basis=3 # test the case where the only 3 elements return are the mass3 (dc value, average pulse, pulse derivative)
 mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     frac_keep, n_loop,
-    n_pulses_for_train, n_basis,tsvd_method_string,
+    n_pulses_for_train, n_basis,tsvd_method_string, n_presamples,
     pulse_file,-1)
 
 n_basis=5
 mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     frac_keep, n_loop,
-    n_pulses_for_train, n_basis,tsvd_method_string,
+    n_pulses_for_train, n_basis,tsvd_method_string, n_presamples,
     pulse_file,-1)
 
 if !haskey(ENV,"POPE_NOMATPLOTLIB")

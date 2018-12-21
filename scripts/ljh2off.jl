@@ -1,44 +1,40 @@
 #!/usr/bin/env julia
 using ArgParse
-s = ArgParseSettings(usage="./ljh2off.jl 20181205_B/ 20181205_B/20181205_B_model.hdf5")
+s = ArgParseSettings(description="Coallate ljh files and convert to off with given model file\n"*
+"example usage:\n"*
+"./ljh2off.jl 20181205_B/20181205_B_model.hdf5 20181205_ --endings=B C\n"
+)
 @add_arg_table s begin
-    "ljh_file"
-        help = "name of the pulse containing ljh file to use to make basis, will process all channels"
-        required = true
-        arg_type = String
     "model_file"
-        help = "name of the noise_analysis hdf5 file to use to make basis"
+        help = "name of the hdf5 with basis to use"
         required = true
         arg_type = String
+    "ljh_file"
+        help = "name of the pulse files containing ljh file to use to make basis, will process all channels"
+        required = true
+        arg_type = String
+    "--endings"
+        nargs = '+'
+        help = "a series of endings appended to ljh_file, eg A B C"
+        default = String[""]
     "--maxchannels"
         default = 10000
         help = "process at most this many channels, in order from lowest channel number"
         arg_type = Int
+    "--outdir"
+        arg_type = String
+        help ="path to the output directory, otherwise calculate automatically"
 end
 parsed_args = parse_args(ARGS, s)
+if parsed_args["outdir"] == nothing
+    parsed_args["outdir"] = parsed_args["ljh_file"]*prod(parsed_args["endings"])
+end
 display(parsed_args);println()
 using Pope.LJH
 using HDF5
 using JSON
 
-ljhdict = LJH.allchannels(parsed_args["ljh_file"],parsed_args["maxchannels"]) # ordered dict mapping channel number to filename
-HDF5.h5open(parsed_args["model_file"],"r") do h5
-for (channum, ljh_filename) in ljhdict
-    # LJH.allchannels only contains existing files
-    ljh = try
-        LJH.LJHFile(ljh_filename)
-    catch ex
-        println("Channel $channum ljh file failed to open: $ljh_filename")
-        println(ex)
-        continue
-    end
-    offFilename = splitext(ljh_filename)[1]*".off"
-    if !("$channum" in names(h5))
-        println("Channel $channum has no model in model file, skipping")
-        continue
-    end
-    println("$ljh_filename => $offFilename")
-    z = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5["$channum"])
+function off_header(ljh::LJH.LJHFile, z::Pope.SVDBasisWithCreationInfo)
     offVersion = "0.1.0"
     offHeader = Dict(
         "FileFormatVersion" => offVersion,
@@ -66,15 +62,63 @@ for (channum, ljh_filename) in ljhdict
     offHeader["CreationInfo"]=Dict(
         "SourceName" => "ljh2off.jl"
     )
-    headerString = JSON.json(offHeader,4)
-    open(offFilename,"w") do f
-        write(f, headerString)
-        for record in ljh
-            dp = Pope.record2dataproduct(z.svdbasis,record)
-            write(f,Int32(dp.nsamples), Int32(dp.first_rising_sample-4), Int64(dp.frame1index),
-            Int64(dp.timestamp_usec*1000), Float32(mean(record.data[1:dp.first_rising_sample-3])),
-            Float32(dp.residual_std), Float32.(dp.reduced))
-        end # end of loop over ljh
-    end # end of open do block
-end # end of loop over ljhdict
+    return JSON.json(offHeader,4)
+end
+
+ljh_files = [parsed_args["ljh_file"]*ending for ending in parsed_args["endings"]]
+@show ljh_files
+@show parsed_args["endings"]
+
+
+
+earliest_timestamp_usec = [typemax(Int64) for i in ljh_files]
+# make sure the directory exists
+isdir(parsed_args["outdir"]) || mkdir(parsed_args["outdir"])
+HDF5.h5open(parsed_args["model_file"],"r") do h5
+    channels_processed = 0
+    for name in names(h5)
+        channels_processed >= parsed_args["maxchannels"] && break
+        channum = parse(Int,name)
+        offFilename = joinpath(parsed_args["outdir"],parsed_args["outdir"]*"_chan$(channum).off")
+        header_written = false
+        z = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5[name])
+        open(offFilename,"w") do f
+            for (i,ljhbase) in enumerate(ljh_files)
+                dir, base, ext = LJH.dir_base_ext(ljhbase)
+                ljh_filename = joinpath(dir,base)*"_chan$(channum)$(ext)"
+                ljh = try
+                    LJH.LJHFile(ljh_filename)
+                catch ex
+                    println("Channel $channum ljh file failed to open: $ljh_filename")
+                    println(ex)
+                    continue
+                end
+                println("$ljh_filename => $offFilename")
+                if !header_written
+                    write(f, off_header(ljh,z))
+                    header_written = true
+                end
+                earliest_timestamp_usec[i] = min(ljh[1].timestamp_usec, earliest_timestamp_usec[i])
+                channels_processed += 1
+                for record in ljh
+                    dp = Pope.record2dataproduct(z.svdbasis,record)
+                    write(f,Int32(dp.nsamples), Int32(dp.first_rising_sample-4), Int64(dp.frame1index),
+                    Int64(dp.timestamp_usec*1000), Float32(mean(record.data[1:dp.first_rising_sample-3])),
+                    Float32(dp.residual_std), Float32.(dp.reduced))
+                end # end of loop over ljh
+            end # end of loop over parsed_args["ljh_files"]
+        end # end of open do block
+    end # end of loop over channels
 end # end of h5open do block
+
+experimental_state_filename = joinpath(parsed_args["outdir"],parsed_args["outdir"]*"_experiment_state.txt")
+state_names = parsed_args["endings"]
+@show state_names
+@show experimental_state_filename
+open(experimental_state_filename,"w") do f
+    write(f,"# unix time in nanoseconds, state label\n")
+    write(f,earliest_timestamp_usec[1]*1000, "START\n")
+    for (i, timestamp_usec) in enumerate(earliest_timestamp_usec)
+        write(f, timestamp_usec*1000,", ",state_names[i],"\n")
+    end
+end

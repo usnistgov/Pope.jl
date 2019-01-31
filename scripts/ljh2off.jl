@@ -17,6 +17,7 @@ s = ArgParseSettings(description="Coallate ljh files and convert to off with giv
         nargs = '+'
         help = "a series of endings appended to ljh_file, eg A B C"
         default = String[""]
+        arg_type = String
     "--maxchannels"
         default = 10000
         help = "process at most this many channels, in order from lowest channel number"
@@ -52,7 +53,12 @@ function off_header(ljh::LJH.LJHFile, z::Pope.SVDBasisWithCreationInfo)
             "RowMajorFloat64ValuesBase64" =>base64encode(transpose(Float64.(z.svdbasis.basis))),
             "Rows" =>size(z.svdbasis.basis)[1],
             "Cols" =>size(z.svdbasis.basis)[2]
-    ))
+    ),
+        "NoiseStandardDeviation" => z.noise_std_dev,
+        "NoiseModelFile" => z.noise_model_file,
+        "PulseFile" => z.pulse_file,
+        "ModelFile" => abspath(parsed_args["ljh_file"])
+    )
     offHeader["ReadoutInfo"] = Dict(
         "ColumnNum" => LJH.column(ljh),
         "RowNum" => LJH.row(ljh),
@@ -72,6 +78,7 @@ ljh_files = [parsed_args["ljh_file"]*ending for ending in parsed_args["endings"]
 
 
 earliest_timestamp_usec = [typemax(Int64) for i in ljh_files]
+latest_timestamp_usec = [typemin(Int64) for i in ljh_files]
 # make sure the directory exists
 isdir(parsed_args["outdir"]) || mkdir(parsed_args["outdir"])
 HDF5.h5open(parsed_args["model_file"],"r") do h5
@@ -99,6 +106,7 @@ HDF5.h5open(parsed_args["model_file"],"r") do h5
                     header_written = true
                 end
                 earliest_timestamp_usec[i] = min(ljh[1].timestamp_usec, earliest_timestamp_usec[i])
+                latest_timestamp_usec[i] = max(ljh[end].timestamp_usec, latest_timestamp_usec[i])
                 channels_processed += 1
                 for record in ljh
                     dp = Pope.record2dataproduct(z.svdbasis,record)
@@ -117,8 +125,9 @@ state_names = parsed_args["endings"]
 @show experimental_state_filename
 open(experimental_state_filename,"w") do f
     write(f,"# unix time in nanoseconds, state label\n")
-    write(f,earliest_timestamp_usec[1]*1000, "START\n")
+    write(f,string(earliest_timestamp_usec[1]*1000),", ", "START\n")
     for (i, timestamp_usec) in enumerate(earliest_timestamp_usec)
-        write(f, timestamp_usec*1000,", ",state_names[i],"\n")
+        write(f, string(timestamp_usec*1000),", ",state_names[i],"\n")
     end
+    write(f,string(latest_timestamp_usec[end]*1000),", ", "END\n")
 end

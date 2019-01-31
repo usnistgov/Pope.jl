@@ -127,6 +127,7 @@ struct SVDBasisWithCreationInfo
     std_residuals::Vector{Float32}
     tsvd_method::String
     channel_number::Int
+    noise_std_dev::Float64
 end
 
 function create_basis_one_channel(ljh, noise_result, frac_keep, n_loop, n_pulses_for_train, n_basis,
@@ -168,7 +169,8 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
         svdbasis, singular_values, example_pulses,
         residual_stds[percentile_indicies], percentiles,
         n_loop, noise_result.datasource, datasource_filename,
-        residual_stds, tsvd_method_string, datasource_channel
+        residual_stds, tsvd_method_string, datasource_channel,
+        √(svdbasis.noise_result.autocorr[1])
         )
     return svdbasis,svdbasis_with_info
 end
@@ -192,6 +194,7 @@ function hdf5save(g::HDF5.DataFile, x::SVDBasisWithCreationInfo)
     g["std_residuals"]=x.std_residuals
     g["tsvd_method"]=x.tsvd_method
     g["channel_number"]=x.channel_number
+    g["noise_std_dev"]=x.noise_std_dev
 end
 
 
@@ -217,7 +220,8 @@ function hdf5load(T::Type{SVDBasisWithCreationInfo},g::HDF5.DataFile)
     read(g["pulse_file"]),
     read(g["std_residuals"]),
     read(g["tsvd_method"]),
-    read(g["channel_number"])
+    read(g["channel_number"]),
+    read(g["noise_std_dev"])
     )
 end
 

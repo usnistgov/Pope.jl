@@ -57,7 +57,6 @@ using ARMA
 using Pope.NoiseAnalysis
 outputh5 = h5open(parsed_args["outputfile"],"w")
 ljhdict = LJH.allchannels(parsed_args["pulse_file"],parsed_args["maxchannels"]) # ordered dict mapping channel number to filename
-
 function analyze_one_file(filename::AbstractString, channum::Integer,
         outputh5::HDF5.HDF5File, nlags::Integer=0, nfreq::Integer=0;
         max_samples::Integer=50000000)
@@ -99,7 +98,10 @@ function analyze_one_file(filename::AbstractString, channum::Integer,
     NoiseAnalysis.hdf5save(outputh5, channum, noise)
 end
 
-
+if length(ljhdict) == 0
+    println("Analyzed 0 files")
+    exit()
+end
 
 for (channum, ljhname) in ljhdict
     println("Analyzing $ljhname")

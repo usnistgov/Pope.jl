@@ -4,8 +4,14 @@ Given an ljh filename like "somedir/a_chan1.ljh" returns ("somedir,")
 """
 function dir_base_ext(ljhname::AbstractString)::Tuple{String,String,String}
     if isdir(ljhname)
-        dname = ljhname # removes trailing /
+        dname = ljhname
+        if dname[end] == '/'
+            dname = dname[1:end-1]
+        end
         bname = last(split(dname,'/'))
+        if bname == ""
+            bname = dname
+        end
         return dname, bname, ".ljh"
     end
     bname,ext = splitext(basename(ljhname))

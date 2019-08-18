@@ -34,15 +34,16 @@ s = ArgParseSettings()
         help ="""The fraction of training pulses to keep. Each loop cuts a fraction of pulses
         with the highest residuals, after all loops, this fraction of pulses remain uncut."""
     "--tsvd_method"
-        default = "TSVDmass3"
-        help = """which truncated SVD method to use, supports `TSVDmass3`, `TSVD`, and `full`.
-        The default is `TSVDmass3`, in which the usual MASS method is applied (find the pulse
+        default = "noisemass3"
+        help = """which truncated SVD method to use, supports `TSVDmass3`, `noisemass3`, `TSVD`, and `full`.
+        The default is `noisemass3`, in which the usual MASS method is applied (find the pulse
         average, a time-correction, and a constant, and use SVD on the residuals to find any
-        additional components). The other 2 methods just apply (truncated) SVD to the training data.
+        additional components). The `TVSDmass3` is like `noisemass3` but uses approximate ARMA models.
+        The other 2 methods just apply (truncated) SVD to the training data.
         The results of the last two should be nearly identical, and `TSVD` is faster.
         But you can try `full`, which computes the full SVD and retains the leading `n_basis` vectors,
         as a sanity check if the basis vectors look weird.
-        Note that for method TSVDmass3, the value of `n_basis` must be at least 3."""
+        Note that for methods TSVDmass3 and noisemass3, the value of `n_basis` must be at least 3."""
     "--maxchannels"
         default = 1000000
         help = "process at most this many channels, in order from lowest channel number"

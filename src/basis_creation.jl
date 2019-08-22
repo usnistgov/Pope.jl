@@ -123,7 +123,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     mpr = projectors3 * data_train # model pulse reduced
     td = mass3_basis * mpr
     data_residual = data_train .- td
-    # The RIGHT thing to do would be tow hiten residual before taking the TSVD.
+    # The RIGHT thing to do would be to whiten residual before taking the TSVD.
     # However, Julia 0.6 doesn't support fast Toeplitz factors, and we are calling this
     # function because we don't trust the ARMA models. So let us work instead with the Euclidean residual.
     U, S, V = TSVD.tsvd(data_residual, n_basis-3)
@@ -197,7 +197,11 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
     basis, residual_stds, last_train_inds, train_inds, singular_values = train_loop(data,
         n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, tsvd_func)
-    projectors, pcovar = computeprojectors(basis,noise_result.model)
+    if tsvd_method_string == "noisemass3"
+        projectors, pcovar = computeprojectors(basis,noise_result.autocorr)
+    else
+        projectors, pcovar = computeprojectors(basis,noise_result.model)
+    end
     svdbasis = SVDBasis(
         basis,
         projectors,

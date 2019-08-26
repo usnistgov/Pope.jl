@@ -1,6 +1,6 @@
-using Pope: LJH
+using Pope.LJH
 using HDF5
-using Base.Test
+using Test
 const WT = false # run @code_warntype
 
 # clean out the artifacts directory

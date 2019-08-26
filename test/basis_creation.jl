@@ -1,7 +1,7 @@
 using Pope.NoiseAnalysis
 using ARMA
 using HDF5
-using Base.Test
+using Test
 
 # generate some fake data to make a basis from
 x=1:400

@@ -1,6 +1,6 @@
 using Pope, HDF5
 using Pope.LJH
-using Base.Test
+using Test
 using ReferenceMicrocalFiles
 
 @testset "BufferedHDF5Dataset2D" begin

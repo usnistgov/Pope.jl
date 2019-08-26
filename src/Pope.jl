@@ -1,15 +1,10 @@
 module Pope
-using HDF5, ProgressMeter, ZMQ, Distributions, DataStructures
+using HDF5, ProgressMeter, Distributions, DataStructures
 using Nullables
 include("LJH.jl")
 include("ljhutil.jl")
 include("NoiseAnalysis.jl")
-include("summarize.jl")
-include("apply_filter.jl")
 include("projections.jl")
-include("matter_simulator.jl")
-include("zmq_datasink.jl")
-include("ports.jl")
 
 
 "Readers is like a `Vector{LJHReaderFeb2017}` with some additional smarts for

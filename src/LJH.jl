@@ -128,7 +128,7 @@ _readrecord(f::LJHFile,i) = pop!(f)
 
 Base.size(f::LJHFile) = (ljh_number_of_records(f),)
 Base.length(f::LJHFile) = ljh_number_of_records(f)
-Base.endof(f::LJHFile) = ljh_number_of_records(f)
+Base.lastindex(f::LJHFile) = ljh_number_of_records(f)
 function Base.eltype(f::LJHFile{V, FrameTime, PretrigNSamples, NRow}) where {V, FrameTime, PretrigNSamples, NRow}
      LJHRecord{FrameTime, PretrigNSamples, NRow}
 end
@@ -137,8 +137,8 @@ function Base.iterate(f::LJHFile)
     seekto(f, 1)
     return Base.iterate(f, 0)
 end
-function Base.iterate(f::LJHFile, s)
-    j==length(f) && return
+function Base.iterate(f::LJHFile, j)
+    j≥length(f) && return
     return pop!(f), j+1
 end
 filename(f::LJHFile) = f.filename
@@ -309,23 +309,22 @@ function Base.getindex(g::LJHGroup, i::Int)
     g.ljhfiles[filenum][recordnum]
 end
 Base.getindex(g::LJHGroup, slice::AbstractArray) = LJHGroupSlice(g, slice)
-Base.endof(g::LJHGroup) = length(g)
-function Base.start(g::LJHGroup)
+Base.lastindex(g::LJHGroup) = length(g)
+function Base.iterate(g::LJHGroup)
     for f in g.ljhfiles seekto(f,1) end
     filenum, recordnum = filenum_recordnum(g,1)
     donefilenum, donerecordnum = filenum_recordnum(g, length(g))
-    (filenum, recordnum, donefilenum, donerecordnum)
+    Base.iterate(g, (filenum, recordnum, donefilenum, donerecordnum))
 end
-function Base.next(g::LJHGroup, state)
+function Base.iterate(g::LJHGroup, state)
     filenum, recordnum, donefilenum, donerecordnum = state
+    if filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
+        return nothing
+    end
     ljhrecord = pop!(g.ljhfiles[filenum])
     recordnum+=1
     recordnum > g.lengths[filenum] && (recordnum-=g.lengths[filenum];filenum+=1)
     ljhrecord, (filenum, recordnum, donefilenum, donerecordnum)
-end
-function Base.done(g::LJHGroup, state)
-    filenum, recordnum, donefilenum, donerecordnum = state
-    filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
 end
 function Base.show(io::IO, g::LJHGroup)
     print(io, "LJHGroup with $(length(g.ljhfiles)) files, $(length(g)) records, split as $(lengths(g)),")
@@ -347,26 +346,25 @@ struct LJHGroupSlice{T<:AbstractArray}
     end
 end
 Base.length(g::LJHGroupSlice) = length(g.slice)
-Base.endof(g::LJHGroupSlice) = length(g.slice)
+Base.lastindex(g::LJHGroupSlice) = length(g.slice)
 LJHGroupSlice(ljhfile::LJHGroup, slice::T) where T <: AbstractArray = LJHGroupSlice{T}(ljhfile, slice)
-function Base.start(g::LJHGroupSlice{T}) where T <: UnitRange
+function Base.iterate(g::LJHGroupSlice{T}) where T <: UnitRange
     for f in g.g.ljhfiles seekto(f,1) end
     isempty(g.slice) && return (2,2,1,1) # ensure done condition is immediatley met on empty range
     filenum, recordnum = filenum_recordnum(g.g, first(g.slice))
     donefilenum, donerecordnum = filenum_recordnum(g.g, last(g.slice))
     seekto(g.g.ljhfiles[filenum], recordnum)
-    (filenum, recordnum, donefilenum, donerecordnum)
+    Base.iterate(g, (filenum, recordnum, donefilenum, donerecordnum))
 end
-function Base.next(g::LJHGroupSlice{T}, state) where T <: UnitRange
+function Base.iterate(g::LJHGroupSlice{T}, state) where T <: UnitRange
     filenum, recordnum, donefilenum, donerecordnum = state
+    if filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
+        return nothing
+    end
     ljhrecord = pop!(g.g.ljhfiles[filenum])
     recordnum+=1
     recordnum > g.g.lengths[filenum] && (recordnum-=g.g.lengths[filenum];filenum+=1)
     ljhrecord, (filenum, recordnum, donefilenum, donerecordnum)
-end
-function Base.done(g::LJHGroupSlice{T}, state) where T <: UnitRange
-    filenum, recordnum, donefilenum, donerecordnum = state
-    filenum>donefilenum || filenum==donefilenum && recordnum>donerecordnum
 end
 record_nsamples(s::LJHGroupSlice) = record_nsamples(s.g)
 
@@ -382,22 +380,17 @@ end
 "    get_data_rowcount_timestamp!(g::LJHGroupSlice),data::Matrix{UInt16},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
 Get all data from an `LJHGroupSlice`, pass in vectors of length `length(g)` and correct type to be filled with the answers."
 function get_data_rowcount_timestamp!(g::LJHLike,data::Matrix{UInt16},rowcount::Vector{Int64},timestamp_usec::Vector{Int64})
-    state = start(g)
-    i=0
     @assert size(data,2)==length(rowcount)==length(timestamp_usec)==length(g) "data, rowcount, timestap_usec: length mismatch: lengths $((size(data,2), length(rowcount), length(timestamp_usec), length(g)))"
-    while !done(g, state)
-        i+=1
-        record, state = next(g,state)
+    for (i, record) in enumerate(g)
         data[:,i] = record.data
         rowcount[i] = record.rowcount
         timestamp_usec[i] = record.timestamp_usec
     end
-    @assert i==length(g) "iterated $i times, should have been $(length(g))"
     data,rowcount,timestamp_usec
 end
 
 function finalize_longrecord!(longrecords, records, nsamples)
-    v = Vector{UInt16}(nsamples)
+    v = Vector{UInt16}(undef, nsamples)
     i=1
     lasti=1
     for record in records

@@ -1,7 +1,7 @@
 name = "Pope"
 uuid = "a30f7cd4-c816-11e9-3b7b-4b2248985146"
 authors = ["Joseph Fowler <drjoefowler@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 ARMA = "cd9ce936-d6d7-11e8-0157-ada3f5245b07"
@@ -21,7 +21,9 @@ TSVD = "9449cd9e-2762-5aa3-a617-5413e99d722e"
 ARMA = "≥ 0.2.0"
 
 [extras]
+InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
+ReferenceMicrocalFiles = "71b9c9e8-1558-5bd5-aee5-1f487634fc17"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "InteractiveUtils", "ReferenceMicrocalFiles"]

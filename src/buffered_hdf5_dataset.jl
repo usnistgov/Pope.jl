@@ -46,7 +46,7 @@ function BufferedHDF5Dataset{T}(g::Union{HDF5File,HDF5Group}, name, chunksize) w
   BufferedHDF5Dataset{T}(ds, Vector{T}(), 0)
 end
 function write_to_hdf5(b::BufferedHDF5Dataset)
-  r = b.lasti + (1:length(b.v))
+  r = b.lasti .+ (1:length(b.v))
   if length(r)>0
     d_extend(b.ds, b.v, r)
     empty!(b.v)

@@ -6,7 +6,7 @@ using ReferenceMicrocalFiles
 @testset "BufferedHDF5Dataset2D" begin
     for name in ["ds","1/ds"]
         h5 = h5open(tempname(),"w")
-        const chunksize = 100
+        chunksize = 100
         # create an extendible dataset to hold reduced pulses with 6 element basis
         buffer = Pope.BufferedHDF5Dataset2D{Float32}(h5,name,6,1000)
         write(buffer, Vector{Float32}(1:6))
@@ -44,7 +44,7 @@ end
     dataproduct = Pope.BasisDataProduct(collect(1:6),1,2,3,4,5)
     write(b,dataproduct)
     Pope.stop(b)
-    wait(b)
+    fetch(b)
     @test read(h5["1/reduced"]) == reshape(1:6,(6,1))
     @test read(h5["1/residual_std"]) == [dataproduct.residual_std]
     @test read(h5["1/frame1index"]) == [dataproduct.frame1index]
@@ -69,7 +69,7 @@ end
     push!(readers, ljhreader)
     schedule(readers)
     Pope.stop(readers)
-    wait(readers)
+    fetch(readers)
     close(h5)
     h5r = h5open(h5.filename,"r")
     @test (nbases,length(ljh)) == size(h5r["$(LJH.channel(ljh))/reduced"])
@@ -99,7 +99,7 @@ end
     schedule(readers)
     sleep(1)
     Pope.stop(readers)
-    wait(readers)
+    fetch(readers)
     close(h5)
     h5r = h5open(h5.filename,"r")
     @test Pope.nbases(analyzer) == nbases

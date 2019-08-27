@@ -134,9 +134,13 @@ Base.size(ljh::LJH3File) = (length(ljh),)
 function Base.length(ljh::LJH3File)
     # iterate from the last entry in index to the end of the file
     # to fill ljh.index
-    state = length(ljh.index), stat(ljh.io).size
-    for _ in Base.iterate(ljh, state)
-        ;
+    nknown = length(ljh.index)
+    state = nknown, stat(ljh.io).size
+    seekto(ljh, nknown)
+    next = Base.iterate(ljh, state)
+    while next !== nothing
+        (i, state) = next
+        next = Base.iterate(ljh, state)
     end
     return length(ljh.index)-1
 end
@@ -147,7 +151,7 @@ function Base.iterate(ljh::LJH3File, state=nothing)
         seekto(ljh,1)
         state = 1, stat(ljh.io).size
     end
-    j,sz=state
+    j,sz = state
     if ljh.index[j] ≥ sz
         return nothing
     end

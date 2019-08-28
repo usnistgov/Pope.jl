@@ -4,18 +4,27 @@ os:
   - linux
   # - osx
 julia:
-  - 0.7
-  # - 1.0
+  # - 0.7
+  - 1.0
   # - 1.1
   # - 1.2
 notifications:
   email: true
 env:
   - POPE_NOMASS=true DOCUMENTER_DEBUG=true POPE_NOMATPLOTLIB=true
-# uncomment the following lines to override the default test script
-#script:
-#  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-#  - julia -e 'Pkg.clone(pwd()); Pkg.build("Pope"); Pkg.test("Pope"; coverage=true)'
+
+before_script:
+  - git clone https://github.com/ggggggggg/ReferenceMicrocalFiles.jl
+  - git clone https://github.com/joefowler/ARMA.jl
+
+script:
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - ls -l #Optional command.  Just here to confirm the Dependency is in the folder you think it is.
+  - pwd #Optional command. Just here so you can see where you are in the file system to make sure the path is correct below.
+  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.develop(PackageSpec(path="ReferenceMicrocalFiles.jl")); Pkg.instantiate()'
+  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.develop(PackageSpec(path="ARMA.jl")); Pkg.instantiate()'
+  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.instantiate(); Pkg.build();'
+  
 addons:
   apt:
     packages:

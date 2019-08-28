@@ -105,8 +105,8 @@ function Base.schedule(b::BufferedWriter)
   end
 end
 stop(b::BufferedWriter) = put!(b.endchannel,true)
-Base.wait(b::BufferedWriter) = wait(b.task)
-Base.close(b::BufferedWriter) = (stop(b);wait(b))
+Base.fetch(b::BufferedWriter) = fetch(b.task)
+Base.close(b::BufferedWriter) = (stop(b);fetch(b))
 Base.flush(b::BufferedWriter) = flush(hdf5file(b))
 function make_buffered_hdf5_writer(h5, channel_number, analzyer::MassCompatibleAnalysisFeb2017, chunksize=1000, timeout_s=1.0)
   g = g_require(h5,"chan$channel_number")

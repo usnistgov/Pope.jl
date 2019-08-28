@@ -10,6 +10,7 @@ s = ArgParseSettings()
 
 end
 
+delete!(ENV, "PYTHONPATH")
 using PyCall
 using PyPlot
 using HDF5

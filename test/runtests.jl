@@ -7,11 +7,30 @@ const WT = false # run @code_warntype
 isdir("artifacts") && rm("artifacts",recursive=true)
 mkdir("artifacts")
 
-include("noise_analysis.jl")
-include("ljh.jl")
-include("ljh3.jl")
-include("ljhutil.jl")
-include("pope.jl")
-include("basis_apply.jl")
-include("projections.jl")
-include("basis_creation.jl")
+tests = [
+    "noise_analysis",
+    "ljh",
+    "ljh3",
+    "ljhutil",
+    "pope",
+    "projections",
+    "basis_apply",
+    "basis_creation",
+    ]
+
+# In later versions of Julia (≥1.3 maybe?), you can use
+# Pkg.test("Pope"; test_args=["ljh", "ljh3"]) to select a subset of
+# tests, but this won't affect ARGS in earlier versions.
+if length(ARGS) > 0
+    tests = ARGS
+end
+
+@testset "Pope" begin
+
+for t in tests
+    fp = joinpath(dirname(@__FILE__), "$t.jl")
+    println("$fp ...")
+    include(fp)
+end
+
+end # @testset

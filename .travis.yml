@@ -5,7 +5,9 @@ os:
   # - osx
 julia:
   - 0.7
-  #- nightly
+  # - 1.0
+  # - 1.1
+  # - 1.2
 notifications:
   email: true
 env:
@@ -18,7 +20,6 @@ addons:
   apt:
     packages:
     - hdf5-tools
-    - libzmq3
     - libnlopt0
 sudo: required
 

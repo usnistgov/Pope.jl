@@ -48,7 +48,7 @@ function main()
         try
             noiseplots(input, pdffile)
         finally
-            pdffile[:close]()
+            pdffile.close()
         end
         @show output
     end
@@ -135,9 +135,9 @@ function noiseplots(input::AbstractString, pdffile)
 
             if vert == NVERT-1 || chan == channels[end]
                 tight_layout()
-                pdffile[:savefig](fig)
+                pdffile.savefig(fig)
                 println("Rendered a page")
-                plt[:close](fig)
+                plt.close(fig)
                 fig = figure(1, figsize=(11.5, 8))
             end
         end

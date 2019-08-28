@@ -32,13 +32,13 @@ covar = ARMA.model_covariance(model, N)
 
 @testset "core" begin
     # Verify that projecting the basis (for any noise model) yields identity.
-    @test wproj*basis ≈ eye(n)
-    @test mproj*basis ≈ eye(n)
-    @test cproj*basis ≈ eye(n)
+    @test wproj*basis ≈ Matrix(1.0I, n, n)
+    @test mproj*basis ≈ Matrix(1.0I, n, n)
+    @test cproj*basis ≈ Matrix(1.0I, n, n)
 
     # Verify projecting combinations of the basis works, too.
     # Yes, I realized that success here is implied by the eye(n) tests, above.
-    @test cproj*2basis ≈ 2eye(n)
+    @test cproj*2basis ≈ 2Matrix(1.0I, n, n)
     truecoef = randn(n,n)
     b = basis*truecoef
     @test truecoef ≈ cproj*b
@@ -66,13 +66,13 @@ end
 
     # Basis vectors are degenerate
     degeneratebasis = copy(basis)
-    degeneratebasis[:,end] = sum(degeneratebasis[:,1:3], 2)
+    degeneratebasis[:,end] = sum(degeneratebasis[:,1:3], dims=2)
     @test_throws ArgumentError Pope.computeprojectors(degeneratebasis, white)
-    degeneratebasis[:,end] = 0.0
+    degeneratebasis[:,end] .= 0.0
     @test_throws ArgumentError Pope.computeprojectors(degeneratebasis, white)
 
     # Noise is zero
-    @test_throws DivideError Pope.computeprojectors(basis, 0*white)
+    @test_throws SingularException Pope.computeprojectors(basis, 0*white)
 
     # Basis has more columns than rows
     fatbasis = randn(6, 10)

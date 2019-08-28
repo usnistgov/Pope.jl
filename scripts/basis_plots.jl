@@ -53,7 +53,7 @@ function plot_model_and_residuals(basisinfo)
     Ntrain = length(normalized_sorted_residuals)
     a=normalized_sorted_residuals[1]
     b=max(1.5*a, normalized_sorted_residuals[ceil(Int, Ntrain*0.9)])
-    plot(normalized_sorted_residuals,linspace(0,1,length(normalized_sorted_residuals)))
+    plot(normalized_sorted_residuals, range(0, stop=1, length=length(normalized_sorted_residuals)))
     xlim(a,b)
     ylim(0,1)
     xlabel("(Residual std)/(Noise std)")
@@ -64,7 +64,7 @@ end
 
 function plot_example_pulses(basisinfo)
     for i = 1:ceil(Int,length(basisinfo.percentiles_of_sample_pulses)/9)
-        r=(1:9)+(i-1)*9
+        r = (1:9) .+ (i-1)*9
         figure(figsize=(10,10))
         subplot(311)
         artists=plot(basisinfo.example_pulses[:,r])
@@ -78,7 +78,7 @@ function plot_example_pulses(basisinfo)
         residuals = basisinfo.example_pulses[:,r]-model_pulses
         noise_std = √(basisinfo.svdbasis.noise_result.autocorr[1])
         artists=plot(residuals)
-        std_residual_normalized = Float32.(std(residuals,1)'[:]/noise_std)
+        std_residual_normalized = Float32.(std(residuals, dims=1)'[:]/noise_std)
         std_residual_normalized_from_training = basisinfo.std_residuals_of_example_pulses/noise_std
         legend(artists, std_residual_normalized, loc="right", title="std dev/noise std dev")
         xlabel("Sample number")
@@ -94,9 +94,9 @@ end
 
 
 function write_all_plots_to_pdf(pdffile)
-    for i in plt[:get_fignums]()
+    for i in plt.get_fignums()
         figure(i)
-        pdffile[:savefig](i)
+        pdffile.savefig(i)
         close(i)
     end
 end
@@ -114,8 +114,8 @@ function main(parsed_args)
         write_all_plots_to_pdf(pdffile)
     end
     close(h5)
-    pdffile[:close]()
-    plt[:close]("all")
+    pdffile.close()
+    plt.close("all")
 end
 
 main(parsed_args)

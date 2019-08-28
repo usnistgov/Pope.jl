@@ -12,7 +12,7 @@ end
 
 function getall(ljh, maxrecords=typemax(Int))
     records = collect(ljh[1:min(Int(maxrecords),length(ljh))])
-    pulses = Array{Float32,2}(ljh.record_nsamples,length(records))
+    pulses = Array{Float32}(undef, ljh.record_nsamples,length(records))
     for (i,record) in enumerate(records)
         pulses[:,i]=record.data
     end
@@ -72,7 +72,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
     average_pulse = mean(data_train, dims=2)[:]
     if n_presamples > 0
-        average_pulse -= mean(average_pulse[1:n_presamples])
+        average_pulse .-= mean(average_pulse[1:n_presamples])
     end
     average_pulse[1:n_presamples] .= 0.0
     average_pulse /= maximum(average_pulse)

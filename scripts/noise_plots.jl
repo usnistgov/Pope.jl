@@ -1,4 +1,4 @@
-#!/usr/bin/env julia07
+#!/usr/bin/env julia
 
 using ArgParse
 using ARMA
@@ -8,7 +8,7 @@ using Pope.NoiseAnalysis
 
 delete!(ENV, "PYTHONPATH")
 using PyCall, PyPlot
-@pyimport matplotlib.backends.backend_pdf as pdf
+pdf = pyimport("matplotlib.backends.backend_pdf")
 
 function parse_commandline()
     s = ArgParseSettings()

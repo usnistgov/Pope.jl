@@ -2,6 +2,7 @@ using Pope.NoiseAnalysis
 using ARMA
 using HDF5
 using Random
+import ReferenceMicrocalFiles
 using Pope
 using Test
 
@@ -47,8 +48,9 @@ loaded_basis = h5open("artifacts/dummy_model.h5","r") do h5 Pope.analyzer_from_p
     @test loaded_basisinfo.svdbasis.basis==loaded_basis.basis==tsvd_basisinfo.svdbasis.basis
 end
 
-noisepath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_C_chan13.noi")
-ljhpath = joinpath(Pkg.dir(),"ReferenceMicrocalFiles/ljh/20150707_D_chan13.ljh")
+rmfdir = splitdir(pathof(ReferenceMicrocalFiles))[1]
+noisepath = normpath("$(rmfdir)/../ljh/20150707_C_chan13.noi")
+ljhpath = normpath("$(rmfdir)/../ljh/20150707_D_chan13.ljh")
 noise_result_path = "artifacts/noise_result.h5"
 model_path = "artifacts/model.h5"
 
@@ -71,10 +73,9 @@ mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
 
 if !haskey(ENV,"POPE_NOMATPLOTLIB")
     @testset "scripts with SVDBasis" begin
-        @test nothing==run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`)
-        @test nothing==run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`)
-        @test nothing==run(`julia ../scripts/basis_plots.jl $model_path`)
-        @test nothing==run(`julia ../scripts/noise_plots.jl $noise_result_path`)
-        @test nothing==run(`julia ../scripts/popeonce.jl $ljhpath $model_path artifacts/model_output.h5`)
+        @test success(run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`))
+        @test success(run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`))
+        @test success(run(`julia ../scripts/basis_plots.jl $model_path`))
+        @test success(run(`julia ../scripts/noise_plots.jl $noise_result_path`))
     end
 end

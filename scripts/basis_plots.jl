@@ -9,13 +9,19 @@ s = ArgParseSettings()
         help = "the output pdf file path, otherwise it will make up a name"
 
 end
-using PyCall, PyPlot, HDF5, Pope
+
+using PyCall
+using PyPlot
+using HDF5
+using Pope
+using LinearAlgebra
+using Statistics
 parsed_args = parse_args(ARGS, s)
 if parsed_args["outputfile"]==nothing
     parsed_args["outputfile"] = Pope.outputname(parsed_args["basisfile"],"plots","pdf")
 end
 display(parsed_args);println()
-@pyimport matplotlib.backends.backend_pdf as pdf
+pdf = pyimport("matplotlib.backends.backend_pdf")
 
 function titleme(basisinfo)
     title("Chan $(basisinfo.channel_number)

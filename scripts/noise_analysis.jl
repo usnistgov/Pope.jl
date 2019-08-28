@@ -1,4 +1,4 @@
-#!/usr/bin/env julia07
+#!/usr/bin/env julia
 
 # Parse command-line first, so a failure can be detected before the compilation
 # or execution of any code unrelated to argument parsing.

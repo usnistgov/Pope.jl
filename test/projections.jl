@@ -1,4 +1,5 @@
 using Test
+using ARMA
 using LinearAlgebra
 using Pope
 

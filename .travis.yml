@@ -13,14 +13,6 @@ notifications:
 env:
   - POPE_NOMASS=true DOCUMENTER_DEBUG=true POPE_NOMATPLOTLIB=true
 
-before_script:
-  - git clone https://github.com/ggggggggg/ReferenceMicrocalFiles.jl
-  - git clone https://github.com/joefowler/ARMA.jl
-script:
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.develop([PackageSpec(path="ARMA.jl"),PackageSpec(path="ReferenceMicrocalFiles.jl")])'
-  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.status(); Pkg.instantiate(); Pkg.status(); Pkg.build();'
-
 addons:
   apt:
     packages:

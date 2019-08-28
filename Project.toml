@@ -25,7 +25,6 @@ TSVD = "9449cd9e-2762-5aa3-a617-5413e99d722e"
 
 [compat]
 ARMA = "≥ 0.2.0"
-ReferenceMicrocalFiles = "≥0.1.0"
 
 [extras]
 InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"

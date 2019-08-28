@@ -1,11 +1,13 @@
 using ARMA
+using LinearAlgebra
 
 function _checkbasis(basis::AbstractMatrix)
     (N,n) = size(basis)
     n > N && throw(ArgumentError("basis must not have more columns than rows"))
 
     # Are the columns independent?
-    _,r,_ = qr(basis, Val{true})
+    # Use a pivoted QR decomposition.
+    r = qr(basis, Val(true)).R
     if abs(r[end,end] / r[1,1]) < 1e-10
         throw(ArgumentError("basis has (approximately) degenerate columns"))
     end

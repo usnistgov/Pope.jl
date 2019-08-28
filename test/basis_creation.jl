@@ -1,6 +1,8 @@
 using Pope.NoiseAnalysis
 using ARMA
 using HDF5
+using Random
+using Pope
 using Test
 
 # generate some fake data to make a basis from
@@ -9,13 +11,13 @@ npulses = 3000
 data = zeros(Float64,length(x),npulses)
 # components
 a=x[:]
-b=20*(sinpi.(x/10)+1)
-c=10*(cospi.(x/10)+1)
-srand(0)
+b=20*(sinpi.(x/10) .+ 1)
+c=10*(cospi.(x/10) .+ 1)
+Random.seed!(0)
 for i in 1:size(data,2)
-    data[:,i]+=a*rand(1:10)
-    data[:,i]+=b*rand(1:10)
-    data[:,i]+=c*rand(1:10)
+    data[:,i] .+= a .* rand(1:10)
+    data[:,i] .+= b .* rand(1:10)
+    data[:,i] .+= c .* rand(1:10)
 end
 # data=round.(data)
 

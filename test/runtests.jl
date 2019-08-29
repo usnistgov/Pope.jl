@@ -28,8 +28,8 @@ end
 @testset "Pope" begin
 
 for t in tests
-    fp = joinpath(dirname(@__FILE__), "Running $t.jl")
-    println("$fp ...")
+    fp = joinpath(dirname(@__FILE__), "$t.jl")
+    println("Running $fp ...")
     include(fp)
 end
 

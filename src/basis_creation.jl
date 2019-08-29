@@ -106,11 +106,11 @@ instead of using a noise model. This should mirror the MASS behavior.
 function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples, autocorr::Vector)
     @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
     # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
-    average_pulse = mean(data_train, 2)[:]
+    average_pulse = mean(data_train, dims=2)[:]
     if n_presamples > 0
-        average_pulse -= mean(average_pulse[1:n_presamples])
+        average_pulse .-= mean(average_pulse[1:n_presamples])
     end
-    average_pulse[1:n_presamples] = 0.0
+    average_pulse[1:n_presamples] .= 0.0
     average_pulse /= maximum(average_pulse)
     # Calculate the derivative like component; assume clean baseline, so low derivative at start
     derivative_like = [0.0;diff(average_pulse)]

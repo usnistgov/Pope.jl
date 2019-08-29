@@ -1,4 +1,5 @@
 #!/usr/bin/env julia
+
 using ArgParse
 s = ArgParseSettings(description="Coallate ljh files and convert to off with given model file\n"*
 "example usage:\n"*

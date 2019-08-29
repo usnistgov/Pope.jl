@@ -5,11 +5,10 @@
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://usnistgov.github.io/Pope.jl/stable)
 
 # Pope
-To install:
-`Pkg.clone("https://github.com/usnistgov/Pope.jl")`
+To install (Julia 1.1+ required):
+```using Pkg
+Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/ggggggggg/QSGRegistry.jl"))
+Pkg.add("Pope")
+Pkg.test("Pope")
+```
 
-For testing you will need to:
-`Pkg.clone("https://github.com/ggggggggg/ReferenceMicrocalFiles.jl")`
-
-Then:
-`Pkg.test("Pope")`

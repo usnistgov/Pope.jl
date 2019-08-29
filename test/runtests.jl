@@ -28,7 +28,7 @@ end
 @testset "Pope" begin
 
 for t in tests
-    fp = joinpath(dirname(@__FILE__), "$t.jl")
+    fp = joinpath(dirname(@__FILE__), "Running $t.jl")
     println("$fp ...")
     include(fp)
 end

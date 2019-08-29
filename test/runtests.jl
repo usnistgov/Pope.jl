@@ -29,7 +29,7 @@ end
 
 for t in tests
     fp = joinpath(dirname(@__FILE__), "$t.jl")
-    println("$fp ...")
+    println("Running $fp ...")
     include(fp)
 end
 

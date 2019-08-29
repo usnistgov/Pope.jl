@@ -49,7 +49,7 @@ end
 
 function TSVD_tsvd(data_train::Matrix{<:AbstractFloat},n_basis)
     U, S, V = TSVD.tsvd(data_train, n_basis)
-    U,S
+    U, S
 end
 
 """    TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples, noise_model::ARMA.ARMAModel, noise_solver::ARMA.ARMASolver)
@@ -83,7 +83,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     if n_basis == 3
         return mass3_basis, [NaN,NaN,NaN]
     end
-    projectors3, _ = computeprojectors(mass3_basis,noise_model)
+    projectors3, _ = computeprojectors(mass3_basis, noise_model)
     mpr = projectors3 * data_train # model pulse reduced
     td = mass3_basis * mpr
     data_residual = data_train .- td
@@ -97,13 +97,49 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     U_combined, S_combined
 end
 
+"""
+    TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples, autocorr::Vector)
+
+Create mass3+SVD as the other method does, but use the noise autocorrelation (`autocorr`)
+instead of using a noise model. This should mirror the MASS behavior.
+"""
+function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples, autocorr::Vector)
+    @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
+    # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
+    average_pulse = mean(data_train, dims=2)[:]
+    if n_presamples > 0
+        average_pulse .-= mean(average_pulse[1:n_presamples])
+    end
+    average_pulse[1:n_presamples] .= 0.0
+    average_pulse /= maximum(average_pulse)
+    # Calculate the derivative like component; assume clean baseline, so low derivative at start
+    derivative_like = [0.0;diff(average_pulse)]
+    constant_component = ones(size(data_train,1))
+    mass3_basis = hcat(constant_component,derivative_like,average_pulse)
+    if n_basis == 3
+        return mass3_basis, [NaN,NaN,NaN]
+    end
+    projectors3, _ = computeprojectors(mass3_basis, autocorr)
+    mpr = projectors3 * data_train # model pulse reduced
+    td = mass3_basis * mpr
+    data_residual = data_train .- td
+    # The RIGHT thing to do would be to whiten residual before taking the TSVD.
+    # However, Julia 0.6 doesn't support fast Toeplitz factors, and we are calling this
+    # function because we don't trust the ARMA models. So let us work instead with the Euclidean residual.
+    U, S, V = TSVD.tsvd(data_residual, n_basis-3)
+    U_combined = hcat(mass3_basis, U)
+    S_combined = vcat([NaN,NaN,NaN], S) # first 3 elemnts are not from svd, have no meaningful singular value
+    U_combined, S_combined
+end
+
 function full_svd(data_train, n_basis)
     U,S,V = svd(data_train)
-    U[:,1:n_basis],S[1:n_basis]
+    U[:,1:n_basis], S[1:n_basis]
 end
 tsvd_dict = Dict(
     "TSVD" => TSVD_tsvd,
     "full" => full_svd,
+    "noisemass3" => TSVD_tsvd_mass3,
     "TSVDmass3" => TSVD_tsvd_mass3)
 
 
@@ -150,13 +186,22 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
             TSVD_tsvd_mass3(data, n_basis, n_presamples, noise_result.model, noise_solver)
         end
         tsvd_func = tsvd_closure
+    elseif tsvd_method_string == "noisemass3"
+        function tsvd_closure2(data, n_basis)
+            TSVD_tsvd_mass3(data, n_basis, n_presamples, noise_result.autocorr)
+        end
+        tsvd_func = tsvd_closure2
     end
 
     std_noise = sqrt(noise_result.autocorr[1]) # the first element in the autocorrelation is the variance
     frac_keep_per_loop = exp(log(frac_keep)/n_loop)
     basis, residual_stds, last_train_inds, train_inds, singular_values = train_loop(data,
         n_pulses_for_train, n_basis, n_presamples, n_loop, frac_keep_per_loop, tsvd_func)
-    projectors, pcovar = computeprojectors(basis,noise_result.model)
+    if tsvd_method_string == "noisemass3"
+        projectors, pcovar = computeprojectors(basis,noise_result.autocorr)
+    else
+        projectors, pcovar = computeprojectors(basis,noise_result.model)
+    end
     svdbasis = SVDBasis(
         basis,
         projectors,

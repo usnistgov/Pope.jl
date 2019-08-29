@@ -3,7 +3,7 @@ using Documenter, Pope, Pope.LJH
 makedocs(
     sitename = "Pope.jl",
     modules = [Pope, LJH],
-    format = :html,
+    format = Documenter.HTML(),
     pages = ["Home" => "index.md",
              "Scripts" => "scripts.md",
              "LJH" => "ljh.md",

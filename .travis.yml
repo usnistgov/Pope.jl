@@ -14,7 +14,10 @@ env:
   - POPE_NOMASS=true DOCUMENTER_DEBUG=true POPE_NOMATPLOTLIB=true
 
 before_script:
-  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/ggggggggg/QSGRegistry.jl")); Pkg.status()'
+  - julia --project --color=yes --check-bounds=yes -e 'using Pkg; 
+  Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/ggggggggg/QSGRegistry.jl")); 
+  Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/JuliaRegistries/General.git"));
+  Pkg.status()'
 
 script:
   - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi

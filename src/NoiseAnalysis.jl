@@ -10,7 +10,10 @@ module NoiseAnalysis
 export compute_autocorr, compute_psd, NoiseResult
 
 using ARMA
+using FFTW
 using HDF5
+using Printf
+using Statistics
 
 struct NoiseResult
     autocorr::Vector{Float64}
@@ -107,7 +110,7 @@ large (1e99), but it is smart to set it to a more reasonable value for your
 application.
 """
 compute_autocorr(data::AbstractMatrix, nlags::Integer; kwargs...) =
-    compute_autocorr(vcat(data...), nlags; kwargs)
+    compute_autocorr(vcat(data...), nlags; kwargs...)
 
 function compute_autocorr(data::AbstractVector, nlags::Integer;
         chunk_multiple=7, max_exc=1e99)
@@ -126,7 +129,7 @@ function compute_autocorr(data::AbstractVector, nlags::Integer;
     seg_skipped = 0
     for i=1:nseg
         seg = float(data[(i-1)*m+1:i*m])
-        padded_data[1:m] = seg - mean(seg)
+        padded_data[1:m] = seg .- mean(seg)
         if maximum(abs.(padded_data[1:m])) > max_exc
             seg_skipped += 1
             continue
@@ -177,7 +180,7 @@ end
 
 Compute the Power-Spectral Density of `data`, which was sampled at
 equal time steps of size `dt`, at `nfreq` frequencies equal to
-`fsamp = linspace(0, 0.5/dt, nfreq)`. Generally, you want `nfreq` to be
+`fsamp = linspace(0, stop=0.5/dt, length=nfreq)`. Generally, you want `nfreq` to be
 1 more than a power of 2, and you need `nfreq ≤ div(1+length(data), 2)`
 (ideally, much less than).
 
@@ -186,7 +189,7 @@ Use overlapping segments of the exact needed length (`2(nfreq-1)`), offset by
 approximately half their length.
 """
 compute_psd(data::AbstractArray, nfreq::Integer, dt::Real; kwargs...) =
-    compute_psd(vcat(data...), nfreq, dt; kwargs)
+    compute_psd(vcat(data...), nfreq, dt; kwargs...)
 
 function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e99)
 
@@ -214,12 +217,12 @@ function compute_psd(data::AbstractVector, nfreq::Integer, dt::Real; max_exc=1e9
         idx0 = (i-1)*seg_step+1
         dseg = data[idx0:idx0+nsamp-1]
         # Subtract this segment's mean (DC value) to eliminate DC leakage into 3rd bin.
-        seg = window .* (dseg - mean(dseg))
+        seg = window .* (dseg .- mean(dseg))
         r += abs2.(rfft(seg))
     end
     r * 2dt / nseg
 end
 
-psd_freq(nfreq::Integer, dt::Real) = linspace(0, 0.5/dt, nfreq)
+psd_freq(nfreq::Integer, dt::Real) = range(0, stop=0.5/dt, length=nfreq)
 
 end # module

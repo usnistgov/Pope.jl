@@ -3,11 +3,12 @@
 using ArgParse
 using ARMA
 using HDF5
-using Pope: NoiseAnalysis
+using Printf
+using Pope.NoiseAnalysis
 
 delete!(ENV, "PYTHONPATH")
 using PyCall, PyPlot
-@pyimport matplotlib.backends.backend_pdf as pdf
+pdf = pyimport("matplotlib.backends.backend_pdf")
 
 function parse_commandline()
     s = ArgParseSettings()
@@ -47,7 +48,7 @@ function main()
         try
             noiseplots(input, pdffile)
         finally
-            pdffile[:close]()
+            pdffile.close()
         end
         @show output
     end
@@ -100,7 +101,7 @@ function noiseplots(input::AbstractString, pdffile)
             for j=1:p
                 a = abs(noise.model.expampls[j])
                 b = noise.model.expbases[j]
-                phi = atan2(imag(b), real(b))
+                phi = atan(imag(b), real(b))
                 timeconst = -1.0/log(abs(b))
                 msg = @sprintf("%.3f*exp(-t/%.3f)", a, timeconst)
                 if abs(phi*N) > .01 && imag(b)<0
@@ -134,9 +135,9 @@ function noiseplots(input::AbstractString, pdffile)
 
             if vert == NVERT-1 || chan == channels[end]
                 tight_layout()
-                pdffile[:savefig](fig)
+                pdffile.savefig(fig)
                 println("Rendered a page")
-                plt[:close](fig)
+                plt.close(fig)
                 fig = figure(1, figsize=(11.5, 8))
             end
         end

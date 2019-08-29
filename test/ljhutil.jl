@@ -1,3 +1,4 @@
+using Pope
 using Pope.LJH
 
 @testset "ljhutil" begin

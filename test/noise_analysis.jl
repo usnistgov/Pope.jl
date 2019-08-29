@@ -1,8 +1,8 @@
-using Base.Test
+using Test
 using ARMA
 using HDF5
-using Pope: NoiseAnalysis
-import Base: isapprox
+using Pope.NoiseAnalysis
+import Base.isapprox
 
 isapprox(m1::ARMAModel, m2::ARMAModel) =
     (m1.p == m2.p) && (m1.q == m2.q) &&

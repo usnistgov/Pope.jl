@@ -90,14 +90,13 @@ function estimate_rise_time(pulserecord, searchrange, peakval,ptm,frametime)
     idx90 = peakindex
     thresh10 = 0.1*(peakval-ptm)+ptm
     thresh90 = 0.9*(peakval-ptm)+ptm
-    j=0 # to make j exist after the for loop
     for j = idx10:peakindex
         if pulserecord[j] > thresh10
             idx10 = j-1
             break
         end
     end
-    for j = j+1:peakindex
+    for j = idx10+1:peakindex
         if pulserecord[j] > thresh90
             idx90 = j-1
             break

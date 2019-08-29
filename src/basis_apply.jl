@@ -11,7 +11,7 @@ function BufferedHDF5Dataset2D{T}(g::Union{HDF5File,HDF5Group}, name, nbases, ch
   BufferedHDF5Dataset2D{T}(ds, Vector{Vector{T}}(),0)
 end
 function write_to_hdf5(b::BufferedHDF5Dataset2D)
-  r = b.lastrow + (1:length(b.v))
+  r = b.lastrow .+ (1:length(b.v))
   if length(r)>0
     set_dims!(b.ds, (size(b.ds,1), last(r)) )
     b.ds[:,r] = hcat(b.v...)

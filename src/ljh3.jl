@@ -96,7 +96,8 @@ function _readrecord(ljh::LJH3File{FramePeriod},i) where FramePeriod
     first_rising_sample = read(ljh.io, Int32)
     frame1index = read(ljh.io, Int64)
     timestamp_usec = read(ljh.io, Int64)
-    data = read(ljh.io, UInt16, num_samples)
+    data = Array{UInt16}(undef, num_samples)
+    read!(ljh.io, data)
     if i==length(ljh.index)
         deltapos = 2*num_samples + 24
         @inbounds push!(ljh.index,ljh.index[i]+deltapos)
@@ -133,24 +134,30 @@ Base.size(ljh::LJH3File) = (length(ljh),)
 function Base.length(ljh::LJH3File)
     # iterate from the last entry in index to the end of the file
     # to fill ljh.index
-    state = length(ljh.index), stat(ljh.io).size
-    while !done(ljh,state)
-        _,state = next(ljh,state)
+    nknown = length(ljh.index)
+    state = nknown, stat(ljh.io).size
+    seekto(ljh, nknown)
+    next = Base.iterate(ljh, state)
+    while next !== nothing
+        (i, state) = next
+        next = Base.iterate(ljh, state)
     end
     return length(ljh.index)-1
 end
-Base.endof(ljh::LJH3File) = length(ljh)
+Base.lastindex(ljh::LJH3File) = length(ljh)
 # iterator interface
-Base.start(ljh::LJH3File) = (seekto(ljh,1);(1,stat(ljh.io).size))
-function Base.next(ljh::LJH3File,state)
-    j,sz=state
+function Base.iterate(ljh::LJH3File, state=nothing)
+    if state == nothing
+        seekto(ljh,1)
+        state = 1, stat(ljh.io).size
+    end
+    j,sz = state
+    if ljh.index[j] ≥ sz
+        return nothing
+    end
     _readrecord(ljh,j),(j+1,sz)
 end
-function Base.done(ljh::LJH3File,state)
-    j,sz=state
-    ljh.index[j]==sz
-end
-Base.iteratorsize(ljh::LJH3File) = Base.SizeUnknown()
+Base.IteratorSize(ljh::LJH3File) = Base.SizeUnknown()
 # getindex with strings
 Base.getindex(ljh::LJH3File,key::AbstractString) = ljh.header[key]
 Base.keys(ljh::LJH3File) = keys(ljh.header)

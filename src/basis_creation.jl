@@ -1,4 +1,5 @@
 using TSVD
+using LinearAlgebra
 using ARMA
 
 make_mpr(data, basis) = pinv(basis)*data
@@ -6,12 +7,12 @@ make_time_domain(mpr, basis) = basis*mpr
 function make_std_residuals(data, basis)
     mpr = make_mpr(data,basis) # model pulse reduced
     td = make_time_domain(mpr,basis)
-    std_residuals = std(data-td,1)[1,:]
+    std_residuals = std(data-td, dims=1)[1,:]
 end
 
 function getall(ljh, maxrecords=typemax(Int))
     records = collect(ljh[1:min(Int(maxrecords),length(ljh))])
-    pulses = Array{Float32,2}(ljh.record_nsamples,length(records))
+    pulses = Array{Float32}(undef, ljh.record_nsamples,length(records))
     for (i,record) in enumerate(records)
         pulses[:,i]=record.data
     end
@@ -69,11 +70,11 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
         noise_model::ARMA.ARMAModel, noise_solver::ARMA.ARMASolver)
     @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
     # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
-    average_pulse = mean(data_train, 2)[:]
+    average_pulse = mean(data_train, dims=2)[:]
     if n_presamples > 0
-        average_pulse -= mean(average_pulse[1:n_presamples])
+        average_pulse .-= mean(average_pulse[1:n_presamples])
     end
-    average_pulse[1:n_presamples] = 0.0
+    average_pulse[1:n_presamples] .= 0.0
     average_pulse /= maximum(average_pulse)
     # Calculate the derivative like component; assume clean baseline, so low derivative at start
     derivative_like = [0.0;diff(average_pulse)]

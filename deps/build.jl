@@ -1,12 +1,6 @@
 # this is a hack to allow POPE to depend on unregistered Julia Packages
-# it should be removed if/when there is an official way of doing this other
-# than maintaining and using my own copy of METADATA
+# it should be removed once we understand how to make our own NIST registry.
 
-if !isdir(Pkg.dir("ReferenceMicrocalFiles"))
-	Pkg.clone("https://github.com/ggggggggg/ReferenceMicrocalFiles.jl")
-end
-if !isdir(Pkg.dir("ARMA"))
-	Pkg.clone("https://github.com/joefowler/ARMA.jl")
-end
-
-isdir(expanduser("~/.daq")) || mkdir(expanduser("~/.daq"))
+@info "Running deps/build.jl"
+# Pkg.add(Pkg.PackageSpec(name="ReferenceMicrocalFiles", PackageSpec(url="https://github.com/ggggggggg/ReferenceMicrocalFiles.jl"))
+# Pkg.add(Pkg.PackageSpec(name="ARMA", PackageSpec(url="https://github.com/joefowler/ARMA.jl"))

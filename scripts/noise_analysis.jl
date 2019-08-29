@@ -43,6 +43,7 @@ channels cannot be replaced)."""
 end
 parsed_args = parse_commandline()
 
+using Pope
 using Pope.LJH
 if parsed_args["outputfile"]==nothing
     parsed_args["outputfile"] = Pope.outputname(parsed_args["pulse_file"],"noise")

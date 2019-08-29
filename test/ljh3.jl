@@ -1,6 +1,7 @@
-using Pope: LJH
+using Pope.LJH
 using DataStructures
-using Base.Test
+using Nullables
+using Test
 
 @testset "ljh3" begin
 

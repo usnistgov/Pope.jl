@@ -6,8 +6,10 @@
 
 # Pope
 To install (Julia 1.1+ required):
-```using Pkg
+```
+using Pkg
 Pkg.Registry.add(Pkg.RegistrySpec(url="https://github.com/ggggggggg/QSGRegistry.jl"))
+# you may need to add General if it hasn't been added
 Pkg.add("Pope")
 Pkg.test("Pope")
 ```

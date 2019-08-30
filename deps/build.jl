@@ -1,4 +1,4 @@
-# copy scripts to ~/.pope
+# symlink scripts so we can call via ~/.pope/debugscript.jl
 println("running Pope/build.jl")
 scriptsdir = normpath(joinpath(@__DIR__, "..", "scripts"))
 targetdir = expanduser("~/.pope")
@@ -10,12 +10,15 @@ end
 @show targetdir
 for n in readdir(scriptsdir)
     p = joinpath(scriptsdir, n)
+    t = joinpath(targetdir, n)
     if isfile(p)
-        s = "copying $(basename(n)) to $targetdir"
-        if isfile(p)
+        s = "linking $p $t"
+        if isfile(t)
             s*=" (overwriting)"
+            @show t
+            rm(t)
         end
         println(s)
-        cp(p, joinpath(targetdir,n), force=true)
+        symlink(p, t)
     end
 end

@@ -1,5 +1,8 @@
 #!/usr/bin/env julia
 
+import Pkg
+Pkg.activate(normpath(joinpath(@__DIR__, "..")))
+
 # Parse command-line first, so a failure can be detected before the compilation
 # or execution of any code unrelated to argument parsing.
 using ArgParse

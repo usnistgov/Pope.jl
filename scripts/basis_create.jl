@@ -1,5 +1,7 @@
 #!/usr/bin/env julia
 
+using Pkg
+Pkg.activate(normpath(joinpath(@__DIR__, "..")))
 using ArgParse
 s = ArgParseSettings()
 @add_arg_table s begin

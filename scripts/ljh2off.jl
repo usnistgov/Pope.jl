@@ -1,5 +1,8 @@
 #!/usr/bin/env julia
 
+import Pkg
+Pkg.activate(normpath(joinpath(@__DIR__, "..")))
+
 using ArgParse
 s = ArgParseSettings(description="Coallate ljh files and convert to off with given model file\n"*
 "example usage:\n"*

@@ -7,6 +7,7 @@ Depth = 2
 
 ```@meta
 DocTestSetup = quote
+using Pope
 using Pope.LJH
 end
 ```
@@ -16,7 +17,7 @@ end
 julia> frameperiod = 9.6e-6;
 
 julia> ljh = LJH.create3("ljh_chan_1.ljh", frameperiod)
-Pope.LJH.LJH3File{9.6e-6}(IOStream(<file ljh_chan_1.ljh>), [93], DataStructures.OrderedDict{String,Any}("File Format"=>"LJH3","File Format Version"=>"3.0.0","frameperiod"=>9.6e-6))
+LJH3File{9.6e-6}(IOStream(<file ljh_chan_1.ljh>), [93], OrderedCollections.OrderedDict{String,Any}("File Format" => "LJH3","File Format Version" => "3.0.0","frameperiod" => 9.6e-6))
 
 julia> write(ljh, Vector{UInt16}(1:100), 10, 1000, 2000);
 
@@ -34,10 +35,10 @@ write(ljh::LJH3File, trace::Vector{UInt16},first_rising_sample, samplecount::Int
 ```jldoctest ljh
 julia> frameperiod = 9.6e-6; npre = 200; nsamp = 1000; nrow = 30; rowcount = 1; timestamp=2;
 
-julia> ljh2 = LJH.create("ljh2_chan1.ljh", dt, npre, nsamp; version="2.2.0", num_rows=nrow)
+julia> ljh2 = LJH.create("ljh2_chan1.ljh", frameperiod, npre, nsamp; version="2.2.0", num_rows=nrow)
 LJHFile ljh2_chan1.ljh
 0 records
-record_nsamlpes 1000, pretrig_nsamples 200.
+record_nsamples 1000, pretrig_nsamples 200.
 Channel 1, row 0, column 0, frametime 9.6e-6 s.
 
 
@@ -50,19 +51,20 @@ julia> close(ljh2);
 
 ```@docs
 create
-write(ljh::LJHFile{LJH_22}, trace::Vector{UInt16}, rowcount::Int64, timestamp_usec::Int64)
+write(ljh::LJHFile{Pope.LJH.LJH_22}, trace::Vector{UInt16}, rowcount::Int64, timestamp_usec::Int64)
 ```
 
 ## Reading LJH Files
 ```jldoctest ljh
 julia> ljhr = ljhopen(LJH.filename(ljh))
-Pope.LJH.LJH3File{9.6e-6}(IOStream(<file ljh_chan_1.ljh>), [93], DataStructures.OrderedDict{String,Any}("File Format"=>"LJH3","File Format Version"=>"3.0.0","frameperiod"=>9.6e-6))
+LJH3File{9.6e-6}(IOStream(<file ljh_chan_1.ljh>), [93], OrderedCollections.OrderedDict{String,Any}("File Format" => "LJH3","File Format Version" => "3.0.0","frameperiod" => 9.6e-6))
 
 julia> record = ljhr[1];
 
 julia> LJH.data(record)' # transpose for less verbose output
-1×100 RowVector{UInt16,Array{UInt16,1}}:
- 0x0001  0x0002  0x0003  0x0004  0x0005  0x0006  …  0x0060  0x0061  0x0062  0x0063  0x0064
+1×100 LinearAlgebra.Adjoint{UInt16,Array{UInt16,1}}:
+ 0x0001  0x0002  0x0003  0x0004  0x0005  …  0x0061  0x0062  0x0063  0x0064
+
 
 julia> LJH.frame1index(record)
 1000
@@ -77,8 +79,7 @@ julia> LJH.timestamp_usec(record)
 2000
 
 julia> records = collect(ljhr)
-2-element Array{Any,1}:
-
+2-element Array{Pope.LJH.LJH3Record{9.6e-6},1}:
  Pope.LJH.LJH3Record{9.6e-6}(UInt16[0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a  …  0x005b, 0x005c, 0x005d, 0x005e, 0x005f, 0x0060, 0x0061, 0x0062, 0x0063, 0x0064], 10, 1000, 2000)
  Pope.LJH.LJH3Record{9.6e-6}(UInt16[0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a  …  0x03df, 0x03e0, 0x03e1, 0x03e2, 0x03e3, 0x03e4, 0x03e5, 0x03e6, 0x03e7, 0x03e8], 20, 2000, 3000)
 
@@ -97,7 +98,7 @@ ljhopen
 ### Reading LJH files when data may or may not be available
 ```jldoctest ljh
 julia> ljhr = ljhopen(LJH.filename(ljh))
-Pope.LJH.LJH3File{9.6e-6}(IOStream(<file ljh_chan_1.ljh>), [93], DataStructures.OrderedDict{String,Any}("File Format"=>"LJH3","File Format Version"=>"3.0.0","frameperiod"=>9.6e-6))
+LJH3File{9.6e-6}(IOStream(<file ljh_chan_1.ljh>), [93], OrderedCollections.OrderedDict{String,Any}("File Format" => "LJH3","File Format Version" => "3.0.0","frameperiod" => 9.6e-6))
 
 julia> LJH.tryread(ljhr)
 Nullable{Pope.LJH.LJH3Record{9.6e-6}}(Pope.LJH.LJH3Record{9.6e-6}(UInt16[0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000a  …  0x005b, 0x005c, 0x005d, 0x005e, 0x005f, 0x0060, 0x0061, 0x0062, 0x0063, 0x0064], 10, 1000, 2000))
@@ -118,6 +119,8 @@ tryread
 
 ### Reading many LJH2 files simultaneously
 ```jldoctest ljh
+julia> frameperiod = 9.6e-6; npre = 200; nsamp = 1000; nrow = 30; rowcount = 1; timestamp=2;
+
 julia> names = [c*".ljh" for c in ["a","b","c"]]
 3-element Array{String,1}:
  "a.ljh"
@@ -125,7 +128,7 @@ julia> names = [c*".ljh" for c in ["a","b","c"]]
  "c.ljh"
 
 julia> for name in names
-                         ljh = LJH.create(name, dt, npre, nsamp; version="2.2.0", number_of_rows=nrow)
+                         ljh = LJH.create(name, frameperiod, npre, nsamp; version="2.2.0", number_of_rows=nrow)
                          write(ljh, ones(UInt16,nsamp,5), collect(1:5), collect(1:5))
                          close(ljh)
                      end
@@ -172,7 +175,7 @@ end
 ```jldoctest
 julia> # the second argument is `maxchannels` to limit output length
        ljhdict = LJH.allchannels("ljhutil_doctest/ljhutil_doctest_chan1.ljh",4)
-DataStructures.OrderedDict{Int64,String} with 4 entries:
+OrderedCollections.OrderedDict{Int64,String} with 4 entries:
   1 => "ljhutil_doctest/ljhutil_doctest_chan1.ljh"
   3 => "ljhutil_doctest/ljhutil_doctest_chan3.ljh"
   5 => "ljhutil_doctest/ljhutil_doctest_chan5.ljh"
@@ -196,7 +199,6 @@ DocTestSetup = nothing
 ```@docs
 allchannels
 dir_base_ext
-pope_output_hdf5_name_from_ljh
 ```
 
 ## Matter Sentinel File Handling

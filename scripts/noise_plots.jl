@@ -1,4 +1,4 @@
-#!/usr/bin/env julia --project
+#!/usr/bin/env julia --project=@.
 
 using ArgParse
 using ARMA

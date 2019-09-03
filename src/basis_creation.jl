@@ -1,5 +1,6 @@
 using TSVD
 using LinearAlgebra
+using ToeplitzMatrices
 using ARMA
 
 make_mpr(data, basis) = pinv(basis)*data
@@ -89,9 +90,10 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     data_residual = data_train .- td
     # Whiten residual before taking the TSVD
     white_residual = ARMA.whiten(noise_solver, data_residual)
-    Uwhite, S, V = TSVD.tsvd(white_residual, n_basis-3)
-    # Unwhiten U before combining
-    U = ARMA.unwhiten(noise_solver, Uwhite)
+    Uwhite, S, _ = TSVD.tsvd(white_residual, n_basis-3)
+    # Unwhiten and renormalize U before combining
+    Uunnorm = ARMA.unwhiten(noise_solver, Uwhite)
+    U = Uunnorm ./ sqrt.(sum(Uunnorm.^2, dims=1))
     U_combined = hcat(mass3_basis,U)
     S_combined = vcat([NaN,NaN,NaN],S) # first 3 elemnts are not from svd, have no meaningful singular value
     U_combined, S_combined
@@ -123,10 +125,14 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     mpr = projectors3 * data_train # model pulse reduced
     td = mass3_basis * mpr
     data_residual = data_train .- td
-    # The RIGHT thing to do would be to whiten residual before taking the TSVD.
-    # However, Julia 0.6 doesn't support fast Toeplitz factors, and we are calling this
-    # function because we don't trust the ARMA models. So let us work instead with the Euclidean residual.
-    U, S, V = TSVD.tsvd(data_residual, n_basis-3)
+    # Whiten residual before taking the TSVD
+    R = SymmetricToeplitz(autocorr)
+    Winv = cholesky(R).L  # The inverse of Winv will whiten a data record.
+    white_residual = Winv \ data_residual
+    Uwhite, S, _ = TSVD.tsvd(white_residual, n_basis-3)
+    # Unwhiten and renormalize U before combining
+    Uunnorm = Winv * Uwhite
+    U = Uunnorm ./ sqrt.(sum(Uunnorm.^2, dims=1))
     U_combined = hcat(mass3_basis, U)
     S_combined = vcat([NaN,NaN,NaN], S) # first 3 elemnts are not from svd, have no meaningful singular value
     U_combined, S_combined

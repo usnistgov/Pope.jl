@@ -72,10 +72,10 @@ mass3_basis, mass3_basisinfo = Pope.create_basis_one_channel(data,noise_result,
     pulse_file,-1)
 
 @testset "scripts with SVDBasis" begin
-    @test success(run(`../scripts/noise_analysis.jl $noisepath -o $noise_result_path`))
-    @test success(run(`../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`))
+    @test success(run(`julia ../scripts/noise_analysis.jl $noisepath -o $noise_result_path`))
+    @test success(run(`julia ../scripts/basis_create.jl $ljhpath $noise_result_path -o $model_path`))
     if !haskey(ENV,"POPE_NOMATPLOTLIB")
-        @test success(run(`../scripts/basis_plots.jl $model_path`))
-        @test success(run(`../scripts/noise_plots.jl $noise_result_path`))
+        @test success(run(`julia ../scripts/basis_plots.jl $model_path`))
+        @test success(run(`julia ../scripts/noise_plots.jl $noise_result_path`))
     end
 end

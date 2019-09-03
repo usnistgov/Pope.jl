@@ -1,7 +1,4 @@
-#!/usr/bin/env julia
-
-import Pkg
-Pkg.activate(normpath(joinpath(@__DIR__, "..")))
+#!/usr/bin/env julia --project
 
 using ArgParse
 using ARMA

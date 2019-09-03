@@ -1,5 +1,7 @@
-#!/usr/bin/env julia --project=@.
+#!/usr/bin/env julia
 
+using Pkg
+Pkg.activate(joinpath(@__DIR__, ".."))
 using ArgParse
 s = ArgParseSettings()
 @add_arg_table s begin

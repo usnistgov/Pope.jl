@@ -328,7 +328,7 @@ function Base.iterate(g::LJHGroup, state)
 end
 function Base.show(io::IO, g::LJHGroup)
     print(io, "LJHGroup with $(length(g.ljhfiles)) files, $(length(g)) records, split as $(lengths(g)),")
-    print(io, "record_nsampes $(record_nsamples(g)),\n")
+    print(io, "record_nsamples $(record_nsamples(g)),\n")
     print(io, "pretrig_nsamples $(pretrig_nsamples(g)).")
     print(io, "channel $(channel(g)), row $(row(g)), column $(column(g)), frametime $(frametime(g)) s.\n")
     print(io, "First filename $(g.ljhfiles[1].filename)")

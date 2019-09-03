@@ -62,8 +62,8 @@ function allchannels(ljhname::AbstractString,maxchannels=typemax(Int))
     OrderedDict{Int,String}(ch=>fname for (ch,fname) in zip(channels, fnames(ljhname, channels)))
 end
 
-"""    outputname(ljhname::AbstractString, annotation::AbstractString, ext=".h5")
-Returns the filename based on `ljhname` with an _annotation, and with the desired extention `ext`.
+"""    outputname(ljhname::AbstractString, annotation::AbstractString, ext=".hdf5")
+Returns the filename based on `ljhname` with an _annotation_, and with the desired extention `ext`.
 `ext` may be specified with or without a leading period with identical results.
 For example `outputname("abc","model")` returns `"abc_model.hdf5"` and
 `outputname("abc","model","pdf")` returns `"abc_model.pdf"`."""

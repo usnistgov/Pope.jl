@@ -15,7 +15,6 @@ makedocs(
 
 deploydocs(
     repo   = "github.com/usnistgov/Pope.jl.git",
-    osname = "linux",
     deps   = nothing,
     target = "build",
     make= nothing

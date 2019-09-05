@@ -28,7 +28,7 @@ sudo: required
 
 after_success:
   # deploy docs
-  - julia -e 'include(joinpath("docs", "make.jl"))'
+  - julia --color=yes -e 'using Pkg; Pkg.activate("."); include(joinpath("docs", "make.jl"))'
   # push coverage results to Coveralls
   # - julia -e 'cd(Pkg.dir("Pope")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
   # push coverage results to Codecov

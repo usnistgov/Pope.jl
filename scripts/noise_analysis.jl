@@ -13,7 +13,7 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 export JULIA_PROJECT=$DIR/..
 export JULIA_LOAD_PATH=@:@stdlib  # exclude default environment
-exec $JULIA_CMD -e 'include(popfirst!(ARGS))' "${BASH_SOURCE[0]}" "$@"
+exec $JULIA_CMD -e 'include(popfirst!(ARGS))' "$SOURCE" "$@"
 =#
 # Parse command-line first, so a failure can be detected before the compilation
 # or execution of any code unrelated to argument parsing.

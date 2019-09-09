@@ -41,18 +41,23 @@ s = ArgParseSettings(description="Coallate ljh files and convert to off with giv
     "--outdir"
         arg_type = String
         help ="path to the output directory, otherwise calculate automatically"
+    "--replaceoutput", "-r"
+        help = "delete and replace any existing output files"
+        action = :store_true
 end
 parsed_args = parse_args(ARGS, s)
 if parsed_args["outdir"] == nothing
     parsed_args["outdir"] = parsed_args["ljh_file"]*prod(parsed_args["endings"])
 end
 display(parsed_args);println()
+using Pope
 using Pope.LJH
 using HDF5
 using JSON
+import Statistics
 
-function off_header(ljh::LJH.LJHFile, z::Pope.SVDBasisWithCreationInfo)
-    offVersion = "0.1.0"
+function off_header_json(ljh::LJH.LJHFile, z::Pope.SVDBasisWithCreationInfo)
+    offVersion = "0.2.0" # version 0.2.0 has projectors as binary after the header
     offHeader = Dict(
         "FileFormatVersion" => offVersion,
         "FramePeriodSeconds" => LJH.frameperiod(ljh),
@@ -61,14 +66,14 @@ function off_header(ljh::LJH.LJHFile, z::Pope.SVDBasisWithCreationInfo)
     )
     offHeader["ModelInfo"]=Dict(
         "Projectors" =>Dict(
-            "RowMajorFloat64ValuesBase64" =>base64encode(transpose(Float64.(z.svdbasis.projectors))),
             "Rows" =>size(z.svdbasis.projectors)[1],
-            "Cols" =>size(z.svdbasis.projectors)[2]
+            "Cols" =>size(z.svdbasis.projectors)[2],
+            "SavedAs" => "float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
     ),
         "Basis" =>Dict(
-            "RowMajorFloat64ValuesBase64" =>base64encode(transpose(Float64.(z.svdbasis.basis))),
             "Rows" =>size(z.svdbasis.basis)[1],
-            "Cols" =>size(z.svdbasis.basis)[2]
+            "Cols" =>size(z.svdbasis.basis)[2],
+            "SavedAs" => "float64 binary data after header and before records. projectors first then basis, nbytes = rows*cols*8 for each projectors and basis"
     ),
         "NoiseStandardDeviation" => z.noise_std_dev,
         "NoiseModelFile" => z.noise_model_file,
@@ -84,7 +89,14 @@ function off_header(ljh::LJH.LJHFile, z::Pope.SVDBasisWithCreationInfo)
     offHeader["CreationInfo"]=Dict(
         "SourceName" => "ljh2off.jl"
     )
-    return JSON.json(offHeader,4)
+    return JSON.json(offHeader,4) # includes "\n" termination
+end
+
+function write_off_header(io, ljh, z)
+    nheader = write(io, off_header_json(ljh, z)) #  includes "\n" termination
+    # write the projectors as float64 row-major (julia arrays are column major) binary after the header
+    nprojectors = write(io, transpose(Float64.(z.svdbasis.projectors)))
+    nbasis = write(io, transpose(Float64.(z.svdbasis.basis)))
 end
 
 ljh_files = [parsed_args["ljh_file"]*ending for ending in parsed_args["endings"]]
@@ -96,15 +108,23 @@ ljh_files = [parsed_args["ljh_file"]*ending for ending in parsed_args["endings"]
 earliest_timestamp_usec = [typemax(Int64) for i in ljh_files]
 latest_timestamp_usec = [typemin(Int64) for i in ljh_files]
 # make sure the directory exists
-isdir(parsed_args["outdir"]) || mkdir(parsed_args["outdir"])
+if isdir(parsed_args["outdir"])
+    if parsed_args["replaceoutput"]
+        rm(parsed_args["outdir"], force=true, recursive=true)
+    else
+        println("outdir $(parsed_args["outdir"]) exists, pass --replaceoutput to overwrite")
+        println("exiting")
+        exit(1)
+    end
+end
+mkdir(parsed_args["outdir"])
 HDF5.h5open(parsed_args["model_file"],"r") do h5
     channels_processed = 0
-    for name in names(h5)
+    channums = sort(parse.(Int,names(h5))) # parse to int early so we can sort
+    for channum in channums
         channels_processed >= parsed_args["maxchannels"] && break
-        channum = parse(Int,name)
         offFilename = joinpath(parsed_args["outdir"],parsed_args["outdir"]*"_chan$(channum).off")
-        header_written = false
-        z = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5[name])
+        z = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5["$channum"])
         open(offFilename,"w") do f
             for (i,ljhbase) in enumerate(ljh_files)
                 dir, base, ext = LJH.dir_base_ext(ljhbase)
@@ -117,8 +137,8 @@ HDF5.h5open(parsed_args["model_file"],"r") do h5
                     continue
                 end
                 println("$ljh_filename => $offFilename")
-                if !header_written
-                    write(f, off_header(ljh,z))
+                if i==1 #write header when processing first ljh file
+                    write_off_header(f,ljh,z)
                     header_written = true
                 end
                 earliest_timestamp_usec[i] = min(ljh[1].timestamp_usec, earliest_timestamp_usec[i])
@@ -127,7 +147,7 @@ HDF5.h5open(parsed_args["model_file"],"r") do h5
                 for record in ljh
                     dp = Pope.record2dataproduct(z.svdbasis,record)
                     write(f,Int32(dp.nsamples), Int32(dp.first_rising_sample-4), Int64(dp.frame1index),
-                    Int64(dp.timestamp_usec*1000), Float32(mean(record.data[1:dp.first_rising_sample-3])),
+                    Int64(dp.timestamp_usec*1000), Float32(Statistics.mean(record.data[1:dp.first_rising_sample-3])),
                     Float32(dp.residual_std), Float32.(dp.reduced))
                 end # end of loop over ljh
             end # end of loop over parsed_args["ljh_files"]

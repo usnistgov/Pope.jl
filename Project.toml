@@ -26,7 +26,7 @@ TSVD = "9449cd9e-2762-5aa3-a617-5413e99d722e"
 ToeplitzMatrices = "c751599d-da0a-543b-9d20-d0a503d91d24"
 
 [compat]
-ARMA = "≥ 0.2.0"
+ARMA = "=0.2.0"
 ReferenceMicrocalFiles = "≥0.1.0"
 
 [extras]

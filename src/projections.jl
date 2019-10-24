@@ -1,5 +1,6 @@
 using ARMA
 using LinearAlgebra
+using ToeplitzMatrices
 
 function _checkbasis(basis::AbstractMatrix)
     (N,n) = size(basis)
@@ -39,7 +40,7 @@ additive, Gaussian noise, independent of the signal levels.
 function computeprojectors(basis::AbstractMatrix, noisecovariance::AbstractVector)
     N = _checkbasis(basis)
     length(noisecovariance) < N && throw(ArgumentError("noisecovariance must be at least as long as the basis columns"))
-    R = ARMA.toeplitz(noisecovariance[1:N])
+    R = SymmetricToeplitz(noisecovariance[1:N])
     RinvB = R\basis
     if any(isinf.(RinvB))
         throw(DivideError())

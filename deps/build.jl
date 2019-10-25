@@ -12,13 +12,16 @@ for n in readdir(scriptsdir)
     p = joinpath(scriptsdir, n)
     t = joinpath(targetdir, n)
     if isfile(p)
-        s = "linking $p $t"
+        s = "adding $p $t"
         if isfile(t)
             s*=" (overwriting)"
             @show t
             rm(t)
         end
         println(s)
-        symlink(p, t)
+        open(t,"w") do f
+            write(f,"julia $p \$@")
+        end
+        chmod(t,0o755) # all can rx, user can rwx
     end
 end

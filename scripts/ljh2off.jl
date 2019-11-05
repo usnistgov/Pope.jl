@@ -104,26 +104,28 @@ ljh_files = [parsed_args["ljh_file"]*ending for ending in parsed_args["endings"]
 @show parsed_args["endings"]
 
 
-
 earliest_timestamp_usec = [typemax(Int64) for i in ljh_files]
 latest_timestamp_usec = [typemin(Int64) for i in ljh_files]
 # make sure the directory exists
-if isdir(parsed_args["outdir"])
+outputDir = parsed_args["outdir"]
+offPrefix = splitpath(outputDir)[end]
+if isdir(outputDir)
     if parsed_args["replaceoutput"]
-        rm(parsed_args["outdir"], force=true, recursive=true)
+        rm(outputDir, force=true, recursive=true)
     else
-        println("outdir $(parsed_args["outdir"]) exists, pass --replaceoutput to overwrite")
+        println("outdir $(outputDir) exists, pass --replaceoutput to overwrite")
         println("exiting")
         exit(1)
     end
 end
-mkdir(parsed_args["outdir"])
+mkdir(outputDir)
 HDF5.h5open(parsed_args["model_file"],"r") do h5
     channels_processed = 0
     channums = sort(parse.(Int,names(h5))) # parse to int early so we can sort
     for channum in channums
         channels_processed >= parsed_args["maxchannels"] && break
-        offFilename = joinpath(parsed_args["outdir"],parsed_args["outdir"]*"_chan$(channum).off")
+        offPrefix = splitpath(outputDir)[end]
+        offFilename = joinpath(outputDir, offPrefix*"_chan$(channum).off")
         z = Pope.hdf5load(Pope.SVDBasisWithCreationInfo,h5["$channum"])
         open(offFilename,"w") do f
             for (i,ljhbase) in enumerate(ljh_files)
@@ -155,7 +157,7 @@ HDF5.h5open(parsed_args["model_file"],"r") do h5
     end # end of loop over channels
 end # end of h5open do block
 
-experimental_state_filename = joinpath(parsed_args["outdir"],parsed_args["outdir"]*"_experiment_state.txt")
+experimental_state_filename = joinpath(outputDir, offPrefix*"_experiment_state.txt")
 state_names = parsed_args["endings"]
 @show state_names
 @show experimental_state_filename

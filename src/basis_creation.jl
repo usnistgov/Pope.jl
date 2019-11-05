@@ -76,7 +76,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
         average_pulse .-= mean(average_pulse[1:n_presamples])
     end
     average_pulse[1:n_presamples] .= 0.0
-    average_pulse /= maximum(average_pulse)
+    average_pulse /= maximum(abs.(average_pulse))
     # Calculate the derivative like component; assume clean baseline, so low derivative at start
     derivative_like = [0.0;diff(average_pulse)]
     constant_component = ones(size(data_train,1))
@@ -113,7 +113,7 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
         average_pulse .-= mean(average_pulse[1:n_presamples])
     end
     average_pulse[1:n_presamples] .= 0.0
-    average_pulse /= maximum(average_pulse)
+    average_pulse /= maximum(abs.(average_pulse))
     # Calculate the derivative like component; assume clean baseline, so low derivative at start
     derivative_like = [0.0;diff(average_pulse)]
     constant_component = ones(size(data_train,1))
@@ -304,14 +304,14 @@ function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_
     @show ljh_channels
     @show bothchannels
     for channel_number in bothchannels
-        println("making basis for channel $channel_number")
+        println("\nmaking basis for channel $channel_number")
         ljhname = ljhdict[channel_number]
         try
             make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_loop,
                 n_pulses_for_train, n_basis, tsvd_method)
         catch ex
-            print("channel $channel_number failed")
-            print(ex)
+            println("channel $channel_number failed:")
+            println(ex)
         end
     end
     println("Channels in noise_file but not in ljh: $(setdiff(noise_channels,ljh_channels))")

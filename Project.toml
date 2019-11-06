@@ -1,7 +1,7 @@
 name = "Pope"
 uuid = "a30f7cd4-c816-11e9-3b7b-4b2248985146"
 authors = ["Joseph Fowler <drjoefowler@gmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 ARMA = "cd9ce936-d6d7-11e8-0157-ada3f5245b07"

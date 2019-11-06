@@ -46,6 +46,14 @@ loaded_basis = h5open("artifacts/dummy_model.h5","r") do h5 Pope.analyzer_from_p
 @testset "TSVD basis" begin
     @test tsvd_basisinfo.pulse_file == pulse_file
     @test loaded_basisinfo.svdbasis.basis==loaded_basis.basis==tsvd_basisinfo.svdbasis.basis
+
+    # Test that inverted pulses don't get zeroed out
+    invpulse = 200 .- [0, 0, 0, 10, 100, 80, 65, 55, 50, 46, 43, 41, 40.]
+    noiseautocorr = 0.0*invpulse
+    noiseautocorr[1] = 1.0
+    # Make sure the following doen't error or return NaN singular values (it used to):
+    a, _ = Pope.TSVD_tsvd_mass3(hcat(invpulse, 2*invpulse, 3*invpulse), 3, 3, noiseautocorr)
+    @test !any(isnan.(a))
 end
 
 rmfdir = splitdir(pathof(ReferenceMicrocalFiles))[1]

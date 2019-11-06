@@ -47,7 +47,10 @@ s = ArgParseSettings(description="Coallate ljh files and convert to off with giv
 end
 parsed_args = parse_args(ARGS, s)
 if parsed_args["outdir"] == nothing
-    parsed_args["outdir"] = parsed_args["ljh_file"]*prod(parsed_args["endings"])
+    parts = splitpath(parsed_args["ljh_file"])
+    parts[end] = "off"
+    ljhpathPlusoff = joinpath(parts...)
+    parsed_args["outdir"] = ljhpathPlusoff*prod(parsed_args["endings"])
 end
 display(parsed_args);println()
 using Pope

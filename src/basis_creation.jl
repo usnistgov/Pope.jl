@@ -2,6 +2,8 @@ using TSVD
 using LinearAlgebra
 using ToeplitzMatrices
 using ARMA
+using Polynomials
+using Optim
 
 make_mpr(data, basis) = pinv(basis)*data
 make_time_domain(mpr, basis) = basis*mpr
@@ -47,6 +49,41 @@ function train_loop(data, n_pulses_for_train, n_basis, n_presamples, n_loop, fra
         nb = n_basis
     end
 end
+
+
+"""Entropy of a distribution given samples that generate Laplace distributions
+(i.e., exp(-|x|/w) functions) of width w."""
+function laplace_entropy(x::AbstractVector, w::Real)
+    N = length(x)
+    c = zeros(Float64, N)
+    d = zeros(Float64, N)
+    xsort = copy(x)
+    sort!(xsort)
+    y = xsort/w
+    c[1] = 1.0
+    for i = 2:N
+        c[i] = c[i-1]*exp(-(y[i]-y[i-1])) + 1.0
+    end
+    d[end] = 1.0
+    for i = N-1:-1:1
+        d[i] = d[i+1]*exp(-(y[i+1]-y[i])) + 1
+    end
+    c ./= 2w*N
+    d ./= 2w*N
+    H = w*d[1]*(1-log(d[1])) + w*c[N]*(1-log(c[N]))
+    for i = 1:N-1
+        up = y[i+1]-y[i]
+        expup = exp(-up)
+        dp = d[i+1]*expup
+        r = sqrt(c[i]/dp)
+        H += 4w*r*dp*(atan((r*expup-r)/(1+r^2*expup)))
+        H += w*(dp-c[i])*(log(c[i]+dp)-1)
+        A,B = dp*exp(up), c[i]*expup
+        H -= w*(A-B)*(log(A+B)-1)
+    end
+    H
+end
+
 
 function TSVD_tsvd(data_train::Matrix{<:AbstractFloat},n_basis)
     U, S, V = TSVD.tsvd(data_train, n_basis)
@@ -108,14 +145,67 @@ instead of using a noise model. This should mirror the MASS behavior.
 function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamples, autocorr::Vector)
     @assert n_basis>=3 "mean, derivative and average pulse are 3 components, must request at least 3 components"
     # Average pulse is the pretrigger-mean-subtracted average pulse, rescaled to have a maximum value of 1.0
-    average_pulse = mean(data_train, dims=2)[:]
-    if n_presamples > 0
-        average_pulse .-= mean(average_pulse[1:n_presamples])
+    if n_presamples <= 0
+        throw(ErrorException("Need positive number of presamples"))
     end
+
+    println("I am in TVSD")
+    average_pulse = mean(data_train, dims=2)[:]
+    average_pulse .-= mean(average_pulse[1:n_presamples])
+    pretrig_mean = mean(data_train[1:n_presamples, :], dims=1)[:]
     average_pulse[1:n_presamples] .= 0.0
     average_pulse /= maximum(abs.(average_pulse))
-    # Calculate the derivative like component; assume clean baseline, so low derivative at start
+    inverted = -minimum(average_pulse) > maximum(average_pulse)
+
+    # Calculate the derivative like component; start with discrete difference of avg pulse.
     derivative_like = [0.0;diff(average_pulse)]
+
+    # The MASS ArrivalTimeSafeFilter does something trickier during the rising edge.
+    # We'll try to mimic that here in Pope. First, must compute "promptness".
+    peak_sample = argmax(abs.(average_pulse))
+    if inverted
+        peak_val = pretrig_mean .- minimum(data_train, dims=1)[:]
+    else
+        peak_val = maximum(data_train, dims=1)[:] .- pretrig_mean
+    end
+    midpt = div(peak_sample+n_presamples, 2)  # halfway from trigger point to peak
+    promptness = (mean(data_train[n_presamples+2:midpt, :], dims=1)[:] .- pretrig_mean) ./ peak_val
+    if inverted
+        promptness .*= -1
+    end
+
+    # Promptness is unfortunately energy-dependent. To 1st order, fix this.
+    pulse_rms = sqrt.(mean((data_train[n_presamples+2:end, :] .- pretrig_mean') .^ 2.0, dims=1)[:])
+    med_rms = median(pulse_rms)
+    use = abs.(pulse_rms / med_rms .- 1.0) .< 0.3
+    P = polyfit(pulse_rms[use], promptness[use], 1)
+    promptness .-= P.(pulse_rms)
+
+    # Scale promptness quadratically to cover the range -0.5 to +0.5, approximately
+    q10, q50, q90 = quantile(promptness, [0.1, 0.5, 0.9])
+    A = [1 q10 q10^2; 1 q50 q50^2; 1 q90 q90^2]
+    param = A \ [-0.4, 0, +0.4]
+    scaler = Poly(param)
+    Atime = scaler(promptness)
+    use = use .& (abs.(pulse_rms / med_rms .- 1.0) .< 0.3)
+    pr = Atime[use]
+
+    function cost(slope, x, y)
+        laplace_entropy(y .- x .* slope, 0.002)
+    end
+    @show derivative_like[n_presamples:peak_sample+5]
+
+    for i in n_presamples:peak_sample
+        y = (data_train[i, use] .- pretrig_mean[use]) ./ peak_val[use]
+        result = optimize(x->cost(x, pr, y), -1, 1)
+        # Then what with results??
+        if i == n_presamples+2
+            println(Optim.summary(result))
+        end
+        derivative_like[i] = Optim.minimizer(result)
+    end
+    @show derivative_like[n_presamples:peak_sample+5]
+
     constant_component = ones(size(data_train,1))
     mass3_basis = hcat(constant_component,derivative_like,average_pulse)
     if n_basis == 3

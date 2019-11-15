@@ -193,18 +193,14 @@ function TSVD_tsvd_mass3(data_train::Matrix{<:AbstractFloat}, n_basis, n_presamp
     function cost(slope, x, y)
         laplace_entropy(y .- x .* slope, 0.002)
     end
-    @show derivative_like[n_presamples:peak_sample+5]
+    # @show derivative_like[n_presamples:peak_sample+5]
 
     for i in n_presamples:peak_sample
         y = (data_train[i, use] .- pretrig_mean[use]) ./ peak_val[use]
         result = optimize(x->cost(x, pr, y), -1, 1)
-        # Then what with results??
-        if i == n_presamples+2
-            println(Optim.summary(result))
-        end
         derivative_like[i] = Optim.minimizer(result)
     end
-    @show derivative_like[n_presamples:peak_sample+5]
+    # @show derivative_like[n_presamples:peak_sample+5]
 
     constant_component = ones(size(data_train,1))
     mass3_basis = hcat(constant_component,derivative_like,average_pulse)

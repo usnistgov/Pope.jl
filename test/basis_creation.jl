@@ -48,11 +48,15 @@ loaded_basis = h5open("artifacts/dummy_model.h5","r") do h5 Pope.analyzer_from_p
     @test loaded_basisinfo.svdbasis.basis==loaded_basis.basis==tsvd_basisinfo.svdbasis.basis
 
     # Test that inverted pulses don't get zeroed out
-    invpulse = 200 .- [0, 0, 0, 10, 100, 80, 65, 55, 50, 46, 43, 41, 40.]
+    invpulse = 200 .- [0, 0, 0, 10, 30, 60, 82, 100, 80, 65, 55, 50, 46, 43, 41, 40.]
     noiseautocorr = 0.0*invpulse
     noiseautocorr[1] = 1.0
+    pulsesizes = [4 4.1 3.9 4.1 4 4 4 5]
+    testdata = invpulse*pulsesizes
+    # We have to alter some samples to get promptness not all equal...
+    testdata[5, end-2:end] *= 1.05
     # Make sure the following doen't error or return NaN singular values (it used to):
-    a, _ = Pope.TSVD_tsvd_mass3(hcat(invpulse, 2*invpulse, 3*invpulse), 3, 3, noiseautocorr)
+    a, _ = Pope.TSVD_tsvd_mass3(testdata, 3, 3, noiseautocorr)
     @test !any(isnan.(a))
 end
 

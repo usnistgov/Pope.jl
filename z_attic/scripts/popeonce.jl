@@ -43,7 +43,7 @@ println("")
 Pope.init_for_zmqdatasink(Pope.ZMQ_PORT,verbose=true)
 readers = Pope.Readers()
 channels = Int[]
-for name in names(pkfile)
+for name in keys(pkfile)
   channel_number = startswith(name,"chan") ? parse(Int,name[5:end]) : parse(Int,name) # handle chan1 or 1
   ljh_filename = LJH.fnames(ljhpath,channel_number)
   if !isfile(ljh_filename)

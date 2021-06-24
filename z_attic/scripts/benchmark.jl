@@ -176,7 +176,7 @@ function check_values(channel, h5)
   ljh = LJH.LJHFile(fname)
   # @assert 80<length(ljh)/runtime_s<120  # the efault value in launch_writer_other_process has 100 cps
   g = h5["chan$channel"]
-  for name in names(g)
+  for name in keys(g)
     if name == "calculated_cuts"
       continue
     end

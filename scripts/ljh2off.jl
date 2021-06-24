@@ -124,7 +124,7 @@ end
 mkdir(outputDir)
 HDF5.h5open(parsed_args["model_file"],"r") do h5
     channels_processed = 0
-    channums = sort(parse.(Int,names(h5))) # parse to int early so we can sort
+    channums = sort(parse.(Int,keys(h5))) # parse to int early so we can sort
     for channum in channums
         channels_processed >= parsed_args["maxchannels"] && break
         offPrefix = splitpath(outputDir)[end]

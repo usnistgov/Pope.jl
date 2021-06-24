@@ -83,7 +83,7 @@ function launch_continuous_analysis(preknowledge_filename, ljhpath, output_file)
   @show output_file
   println("")
   readers = Pope.Readers()
-  for name in names(pkfile)
+  for name in keys(pkfile)
     channel_number = startswith(name,"chan") ? parse(Int,name[5:end]) : parse(Int,name) # handle chan1 or 1
     ljh_filename = LJH.fnames(ljhpath,channel_number)
     analyzer = try

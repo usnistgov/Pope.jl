@@ -73,7 +73,7 @@ function noiseplots(input::AbstractString, pdffile)
     NVERT = 4
     MAXCORRSAMPLES = 50
     h5open(input, "r") do hfile
-        channels = [parse(Int, k) for k in names(hfile)]
+        channels = [parse(Int, k) for k in keys(hfile)]
         sort!(channels)
 
         fig = figure(1, figsize=(11.5, 8))

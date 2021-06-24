@@ -7,7 +7,7 @@ mutable struct BufferedHDF5Dataset2D{T}
   lastrow::Int64 # last index in hdf5 dataset
 end
 function BufferedHDF5Dataset2D{T}(g::HDF5.H5DataStore, name, nbases, chunksize) where T
-  ds = d_create(g, name, T, ((nbases,1), (nbases,-1)), "chunk", (nbases,chunksize))
+  ds = create_dataset(g, name, T, ((nbases,1), (nbases,-1)), chunk=(nbases,chunksize))
   BufferedHDF5Dataset2D{T}(ds, Vector{Vector{T}}(),0)
 end
 function write_to_hdf5(b::BufferedHDF5Dataset2D)

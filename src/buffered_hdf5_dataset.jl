@@ -164,7 +164,7 @@ function write_header_allchannel(d::MassCompatibleBufferedWriters, r::LJHReaderF
   h5 = hdf5file(d)
   a = attrs(h5)
   # execute only once for the whole HDF5 file
-  "nsamples" in names(a) && error("only call_write_header_allchannels once per ljh file set, not once per channel")
+  "nsamples" in keys(a) && error("only call_write_header_allchannels once per ljh file set, not once per channel")
   a["nsamples"]=r.analyzer.nsamples
   a["npresamples"]=r.analyzer.npresamples
   a["frametime"]=r.analyzer.frametime

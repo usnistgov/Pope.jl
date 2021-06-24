@@ -54,7 +54,7 @@ either the "noise" HDF5 group, or the name of an HDF5 file along
 function hdf5load(hdf5filename::AbstractString, channum::Integer)
     chanstring = string(channum)
     h5open(hdf5filename, "r") do h5file
-        if !(chanstring in names(h5file))
+        if !haskey(h5file, chanstring)
             message = @sprintf("cannot find a NoiseResult for chan %d in HDF5 file '%s'",
                 channum, hdf5filename)
             error(message)

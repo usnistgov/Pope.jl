@@ -121,7 +121,7 @@ end
 function main(parsed_args)
     h5 = h5open(parsed_args["basisfile"],"r")
     pdffile = pdf.PdfPages(parsed_args["outputfile"])
-    channelnames = string.(sort(parse.(Int,names(h5))))
+    channelnames = string.(sort(parse.(Int,keys(h5))))
     for name in channelnames
         println("plotting channel $name")
         channel = parse(Int,name)

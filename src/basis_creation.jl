@@ -297,7 +297,7 @@ end
 function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_loop,
     n_pulses_for_train, n_basis, tsvd_method)
     noise_h5 = h5open(noise_filename,"r")
-    noise_channels = sort!(parse.(Int,names(noise_h5)))
+    noise_channels = sort!(parse.(Int,keys(noise_h5)))
     ljh_channels = keys(ljhdict)
     bothchannels = sort!(intersect(noise_channels,ljh_channels))
     @show noise_channels

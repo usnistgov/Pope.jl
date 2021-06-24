@@ -45,7 +45,7 @@ function comparechannels(popefilename, ljhdict,verbose)
 	nchannelsmatchlength = 0
 	nchannelsfiltvaluenonzero = 0
 	p = h5open(popefilename,"r")
-	n_hdf5_channel = length(filter(s->startswith(s,"chan"),names(p)))
+	n_hdf5_channel = length(filter(s->startswith(s,"chan"),keys(p)))
 	for ch in 1:2:480
 		chanstr = "chan$ch"
 		ch in keys(ljhdict) || continue

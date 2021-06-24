@@ -8,27 +8,27 @@ will be compatible with `HDF5.start_swmr_write` and other Pope requirements."
 """
 h5create(fname) = h5open(fname,"w", "libver_bounds", (HDF5.H5F_LIBVER_LATEST, HDF5.H5F_LIBVER_LATEST))
 """
-    d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
+    d_extend(d::HDF5.Dataset, value::Vector, range::UnitRange)
 
 Equivalent to `d[range]=value` on an extendible on dimensional HDF5Dataset `d` except
 that the length of `d` is set to `maximum(range)` before writing.
 """
-function d_extend(d::HDF5Dataset, value::Vector, range::UnitRange)
+function d_extend(d::HDF5.Dataset, value::Vector, range::UnitRange)
   set_dims!(d, (maximum(range),))
 	d[range] = value
 	d
 end
 """
-    g_require(parent::Union{HDF5File,HDF5Group}, name)
+    g_require(parent::HDF5.H5DataStore, name)
 
-Return an HDF5Group with name `name` in `parent.` If the group does not exist, create it.
+Return an H5DataStore with name `name` in `parent.` If the group does not exist, create it.
 """
-function g_require(parent::Union{HDF5File,HDF5Group}, name)
-	exists(parent,name) ? parent[name] : g_create(parent,name)
+function g_require(parent::HDF5.H5DataStore, name)
+	exists(parent,name) ? parent[name] : create_group(parent,name)
 end
 
 """
-    BufferedHDF5Dataset(ds::HDF5Dataset, v::Vector, lasti)
+    BufferedHDF5Dataset(ds::HDF5.Dataset, v::Vector, lasti)
 
 HDF5 appears to be inefficent for small writes, so this a simple buffer that
 allows me to write to HDF5 only once per unit time (typically one second) to
@@ -37,11 +37,11 @@ limit the number of small writes. `MassCompatibleBufferedWriters` is based upon
 to set the write frequency.
 """
 mutable struct BufferedHDF5Dataset{T}
-  ds::HDF5Dataset
+  ds::HDF5.Dataset
   v::Vector{T}
   lasti::Int64 # last index in hdf5 dataset
 end
-function BufferedHDF5Dataset{T}(g::Union{HDF5File,HDF5Group}, name, chunksize) where {T}
+function BufferedHDF5Dataset{T}(g::HDF5.H5DataStore, name, chunksize) where {T}
   ds = d_create(g, name, T, ((1,),(-1,)), "chunk", chunksize)
   BufferedHDF5Dataset{T}(ds, Vector{T}(), 0)
 end
@@ -135,7 +135,7 @@ end
 
 function write_header(d::MassCompatibleBufferedWriters,r::LJHReaderFeb2017)
   channelgroup = parent(d.filt_value.ds)
-  g_create(channelgroup, "calculated_cuts")
+  create_group(channelgroup, "calculated_cuts")
   channelgroup["calculated_cuts"]["pretrig_rms"]=r.analyzer.pretrigger_rms_cuts
   channelgroup["calculated_cuts"]["postpeak_deriv"]=r.analyzer.postpeak_deriv_cuts
   channelattrs = attrs(channelgroup)

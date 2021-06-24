@@ -44,9 +44,9 @@ isapprox(m1::NoiseResult, m2::NoiseResult) =
         # Test loading from a user-specified group within a fil.
         fname2 = tempname()*".hdf5"
         h5open(fname2, "w") do f
-            g1 = g_create(f, "top")
-            g2 = g_create(g1, "mid")
-            g3 = g_create(g2, "low")
+            g1 = create_group(f, "top")
+            g2 = create_group(g1, "mid")
+            g3 = create_group(g2, "low")
             NoiseAnalysis.hdf5save(g3, noiseresult)
         end
         h5open(fname2, "r") do f

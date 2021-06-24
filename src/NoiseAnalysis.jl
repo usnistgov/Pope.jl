@@ -25,17 +25,17 @@ struct NoiseResult
     model::ARMAModel
 end
 
-"""    hdf5save(h5file::HDF5.HDF5File, channum::Integer, nr::NoiseResult)"""
-function hdf5save(h5file::HDF5.HDF5File, channum::Integer, nr::NoiseResult)
+"""    hdf5save(h5file::HDF5.H5DataStore, channum::Integer, nr::NoiseResult)"""
+function hdf5save(h5file::HDF5.H5DataStore, channum::Integer, nr::NoiseResult)
     chanstring = string(channum)
-    g1 = g_create(h5file, chanstring)
-    g = g_create(g1, "noise")
+    g1 = create_group(h5file, chanstring)
+    g = create_group(g1, "noise")
     hdf5save(g, nr)
 end
 
 
-"""    hdf5save(g::HDF5.HDF5Group, nr::NoiseResult)"""
-function hdf5save(g::HDF5.HDF5Group, nr::NoiseResult)
+"""    hdf5save(g::HDF5.H5DataStore, nr::NoiseResult)"""
+function hdf5save(g::HDF5.H5DataStore, nr::NoiseResult)
     g["samplesused"] = nr.samplesused
     g["freqstep"] = nr.freqstep
     g["autocorr"] = nr.autocorr
@@ -64,7 +64,7 @@ function hdf5load(hdf5filename::AbstractString, channum::Integer)
     end
 end
 
-function hdf5load(g::HDF5.DataFile)
+function hdf5load(g::HDF5.H5DataStore)
     acorr = g["autocorr"][:]
     psd = g["powerspectrum"][:]
     sampused = read(g["samplesused"])

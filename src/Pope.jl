@@ -259,7 +259,7 @@ function wait_for_file_to_exist(fname, endchannel::Channel{Bool})
   end
 end
 
-function analyzer_from_preknowledge(pk::HDF5.DataFile)
+function analyzer_from_preknowledge(pk::HDF5.H5DataStore)
   if "analysis_type" in names(pk) && read(pk["analysis_type"])=="mass compatible feb 2017"
     return MassCompatibleAnalysisFeb2017(pk["filter"]["values"][:], pk["filter"]["values_at"][:], read(pk["trigger"]["npresamples"]),
     read(pk["trigger"]["nsamples"]), read(pk["summarize"]["peak_index"]), read(pk["physical"]["frametime"]),read(pk["filter"]["shift_threshold"]),

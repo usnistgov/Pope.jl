@@ -227,15 +227,15 @@ function create_basis_one_channel(data::Matrix{<:AbstractFloat}, noise_result, f
     return svdbasis,svdbasis_with_info
 end
 
-function hdf5save(g::HDF5.DataFile, svdbasis::SVDBasis)
+function hdf5save(g::HDF5.H5DataStore, svdbasis::SVDBasis)
     g["basis"]=svdbasis.basis
     g["projectors"]=svdbasis.projectors
     g["projector_covariance"]=svdbasis.projector_covariance
-    Pope.NoiseAnalysis.hdf5save(g_create(g,"noise_result"),svdbasis.noise_result)
+    Pope.NoiseAnalysis.hdf5save(create_group(g,"noise_result"),svdbasis.noise_result)
 end
 
-function hdf5save(g::HDF5.DataFile, x::SVDBasisWithCreationInfo)
-    hdf5save(g_create(g,"svdbasis"),x.svdbasis)
+function hdf5save(g::HDF5.H5DataStore, x::SVDBasisWithCreationInfo)
+    hdf5save(create_group(g,"svdbasis"),x.svdbasis)
     g["singular_values"]=x.singular_values
     g["example_pulses"]=x.example_pulses
     g["std_residuals_of_example_pulses"]=x.std_residuals_of_example_pulses
@@ -250,7 +250,7 @@ function hdf5save(g::HDF5.DataFile, x::SVDBasisWithCreationInfo)
 end
 
 
-function hdf5load(T::Type{SVDBasis},g::HDF5.DataFile)
+function hdf5load(T::Type{SVDBasis},g::HDF5.H5DataStore)
     SVDBasis(
     read(g["basis"]),
     read(g["projectors"]),
@@ -260,7 +260,7 @@ function hdf5load(T::Type{SVDBasis},g::HDF5.DataFile)
 end
 
 
-function hdf5load(T::Type{SVDBasisWithCreationInfo},g::HDF5.DataFile)
+function hdf5load(T::Type{SVDBasisWithCreationInfo},g::HDF5.H5DataStore)
     SVDBasisWithCreationInfo(
     hdf5load(SVDBasis,g["svdbasis"]),
     read(g["singular_values"]),
@@ -291,7 +291,7 @@ function make_basis_one_channel(outputh5, ljhname, noise_filename, frac_keep, n_
         n_pulses_for_train,
         n_basis,
         tsvd_method)
-    hdf5save(g_create(outputh5,"$(LJH.channel(ljh))"), svdbasiswithcreationinfo)
+    hdf5save(create_group(outputh5,"$(LJH.channel(ljh))"), svdbasiswithcreationinfo)
 end
 
 function make_basis_all_channel(outputh5, ljhdict, noise_filename, frac_keep, n_loop,

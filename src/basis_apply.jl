@@ -1,12 +1,12 @@
-"    BufferedHDF5Dataset2D{T}(g::Union{HDF5File,HDF5Group}, name, nbases, chunksize)"
+"    BufferedHDF5Dataset2D{T}(g::HDF5.H5DataStore, name, nbases, chunksize)"
 mutable struct BufferedHDF5Dataset2D{T}
-  ds::HDF5Dataset
+  ds::HDF5.Dataset
   v::Vector{Vector{T}} #naievley you want a 2d array here, but there is no
   # equivalent of push!, so it uses less copying to have a vector of vectors
   # see https://github.com/JuliaLang/julia/issues/10546
   lastrow::Int64 # last index in hdf5 dataset
 end
-function BufferedHDF5Dataset2D{T}(g::Union{HDF5File,HDF5Group}, name, nbases, chunksize) where T
+function BufferedHDF5Dataset2D{T}(g::HDF5.H5DataStore, name, nbases, chunksize) where T
   ds = d_create(g, name, T, ((nbases,1), (nbases,-1)), "chunk", (nbases,chunksize))
   BufferedHDF5Dataset2D{T}(ds, Vector{Vector{T}}(),0)
 end
@@ -86,10 +86,10 @@ mutable struct BasisBufferedWriter <: BufferedWriter
     first_rising_sample  ::BufferedHDF5Dataset{Int32}
     nsamples             ::BufferedHDF5Dataset{Int32}
 end
-function BasisBufferedWriter(h5::HDF5File, channel_number, nbases, chunksize, timeout_s;start=true)
-  BasisBufferedWriter(g_create(h5,"$channel_number"),nbases,chunksize,timeout_s,start=start)
+function BasisBufferedWriter(h5::HDF5.H5DataStore, channel_number, nbases, chunksize, timeout_s;start=true)
+  BasisBufferedWriter(create_group(h5,"$channel_number"),nbases,chunksize,timeout_s,start=start)
 end
-function BasisBufferedWriter(g::HDF5Group, nbases, chunksize, timeout_s;start=true)
+function BasisBufferedWriter(g::HDF5.H5DataStore, nbases, chunksize, timeout_s;start=true)
   b=BasisBufferedWriter(Channel{Bool}(1), timeout_s, Task(nothing),
   BufferedHDF5Dataset2D{Float32}(g,"reduced", nbases, chunksize),
   BufferedHDF5Dataset{Float32}(g,"residual_std", chunksize),

@@ -74,7 +74,7 @@ using Pope.NoiseAnalysis
 outputh5 = h5open(parsed_args["outputfile"],"w")
 ljhdict = LJH.allchannels(parsed_args["pulse_file"],parsed_args["maxchannels"]) # ordered dict mapping channel number to filename
 function analyze_one_file(filename::AbstractString, channum::Integer,
-        outputh5::HDF5.HDF5File, nlags::Integer=0, nfreq::Integer=0;
+        outputh5::HDF5.H5DataStore, nlags::Integer=0, nfreq::Integer=0;
         max_samples::Integer=50000000)
 
     # Open the LJH file for reading

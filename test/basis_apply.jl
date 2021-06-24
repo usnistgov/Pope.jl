@@ -39,7 +39,7 @@ end
 
 @testset "BasisBufferedWriter" begin
     h5 = h5open(tempname(),"w")
-    g = HDF5.g_create(h5,"1")
+    g = HDF5.create_group(h5,"1")
     b = Pope.BasisBufferedWriter(g, 6, 1000, 0.001, start=true)
     dataproduct = Pope.BasisDataProduct(collect(1:6),1,2,3,4,5)
     write(b,dataproduct)
